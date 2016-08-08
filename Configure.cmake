@@ -1,0 +1,145 @@
+#
+# Copyright 2016 Will Mason
+# 
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+
+INCLUDE(CheckCCompilerFlag)
+INCLUDE(FindOpenSSL)
+
+# Set consistent platform names
+IF(CMAKE_SYSTEM_NAME STREQUAL Windows)
+    SET(YELLA_WINDOWS TRUE)
+ELSEIF(CMAKE_SYSTEM_NAME STREQUAL Linux)
+    SET(YELLA_LINUX TRUE)
+ELSEIF(CMAKE_SYSTEM_NAME STREQUAL SunOS)
+    SET(YELLA_SOLARIS TRUE)
+ELSEIF(CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
+    SET(YELLA_FREEBSD TRUE)
+ELSEIF(CMAKE_SYSTEM_NAME STREQUAL NetBSD)
+    SET(YELLA_NETBSD TRUE)
+ELSEIF(CMAKE_SYSTEM_NAME STREQUAL OpenBSD)
+    SET(YELLA_OPENBSD TRUE)
+ELSEIF(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    SET(YELLA_MACINTOSH TRUE)
+ELSEIF(CMAKE_SYSTEM_NAME STREQUAL AIX)
+    SET(YELLA_AIX TRUE)
+ELSEIF(CYGWIN)
+    SET(YELLA_CYGWIN TRUE)
+ENDIF()
+IF(CMAKE_SYSTEM_NAME MATCHES "^.+BSD$")
+    SET(YELLA_BSD TRUE)
+ENDIF()
+IF(NOT YELLA_WINDOWS)
+    SET(YELLA_POSIX TRUE)
+ENDIF()
+
+# Set default build type
+IF(NOT CMAKE_BUILD_TYPE)
+    SET(CMAKE_BUILD_TYPE Release CACHE STRING "Build type, one of: Release, Debug, RelWithDebInfo, or MinSizeRel" FORCE)
+ENDIF()
+MESSAGE(STATUS "Build type -- ${CMAKE_BUILD_TYPE}")
+
+# Compiler flags
+IF(CMAKE_C_COMPILER_ID STREQUAL Clang OR CMAKE_COMPILER_IS_GNUCC)
+    CHECK_C_COMPILER_FLAG(-std=c99 YELLA_HAVE_STDC99)
+    IF(NOT YELLA_HAVE_STDC99)
+        MESSAGE(FATAL_ERROR "-std=c99 is required")
+    ENDIF()
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
+    CHECK_C_COMPILER_FLAG(-fvisibility=hidden YELLA_VIS_FLAG)
+    IF(NOT YELLA_VIS_FLAG)
+        MESSAGE(FATAL_ERROR "-fvisibility=hidden is required")
+    ENDIF()
+    SET(YELLA_SO_FLAGS -fvisibility=hidden)
+ELSEIF(CMAKE_C_COMPILER_ID STREQUAL SunPro)
+    CHECK_C_COMPILER_FLAG(-xc99 YELLA_HAVE_XC99)
+    IF(NOT YELLA_HAVE_XC99)
+        MESSAGE(FATAL_ERROR "-xc99 is required")
+    ENDIF()
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -xc99")
+    CHECK_C_COMPILER_FLAG(-xldscope=hidden YELLA_VIS_FLAG)
+    IF(NOT YELLA_VIS_FLAG)
+        MESSAGE(FATAL_ERROR "-xldscope=hidden is required")
+    ENDIF()
+    SET(YELLA_SO_FLAGS -xldscope=hidden)
+ENDIF()
+
+# ZeroMQ
+IF(NOT ZEROMQ_INCLUDE_DIR)
+    FIND_PATH(ZEROMQ_INCLUDE_DIR zmq.h)
+    IF(NOT ZEROMQ_INCLUDE_DIR)
+        MESSAGE(FATAL_ERROR "Set ZEROMQ_INCLUDE_DIR")
+    ENDIF()
+ENDIF()
+IF(NOT ZEROMQ_LIB)
+    FIND_LIBRARY(ZEROMQ_LIB zmq)
+    IF(NOT ZEROMQ_LIB)
+        MESSAGE(FATAL_ERROR "Set ZEROMQ_LIB")
+    ENDIF()
+ENDIF()
+
+# OpenSSL
+FIND_PACKAGE(OpenSSL)
+IF(NOT OPENSSL_FOUND)
+    MESSAGE(FATAL_ERROR "Set OPENSSL_ROOT_DIR to find OpenSSL")
+ENDIF()
+
+# Cap'n Proto
+IF(NOT CAPN_PROTO_C_PREFIX OR NOT CAPNP)
+    MESSAGE(FATAL_ERROR "Set CAPN_PROTO_C_PREFIX and CAPNP")
+ENDIF()
+IF(NOT EXISTS "${CAPNP}")
+    MESSAGE(FATAL_ERROR "${CAPNP} does not exist")
+ENDIF()
+
+# libyaml
+IF(NOT LIBYAML_INCLUDE_DIR)
+    FIND_PATH(LIBYAML_INCLUDE_DIR yaml.h)
+    IF(NOT LIBYAML_INCLUDE_DIR)
+        MESSAGE(FATAL_ERROR "Set LIBYAML_INCLUDE_DIR")
+    ENDIF()
+ENDIF()
+IF(NOT LIBYAML_LIB)
+    FIND_LIBRARY(LIBYAML_LIB yaml)
+    IF(NOT LIBYAML_LIB)
+        MESSAGE(FATAL_ERROR "Set LIBYAML_LIB")
+    ENDIF()
+ENDIF()
+
+# lz4
+IF(NOT LZ4_INCLUDE_DIR)
+    FIND_PATH(LZ4_INCLUDE_DIR lz4.h)
+    IF(NOT LZ4_INCLUDE_DIR)
+        MESSAGE(FATAL_ERROR "Set LZ4_INCLUDE_DIR")
+    ENDIF()
+ENDIF()
+IF(NOT LZ4_LIB)
+    FIND_LIBRARY(LZ4_LIB lz4)
+    IF(NOT LZ4_LIB)
+        MESSAGE(FATAL_ERROR "Set LZ4_LIB")
+    ENDIF()
+ENDIF()
+
+# Chucho
+IF(CHUCHO_PREFIX)
+    FIND_LIBRARY(YELLA_CHUCHO_LIB
+                 NAMES chucho
+                 PATHS "${CHUCHO_PREFIX}/lib"
+                 NO_DEFAULT_PATH)
+    IF(NOT YELLA_CHUCHO_LIB)
+        MESSAGE(FATAL_ERROR "Unable to find the Chucho library in ${CHUCHO_PREFIX}")
+    ENDIF()
+ELSE()
+    MESSAGE(FATAL_ERROR "Set CHUCHO_PREFIX")
+ENDIF()
