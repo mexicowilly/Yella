@@ -14,11 +14,18 @@
  *    limitations under the License.
  */
 
-#if !defined(TEXT_UTIL_H__)
-#define TEXT_UTIL_H__
+#if !defined(RETURN_CODE_H__)
+#define RETURN_CODE_H__
 
 #include "export.h"
 
-YELLA_EXPORT char* yella_text_dup(const char* const t);
+typedef enum
+{
+    YELLA_NO_ERROR,
+    YELLA_TOO_BIG,
+    YELLA_INVALID_FORMAT
+} yella_rc;
+
+YELLA_EXPORT const char* yella_strerror(yella_rc rc);
 
 #endif

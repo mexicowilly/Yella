@@ -18,11 +18,13 @@
 #define SETTINGS_H__
 
 #include "export.h"
+#include "return_code.h"
 #include <string.h>
 #include <stdint.h>
 
 YELLA_EXPORT void yella_destroy_settings(void);
 YELLA_EXPORT void yella_initialize_settings(void);
+YELLA_EXPORT yella_rc yella_load_settings(const char* const file_name);
 YELLA_EXPORT const uint32_t* yella_settings_get_uint32(const char* const key);
 YELLA_EXPORT const char* yella_settings_get_text(const char* const key);
 YELLA_EXPORT void yella_settings_set_uint32(const char* const key, uint32_t val);

@@ -62,7 +62,7 @@ chucho_logger* yella_logger(const char* const name)
     if (found == NULL)
     {
         found = malloc(sizeof(logger));
-        found->name = text_dup(name);
+        found->name = yella_text_dup(name);
         chucho_create_logger(&found->lgr, found->name);
         sglib_logger_add(&lgrs, found);
     }

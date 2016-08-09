@@ -14,11 +14,12 @@
  *    limitations under the License.
  */
 
-#if !defined(TEXT_UTIL_H__)
-#define TEXT_UTIL_H__
+#if !defined(FILE_H__)
+#define FILE_H__
 
 #include "export.h"
+#include <stdint.h>
 
-YELLA_EXPORT char* yella_text_dup(const char* const t);
+YELLA_EXPORT uint64_t yella_file_size(const char* const name);
 
 #endif

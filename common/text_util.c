@@ -17,7 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-char* text_dup(const char* t)
+char* yella_text_dup(const char* const t)
 {
     size_t len = strlen(t);
     char* result = malloc(len);

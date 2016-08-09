@@ -14,11 +14,25 @@
  *    limitations under the License.
  */
 
-#if !defined(TEXT_UTIL_H__)
-#define TEXT_UTIL_H__
+#include "file.h"
+#include "log.h"
+#include <sys/stat.h>
+#include <errno.h>
+#include <string.h>
 
-#include "export.h"
+uint64_t yella_file_size(const char* const name)
+{
+    struct stat info;
+    int err;
 
-YELLA_EXPORT char* yella_text_dup(const char* const t);
-
-#endif
+    if (stat(name, &info) != 0)
+    {
+        err = errno;
+        CHUCHO_C_ERROR(yella_logger("yella.common"),
+                       "Could not get the size of %s: %s",
+                       name,
+                       strerror(err));
+        return UINT64_MAX;
+    }
+    return info.st_size;
+}

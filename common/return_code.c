@@ -14,11 +14,15 @@
  *    limitations under the License.
  */
 
-#if !defined(TEXT_UTIL_H__)
-#define TEXT_UTIL_H__
+#include "return_code.h"
 
-#include "export.h"
-
-YELLA_EXPORT char* yella_text_dup(const char* const t);
-
-#endif
+const char* yella_strerror(yella_rc rc)
+{
+    if (rc == YELLA_NO_ERROR)
+        return "No error";
+    else if (rc == YELLA_TOO_BIG)
+        return "Too big";
+    else if (rc == YELLA_INVALID_FORMAT)
+        return "Invalid format";
+    return "";
+}

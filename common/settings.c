@@ -17,8 +17,12 @@
 #include "settings.h"
 #include "text_util.h"
 #include "log.h"
+#include "file.h"
 #include "sglib.h"
+#include <yaml.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
 
 typedef enum value_type
 {
@@ -62,6 +66,54 @@ void yella_destroy_settings(void)
             free(elem->value.text);
         free(elem);
     }
+}
+
+yella_rc yella_load_settings(const char* const file_name)
+{
+    yaml_parser_t parser;
+    FILE* f;
+    int err;
+    yaml_document_t doc;
+    uint64_t sz;
+    yaml_node_t* node;
+
+
+    sz = yella_file_size(file_name);
+    if (sz > 100 * 1024)
+    {
+        CHUCHO_C_ERROR(yella_logger("yella.common"),
+                       "The configuration file size of %llu is greater than the maximum allowed of 100Kb",
+                       sz);
+        return YELLA_TOO_BIG;
+    }
+    f = fopen(file_name, "r");
+    if (f == NULL)
+    {
+        err = errno;
+        CHUCHO_C_ERROR(yella_logger("yella.common"),
+                       "Unable to open the config file %s for reading: %s",
+                       file_name,
+                       strerror(err));
+    }
+    yaml_parser_initialize(&parser);
+    yaml_parser_set_input_file(&parser, f);
+    if (!yaml_parser_load(&parser, &doc))
+    {
+        CHUCHO_C_ERROR(yella_logger("yella.common"),
+                       "YAML error [%u, %u]: %s",
+                       parser.mark.line,
+                       parser.mark.column,
+                       parser.problem);
+        return YELLA_INVALID_FORMAT;
+    }
+    node = yaml_document_get_root_node(&doc);
+    if (node != NULL)
+    {
+    }
+    yaml_document_delete(&doc);
+    yaml_parser_delete(&parser);
+    fclose(f);
+    return YELLA_NO_ERROR;
 }
 
 const uint32_t* yella_settings_get_uint32(const char* const key)
@@ -127,7 +179,7 @@ void yella_settings_set_uint32(const char* const key, uint32_t val)
     if (found == NULL)
     {
         found = malloc(sizeof(setting));
-        found->key = text_dup(key);
+        found->key = yella_text_dup(key);
         found->value.uint32 = val;
         found->type = YELLA_VALUE_UINT32;
         sglib_setting_add(&settings, found);
@@ -148,14 +200,14 @@ void yella_settings_set_text(const char* const key, const char* const val)
     if (found == NULL)
     {
         found = malloc(sizeof(setting));
-        found->key = text_dup(key);
-        found->value.text = text_dup(val);
+        found->key = yella_text_dup(key);
+        found->value.text = yella_text_dup(val);
         found->type = YELLA_VALUE_TEXT;
         sglib_setting_add(&settings, found);
     }
     else
     {
         free(found->value.text);
-        found->value.text = text_dup(val);
+        found->value.text = yella_text_dup(val);
     }
 }
