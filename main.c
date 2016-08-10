@@ -17,26 +17,37 @@
 #include "common/log.h"
 #include "common/settings.h"
 #include <chucho/configuration.h>
+#include <chucho/finalize.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
 static void process_command_line(int argc, char* argv[])
 {
-    int i;
-
-    for (i = 1; i < argc; i++)
+    if (argc == 3)
     {
-        if (strcmp(argv[i], "--config-file") == 0)
+        if (strcmp(argv[1], "--config-file") == 0)
         {
-            if (++i == argc)
-            {
-                printf("The option --config-file requires an argument\n");
-                exit(EXIT_FAILURE);
-            }
-            yella_settings_set_text("config-file", argv[i]);
+            yella_settings_set_text("config-file", argv[2]);
+        }
+        else
+        {
+            printf("Unknown command line argument: %s\n", argv[1]);
+            exit(EXIT_FAILURE);
         }
     }
+}
+
+static void retrieve_agent_settings(void)
+{
+    yella_setting_desc descs[] =
+    {
+        { "data-dir", YELLA_SETTING_VALUE_TEXT },
+        { "log-dir", YELLA_SETTING_VALUE_TEXT },
+        { "plugin-dir", YELLA_SETTING_VALUE_TEXT },
+        { "spool-dir", YELLA_SETTING_VALUE_TEXT }
+    };
+    yella_retrieve_settings(descs, 4);
 }
 
 int main(int argc, char* argv[])
@@ -45,7 +56,13 @@ int main(int argc, char* argv[])
     process_command_line(argc, argv);
     chucho_cnf_set_file_name(yella_settings_get_text("config-file"));
     CHUCHO_C_INFO(yella_logger("yella"), "Yella is starting");
+    yella_load_settings_doc();
+    retrieve_agent_settings();
+    // load plugins
+    yella_destroy_settings_doc();
+    // run the app
     yella_destroy_settings();
     yella_destroy_loggers();
+    chucho_finalize();
     return EXIT_SUCCESS;
 }

@@ -14,21 +14,36 @@
  *    limitations under the License.
  */
 
-#if !defined(RETURN_CODE_H__)
-#define RETURN_CODE_H__
+#include "common/thread.h"
+#include <pthread.h>
+#include <stdlib.h>
 
-#include "export.h"
-
-typedef enum
+struct yella_mutex
 {
-    YELLA_NO_ERROR,
-    YELLA_TOO_BIG,
-    YELLA_INVALID_FORMAT,
-    YELLA_LOGIC_ERROR,
-    YELLA_DOES_NOT_EXIST,
-    YELLA_READ_ERROR
-} yella_rc;
+    pthread_mutex_t mtx;
+};
 
-YELLA_EXPORT const char* yella_strerror(yella_rc rc);
+yella_mutex* yella_create_mutex(void)
+{
+    yella_mutex* result;
 
-#endif
+    result = malloc(sizeof(yella_mutex));
+    pthread_mutex_init(&result->mtx, NULL);
+    return result;
+}
+
+void yella_destroy_mutex(yella_mutex* mtx)
+{
+    pthread_mutex_destroy(&mtx->mtx);
+    free(mtx);
+}
+
+void yella_lock_mutex(yella_mutex* mtx)
+{
+    pthread_mutex_lock(&mtx->mtx);
+}
+
+void yella_unlock_mutex(yella_mutex* mtx)
+{
+    pthread_mutex_unlock(&mtx->mtx);
+}

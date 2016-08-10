@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+#include "text_util.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -24,4 +25,9 @@ char* yella_text_dup(const char* const t)
     if (result != NULL)
         strcpy(result, t);
     return result;
+}
+
+uintmax_t yella_text_to_int(const char* const t)
+{
+    return strtoull(t, NULL, 10);
 }

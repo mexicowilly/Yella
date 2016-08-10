@@ -18,7 +18,9 @@
 #define TEXT_UTIL_H__
 
 #include "export.h"
+#include <stdint.h>
 
 YELLA_EXPORT char* yella_text_dup(const char* const t);
+YELLA_EXPORT uintmax_t yella_text_to_int(const char* const t);
 
 #endif

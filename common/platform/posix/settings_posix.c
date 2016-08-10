@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-#include "settings.h"
+#include "common/settings.h"
 
 #define XSTR(s) STR(s)
 #define STR(s) #s

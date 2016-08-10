@@ -16,13 +16,13 @@
 
 SET(COMMON_SO_VERSION 1)
 
-INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}"
-                    "${LIBYAML_INCLUDE_DIR}")
+INCLUDE_DIRECTORIES("${LIBYAML_INCLUDE_DIR}")
 
 IF(YELLA_POSIX)
     SET(COMMON_PLATFORM_SOURCES
         platform/posix/file_posix.c
-        platform/posix/settings_posix.c)
+        platform/posix/settings_posix.c
+        platform/posix/thread_posix.c)
     SET_SOURCE_FILES_PROPERTIES(platform/posix/settings_posix.c
                                 PROPERTIES
                                 COMPILE_DEFINITIONS "YELLA_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
@@ -38,6 +38,7 @@ ADD_LIBRARY(common SHARED
             settings.h
             text_util.c
             text_util.h
+            thread.h
             ${COMMON_PLATFORM_SOURCES})
 SET_TARGET_PROPERTIES(common PROPERTIES
                       VERSION ${YELLA_VERSION}
@@ -47,4 +48,4 @@ IF(DEFINED YELLA_SO_FLAGS)
     SET_TARGET_PROPERTIES(common PROPERTIES
                           COMPILE_FLAGS "${YELLA_SO_FLAGS}")
 ENDIF()
-TARGET_LINK_LIBRARIES(common "${LIBYAML_LIB}")
+TARGET_LINK_LIBRARIES(common "${LIBYAML_LIB}" ${CMAKE_THREAD_LIBS_INIT})

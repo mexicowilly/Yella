@@ -18,13 +18,27 @@
 #define SETTINGS_H__
 
 #include "export.h"
-#include "return_code.h"
+#include "common/return_code.h"
 #include <string.h>
 #include <stdint.h>
 
+typedef enum yella_setting_value_type
+{
+    YELLA_SETTING_VALUE_TEXT,
+    YELLA_SETTING_VALUE_UINT32
+} yella_setting_value_type;
+
+typedef struct yella_setting_desc
+{
+    const char* key;
+    yella_setting_value_type type;
+} yella_setting_desc;
+
 YELLA_EXPORT void yella_destroy_settings(void);
+YELLA_EXPORT void yella_destroy_settings_doc(void);
 YELLA_EXPORT void yella_initialize_settings(void);
-YELLA_EXPORT yella_rc yella_load_settings(const char* const file_name);
+YELLA_EXPORT yella_rc yella_load_settings_doc(void);
+YELLA_EXPORT void yella_retrieve_settings(const yella_setting_desc* desc, size_t count);
 YELLA_EXPORT const uint32_t* yella_settings_get_uint32(const char* const key);
 YELLA_EXPORT const char* yella_settings_get_text(const char* const key);
 YELLA_EXPORT void yella_settings_set_uint32(const char* const key, uint32_t val);

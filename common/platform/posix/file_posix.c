@@ -14,11 +14,17 @@
  *    limitations under the License.
  */
 
-#include "file.h"
-#include "log.h"
+#include "common/file.h"
+#include "common/log.h"
 #include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
+
+bool yella_file_exists(const char* const name)
+{
+    return access(name, F_OK) == 0;
+}
 
 uint64_t yella_file_size(const char* const name)
 {

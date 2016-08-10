@@ -14,21 +14,16 @@
  *    limitations under the License.
  */
 
-#if !defined(RETURN_CODE_H__)
-#define RETURN_CODE_H__
+#if !defined(THREAD_H__)
+#define THREAD_H__
 
 #include "export.h"
 
-typedef enum
-{
-    YELLA_NO_ERROR,
-    YELLA_TOO_BIG,
-    YELLA_INVALID_FORMAT,
-    YELLA_LOGIC_ERROR,
-    YELLA_DOES_NOT_EXIST,
-    YELLA_READ_ERROR
-} yella_rc;
+typedef struct yella_mutex yella_mutex;
 
-YELLA_EXPORT const char* yella_strerror(yella_rc rc);
+YELLA_EXPORT yella_mutex* yella_create_mutex(void);
+YELLA_EXPORT void yella_destroy_mutex(yella_mutex* mtx);
+YELLA_EXPORT void yella_lock_mutex(yella_mutex* mtx);
+YELLA_EXPORT void yella_unlock_mutex(yella_mutex* mtx);
 
 #endif

@@ -24,5 +24,11 @@ const char* yella_strerror(yella_rc rc)
         return "Too big";
     else if (rc == YELLA_INVALID_FORMAT)
         return "Invalid format";
+    else if (rc == YELLA_LOGIC_ERROR)
+        return "Logic error";
+    else if (rc == YELLA_DOES_NOT_EXIST)
+        return "Does not exist";
+    else if (rc == YELLA_READ_ERROR)
+        return "Error reading";
     return "";
 }

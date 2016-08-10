@@ -19,7 +19,9 @@
 
 #include "export.h"
 #include <stdint.h>
+#include <stdbool.h>
 
+YELLA_EXPORT bool yella_file_exists(const char* const name);
 YELLA_EXPORT uint64_t yella_file_size(const char* const name);
 
 #endif
