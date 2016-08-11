@@ -14,14 +14,20 @@
  *    limitations under the License.
  */
 
-#include "common/settings.h"
-#include "common/macro_util.h"
+#if !defined(AGENT_H__)
+#define AGENT_H__
 
-void yella_initialize_platform_settings(void)
+#include "router.h"
+
+typedef uint8_t yella_uuid[16];
+
+typedef struct yella_agent
 {
-    yella_settings_set_text("config-file", "/etc/yella.yaml");
-    yella_settings_set_text("log-dir", "/var/log/yella");
-    yella_settings_set_text("data-dir", "/var/lib/yella");
-    yella_settings_set_text("spool-dir", "/var/spool/yella");
-    yella_settings_set_text("plugin-dir", YELLA_VALUE_STR(YELLA_INSTALL_PREFIX) "/lib");
-}
+    yella_uuid identity;
+    yella_router* router;
+} yella_agent;
+
+void yella_agent_run(void);
+void yella_agent_send(const uint8_t* msg, size_t size);
+
+#endif

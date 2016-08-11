@@ -14,14 +14,10 @@
  *    limitations under the License.
  */
 
-#include "common/settings.h"
-#include "common/macro_util.h"
+#if !defined(MACRO_UTIL_H__)
+#define MACRO_UTIL_H__
 
-void yella_initialize_platform_settings(void)
-{
-    yella_settings_set_text("config-file", "/etc/yella.yaml");
-    yella_settings_set_text("log-dir", "/var/log/yella");
-    yella_settings_set_text("data-dir", "/var/lib/yella");
-    yella_settings_set_text("spool-dir", "/var/spool/yella");
-    yella_settings_set_text("plugin-dir", YELLA_VALUE_STR(YELLA_INSTALL_PREFIX) "/lib");
-}
+#define YELLA_VALUE_STR(s) YELLA_VALUE_STR_IMPL(s)
+#define YELLA_VALUE_STR_IMPL(s) #s
+
+#endif

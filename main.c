@@ -16,6 +16,7 @@
 
 #include "common/log.h"
 #include "common/settings.h"
+#include "common/macro_util.h"
 #include <chucho/configuration.h>
 #include <chucho/finalize.h>
 #include <stdlib.h>
@@ -45,9 +46,10 @@ static void retrieve_agent_settings(void)
         { "data-dir", YELLA_SETTING_VALUE_TEXT },
         { "log-dir", YELLA_SETTING_VALUE_TEXT },
         { "plugin-dir", YELLA_SETTING_VALUE_TEXT },
-        { "spool-dir", YELLA_SETTING_VALUE_TEXT }
+        { "spool-dir", YELLA_SETTING_VALUE_TEXT },
+        { "router", YELLA_SETTING_VALUE_TEXT }
     };
-    yella_retrieve_settings(descs, 4);
+    yella_retrieve_settings(descs, 5);
 }
 
 int main(int argc, char* argv[])
@@ -55,12 +57,13 @@ int main(int argc, char* argv[])
     yella_initialize_settings();
     process_command_line(argc, argv);
     chucho_cnf_set_file_name(yella_settings_get_text("config-file"));
-    CHUCHO_C_INFO(yella_logger("yella"), "Yella is starting");
+    CHUCHO_C_INFO(yella_logger("yella"),
+                  "Yella version " YELLA_VALUE_STR(YELLA_VERSION) " is starting");
     yella_load_settings_doc();
     retrieve_agent_settings();
-    // load plugins
+    /* load plugins */
     yella_destroy_settings_doc();
-    // run the app
+    /* run the app */
     yella_destroy_settings();
     yella_destroy_loggers();
     chucho_finalize();

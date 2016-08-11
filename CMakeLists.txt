@@ -23,7 +23,8 @@ INCLUDE(Configure.cmake)
 SET(YELLA_VERSION 1.1)
 
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}"
-                    "${CHUCHO_PREFIX}/include")
+                    "${CHUCHO_PREFIX}/include"
+                    "${ZEROMQ_INCLUDE_DIR}")
 
 ADD_SUBDIRECTORY(common)
 
@@ -34,8 +35,13 @@ ENDIF()
 
 ADD_EXECUTABLE(yella
                main.c
+               router.c
+               router.h
                ${YELLA_PLATFORM_SOURCES})
-TARGET_LINK_LIBRARIES(yella common "${YELLA_CHUCHO_LIB}")
+TARGET_LINK_LIBRARIES(yella common "${YELLA_CHUCHO_LIB}" "${ZEROMQ_LIB}")
 IF(YELLA_LINUX)
     TARGET_LINK_LIBRARIES(yella dl)
 ENDIF()
+
+SET_SOURCE_FILES_PROPERTIES(main.c PROPERTIES
+                            COMPILE_DEFINITIONS YELLA_VERSION=${YELLA_VERSION})

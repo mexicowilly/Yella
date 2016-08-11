@@ -32,6 +32,7 @@ ADD_LIBRARY(common SHARED
             file.h
             log.c
             log.h
+            macro_util.h
             return_code.c
             return_code.h
             settings.c
