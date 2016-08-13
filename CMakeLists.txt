@@ -24,21 +24,27 @@ SET(YELLA_VERSION 1.1)
 
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}"
                     "${CHUCHO_PREFIX}/include"
-                    "${ZEROMQ_INCLUDE_DIR}")
+                    "${ZEROMQ_INCLUDE_DIR}"
+                    "${UUID_INCLUDE_DIR}")
 
 ADD_SUBDIRECTORY(common)
 
 IF(YELLA_POSIX)
     SET(YELLA_PLATFORM_SOURCES
-        platform/posix/runtime_link.c)
+        platform/posix/runtime_link.c
+        platform/posix/yella_uuid.c)
 ENDIF()
 
 ADD_EXECUTABLE(yella
                main.c
                router.c
                router.h
+               yella_uuid.h
                ${YELLA_PLATFORM_SOURCES})
-TARGET_LINK_LIBRARIES(yella common "${YELLA_CHUCHO_LIB}" "${ZEROMQ_LIB}")
+TARGET_LINK_LIBRARIES(yella common
+                      "${YELLA_CHUCHO_LIB}"
+                      "${ZEROMQ_LIB}"
+                      "${UUID_LIB}")
 IF(YELLA_LINUX)
     TARGET_LINK_LIBRARIES(yella dl)
 ENDIF()

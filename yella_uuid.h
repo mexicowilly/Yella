@@ -14,18 +14,13 @@
  *    limitations under the License.
  */
 
-#if !defined(AGENT_H__)
-#define AGENT_H__
+#if !defined(YELLA_UUID_H__)
+#define YELLA_UUID_H__
 
-#include "router.h"
+typedef struct yella_uuid yella_uuid;
 
-typedef struct yella_agent
-{
-    yella_uuid identity;
-    yella_router* router;
-} yella_agent;
-
-void yella_agent_run(void);
-void yella_agent_send(const uint8_t* msg, size_t size);
+yella_uuid* yella_create_uuid(void);
+void yella_destroy_uuid(yella_uuid* id);
+const char* yella_uuid_to_text(yella_uuid* id);
 
 #endif

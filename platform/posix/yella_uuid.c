@@ -14,18 +14,38 @@
  *    limitations under the License.
  */
 
-#if !defined(AGENT_H__)
-#define AGENT_H__
+#include "yella_uuid.h"
+#include <uuid.h>
+#include <stdlib.h>
 
-#include "router.h"
-
-typedef struct yella_agent
+struct yella_uuid
 {
-    yella_uuid identity;
-    yella_router* router;
-} yella_agent;
+    uuid_t id;
+    char* text;
+};
 
-void yella_agent_run(void);
-void yella_agent_send(const uint8_t* msg, size_t size);
+yella_uuid* yella_create_uuid(void)
+{
+    yella_uuid* id;
 
-#endif
+    id = malloc(sizeof(yella_uuid));
+    uuid_generate(id->id);
+    id->text = NULL;
+}
+
+void yella_destroy_uuid(yella_uuid* id)
+{
+    if (id->text != NULL)
+        free(id->text);
+    free(id);
+}
+
+const char* yella_uuid_to_text(yella_uuid* id)
+{
+    if (id->text == NULL)
+    {
+        id->text = malloc(37);
+        uuid_unparse(id->id, id->text);
+    }
+    return id->text;
+}

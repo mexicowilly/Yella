@@ -19,11 +19,35 @@
 
 #include "export.h"
 
+/**
+ * Events
+ */
+typedef struct yella_event yella_event;
+
+YELLA_EXPORT yella_event* yella_create_event(void);
+YELLA_EXPORT void yella_destroy_event(yella_event* evt);
+YELLA_EXPORT void yella_signal_event(yella_event* evt);
+YELLA_EXPORT void yella_wait_for_event(yella_event* evt);
+
+/**
+ * Mutexes
+ */
 typedef struct yella_mutex yella_mutex;
 
 YELLA_EXPORT yella_mutex* yella_create_mutex(void);
 YELLA_EXPORT void yella_destroy_mutex(yella_mutex* mtx);
 YELLA_EXPORT void yella_lock_mutex(yella_mutex* mtx);
 YELLA_EXPORT void yella_unlock_mutex(yella_mutex* mtx);
+
+/**
+ * Threads
+ */
+typedef struct yella_thread yella_thread;
+typedef void (*yella_thread_func)(void*);
+
+YELLA_EXPORT yella_thread* yella_create_thread(yella_thread_func f, void* arg);
+YELLA_EXPORT void yella_destroy_thread(yella_thread* thr);
+YELLA_EXPORT void yella_detach_thread(yella_thread* thr);
+YELLA_EXPORT void yella_join_thread(yella_thread* thr);
 
 #endif
