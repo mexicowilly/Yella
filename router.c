@@ -255,14 +255,16 @@ void yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count)
     zmq_msg_t msg;
     size_t i;
     int rc;
+    size_t expected;
 
     for (i = 0; i < count; i++)
     {
         zmq_msg_init_data(&msg, msgs[i].msg, msgs[i].size, yella_zmq_free, &msgs[i]);
+        expected = msgs[i].size;
         yella_lock_mutex(rtr->mtx);
         rc = zmq_msg_send(&msg, rtr->socket, (i == count - 1) ? 0 : ZMQ_SNDMORE);
         yella_unlock_mutex(rtr->mtx);
-        if (rc != msgs[i].size)
+        if (rc != expected)
         {
             CHUCHO_C_ERROR(yella_logger("yella"),
                            "Could not send message: %s",
