@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <errno.h>
 
+void yella_initialize_platform_settings(void);
+
 typedef struct setting
 {
     char* key;
@@ -180,7 +182,7 @@ yella_rc yella_load_settings_doc(void)
     if (sz > 100 * 1024)
     {
         CHUCHO_C_ERROR(yella_logger("yella.common"),
-                       "The configuration file %s has a size of %llu, which is greater than the maximum allowed of 100Kb",
+                       "The configuration file %s has a size of %llu, which is greater than the maximum allowed of 100 KB",
                        file_name,
                        sz);
         return YELLA_TOO_BIG;

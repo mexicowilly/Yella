@@ -44,6 +44,4 @@ YELLA_EXPORT const char* yella_settings_get_text(const char* const key);
 YELLA_EXPORT void yella_settings_set_uint32(const char* const key, uint32_t val);
 YELLA_EXPORT void yella_settings_set_text(const char* const key, const char* const val);
 
-void yella_initialize_platform_settings(void);
-
 #endif

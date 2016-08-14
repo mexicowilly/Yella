@@ -23,9 +23,11 @@ INCLUDE(Configure.cmake)
 SET(YELLA_VERSION 1.1)
 
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}"
-                    "${CHUCHO_PREFIX}/include"
-                    "${ZEROMQ_INCLUDE_DIR}"
-                    "${UUID_INCLUDE_DIR}")
+                    "${YELLA_CHUCHO_INCLUDE_DIR}"
+                    "${YELLA_ZEROMQ_INCLUDE_DIR}")
+IF(YELLA_POSIX)
+    INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
+ENDIF()
 
 ADD_SUBDIRECTORY(common)
 
@@ -42,12 +44,16 @@ ADD_EXECUTABLE(yella
                yella_uuid.h
                ${YELLA_PLATFORM_SOURCES})
 TARGET_LINK_LIBRARIES(yella common
-                      "${YELLA_CHUCHO_LIB}"
-                      "${ZEROMQ_LIB}"
-                      "${UUID_LIB}")
+                      "${YELLA_ZEROMQ_LIB}")
+IF(YELLA_POSIX)
+    TARGET_LINK_LIBRARIES(yella "${YELLA_UUID_LIB}")
+ENDIF()
 IF(YELLA_LINUX)
     TARGET_LINK_LIBRARIES(yella dl)
 ENDIF()
 
 SET_SOURCE_FILES_PROPERTIES(main.c PROPERTIES
                             COMPILE_DEFINITIONS YELLA_VERSION=${YELLA_VERSION})
+
+ENABLE_TESTING()
+ADD_SUBDIRECTORY(test)

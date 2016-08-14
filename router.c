@@ -203,6 +203,10 @@ yella_router* yella_create_router(yella_uuid* id)
                        "No sockets could be created");
         goto err_out;
     }
+    zmq_setsockopt(rtr->socket,
+                   ZMQ_IDENTITY,
+                   yella_uuid_bytes(id),
+                   yella_uuid_byte_count(id));
     ep = yella_settings_get_text("router");
     if (ep == NULL)
     {

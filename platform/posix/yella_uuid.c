@@ -40,6 +40,16 @@ void yella_destroy_uuid(yella_uuid* id)
     free(id);
 }
 
+const uint8_t* yella_uuid_bytes(const yella_uuid* id)
+{
+    return id->id;
+}
+
+size_t yella_uuid_byte_count(const yella_uuid* id)
+{
+    return sizeof(id->id);
+}
+
 const char* yella_uuid_to_text(yella_uuid* id)
 {
     if (id->text == NULL)

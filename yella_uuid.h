@@ -17,10 +17,15 @@
 #if !defined(YELLA_UUID_H__)
 #define YELLA_UUID_H__
 
+#include <stdint.h>
+#include <stddef.h>
+
 typedef struct yella_uuid yella_uuid;
 
 yella_uuid* yella_create_uuid(void);
 void yella_destroy_uuid(yella_uuid* id);
+const uint8_t* yella_uuid_bytes(const yella_uuid* id);
+size_t yella_uuid_byte_count(const yella_uuid* id);
 const char* yella_uuid_to_text(yella_uuid* id);
 
 #endif
