@@ -33,8 +33,8 @@ ADD_SUBDIRECTORY(common)
 
 IF(YELLA_POSIX)
     SET(YELLA_PLATFORM_SOURCES
-        platform/posix/runtime_link.c
-        platform/posix/yella_uuid.c)
+        platform/posix/runtime_link_posix.c
+        platform/posix/yella_uuid_posix.c)
 ENDIF()
 
 ADD_EXECUTABLE(yella

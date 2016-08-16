@@ -21,6 +21,7 @@
 #include <zmq.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <assert.h>
 
 typedef struct yella_router
 {
@@ -86,28 +87,27 @@ static bool read_monitor_event_msg(void* sock, yella_monitor_event* evt)
     zmq_msg_t frame2;
 
     zmq_msg_init(&frame1);
-    zmq_msg_init(&frame2);
     rc = zmq_msg_recv(&frame1, sock, 0);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR(yella_logger("yella.socket-monitor"),
-                       "Unable to receive socket monitor event (frame 1): %s",
-                       zmq_strerror(zmq_errno()));
+        zmq_msg_close(&frame1);
         return false;
     }
+    assert(zmq_msg_size(&frame1) == sizeof(evt->id) + sizeof(evt->value));
+    memcpy(&evt->id, zmq_msg_data(&frame1), sizeof(evt->id));
+    memcpy(&evt->value, zmq_msg_data(&frame1) + sizeof(evt->id), sizeof(evt->value));
+    zmq_msg_close(&frame1);
+    zmq_msg_init(&frame2);
     rc = zmq_msg_recv(&frame2, sock, 0);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR(yella_logger("yella.socket-monitor"),
-                       "Unable to receive socket monitor event (frame 2): %s",
-                       zmq_strerror(zmq_errno()));
+        zmq_msg_close(&frame2);
         return false;
     }
-    evt->id = *(uint16_t*)zmq_msg_data(&frame1);
-    evt->value = *(uint32_t*)(zmq_msg_data(&frame1) + sizeof(uint16_t));
     strncpy(evt->endpoint, zmq_msg_data(&frame2), sizeof(evt->endpoint));
     if (zmq_msg_size(&frame2) > sizeof(evt->endpoint))
         evt->endpoint[sizeof(evt->endpoint) - 1] = 0;
+    zmq_msg_close(&frame2);
     return true;
 }
 
@@ -125,6 +125,13 @@ static void yella_monitor_socket(void* p)
     arg = (yella_monitor_thread_arg*)p;
     rtr = arg->rtr;
     sock = zmq_socket(rtr->context, ZMQ_PAIR);
+    if (sock == NULL)
+    {
+        CHUCHO_C_ERROR(yella_logger("yella.socket-monitor"),
+                       "Unable to create the socket monitor socket",
+                       zmq_strerror(zmq_errno()));
+        return;
+    }
     rc = zmq_connect(sock, arg->inproc_name);
     if (rc != 0)
     {
@@ -137,8 +144,7 @@ static void yella_monitor_socket(void* p)
     }
     yella_signal_event(arg->evt);
     /* The arg variable must not be used from here on */
-    is_closed = false;
-    while (!is_closed && read_monitor_event_msg(sock, &evt))
+    while (read_monitor_event_msg(sock, &evt))
     {
         switch (evt.id)
         {
@@ -156,19 +162,19 @@ static void yella_monitor_socket(void* p)
             break;
         case ZMQ_EVENT_CONNECT_RETRIED:
             CHUCHO_C_INFO(yella_logger("yella.socket-monitor"),
-                          "Connection to %s will be retried in %u seconds",
+                          "Connection to %s will be retried in %u milliseconds",
                           evt.endpoint,
                           evt.value);
             set_state(rtr, YELLA_ROUTER_CONNECTION_PENDING);
             break;
         case ZMQ_EVENT_CLOSED:
-            is_closed = true;
             set_state(rtr, YELLA_ROUTER_SOCKET_CLOSED);
             break;
         case ZMQ_EVENT_DISCONNECTED:
             CHUCHO_C_INFO(yella_logger("yella.socket-monitor"),
                           "Disconnected from %s",
                           evt.endpoint);
+            set_state(rtr, YELLA_ROUTER_DISCONNECTED);
             break;
         }
     }
@@ -191,7 +197,15 @@ yella_router* yella_create_router(yella_uuid* id)
     yella_monitor_thread_arg thrarg;
     yella_thread* thr;
     char* inproc;
+    const char* id_text;
 
+    ep = yella_settings_get_text("router");
+    if (ep == NULL)
+    {
+        CHUCHO_C_ERROR(yella_logger("yella.router"),
+                       "No router has been defined in settings");
+        return NULL;
+    }
     rtr = malloc(sizeof(yella_router));
     rtr->state = YELLA_ROUTER_CONNECTION_PENDING;
     rtr->mtx = NULL;
@@ -199,31 +213,35 @@ yella_router* yella_create_router(yella_uuid* id)
     rtr->socket = zmq_socket(rtr->context, ZMQ_DEALER);
     if (rtr->socket == NULL)
     {
-        CHUCHO_C_ERROR(yella_logger("yella"),
+        CHUCHO_C_ERROR(yella_logger("yella.router"),
                        "No sockets could be created");
         goto err_out;
     }
+    id_text = yella_uuid_to_text(id);
     zmq_setsockopt(rtr->socket,
                    ZMQ_IDENTITY,
-                   yella_uuid_bytes(id),
-                   yella_uuid_byte_count(id));
-    ep = yella_settings_get_text("router");
-    if (ep == NULL)
-    {
-        CHUCHO_C_ERROR(yella_logger("yella"),
-                       "No router has been defined in settings");
-        goto err_out;
-    }
+                   id_text,
+                   strlen(id_text));
     inproc = create_monitor_socket_name(id);
-    zmq_socket_monitor(rtr->socket, inproc, ZMQ_EVENT_ALL);
-    thrarg.rtr = rtr;
-    thrarg.inproc_name = inproc;
-    thrarg.evt = yella_create_event();
-    thr = yella_create_thread(yella_monitor_socket, &thrarg);
-    yella_detach_thread(thr);
-    yella_destroy_thread(thr);
-    yella_wait_for_event(thrarg.evt);
-    yella_destroy_event(thrarg.evt);
+    rc = zmq_socket_monitor(rtr->socket, inproc, ZMQ_EVENT_ALL);
+    if (rc == -1)
+    {
+        CHUCHO_C_ERROR(yella_logger("yella.router"),
+                       "Could not create socket monitor at %s: %s",
+                       inproc,
+                       zmq_strerror(zmq_errno()));
+    }
+    else
+    {
+        thrarg.rtr = rtr;
+        thrarg.inproc_name = inproc;
+        thrarg.evt = yella_create_event();
+        thr = yella_create_thread(yella_monitor_socket, &thrarg);
+        yella_detach_thread(thr);
+        yella_destroy_thread(thr);
+        yella_wait_for_event(thrarg.evt);
+        yella_destroy_event(thrarg.evt);
+    }
     free(inproc);
     rc = zmq_connect(rtr->socket, ep);
     if (rc != 0)
@@ -232,7 +250,6 @@ yella_router* yella_create_router(yella_uuid* id)
                        "Could not connect to %s: %s",
                        ep,
                        zmq_strerror(rc));
-
         goto err_out;
     }
     rtr->mtx = yella_create_mutex();
@@ -261,20 +278,34 @@ void yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count)
     int rc;
     size_t expected;
 
-    for (i = 0; i < count; i++)
+    zmq_msg_init(&msg);
+    rc = zmq_msg_send(&msg, rtr->socket, ZMQ_SNDMORE);
+    if (rc == -1)
     {
-        zmq_msg_init_data(&msg, msgs[i].msg, msgs[i].size, yella_zmq_free, &msgs[i]);
-        expected = msgs[i].size;
-        yella_lock_mutex(rtr->mtx);
-        rc = zmq_msg_send(&msg, rtr->socket, (i == count - 1) ? 0 : ZMQ_SNDMORE);
-        yella_unlock_mutex(rtr->mtx);
-        if (rc != expected)
+        CHUCHO_C_ERROR(yella_logger("yella"),
+                       "Could not send message delimiter: %s",
+                       zmq_strerror(rc));
+        zmq_msg_close(&msg);
+        i = 0;
+    }
+    else
+    {
+        for (i = 0; i < count; i++)
         {
-            CHUCHO_C_ERROR(yella_logger("yella"),
-                           "Could not send message: %s",
-                           zmq_strerror(rc));
-            zmq_msg_close(&msg);
-            break;
+            zmq_msg_init_data(&msg, msgs[i].msg, msgs[i].size, yella_zmq_free, &msgs[i]);
+            expected = msgs[i].size;
+            yella_lock_mutex(rtr->mtx);
+            rc = zmq_msg_send(&msg, rtr->socket, (i == count - 1) ? 0 : ZMQ_SNDMORE);
+            yella_unlock_mutex(rtr->mtx);
+            if (rc != expected)
+            {
+                CHUCHO_C_ERROR(yella_logger("yella"),
+                               "Could not send message (%i): %s",
+                               i,
+                               zmq_strerror(rc));
+                zmq_msg_close(&msg);
+                break;
+            }
         }
     }
     /* Release unsent message data */

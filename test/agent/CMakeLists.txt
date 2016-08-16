@@ -14,4 +14,4 @@
 #    limitations under the License.
 #
 
-YELLA_TEST(settings_test)
+YELLA_TEST(router_test ${YELLA_ZEROMQ_LIB} ${YELLA_UUID_LIB})
