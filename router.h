@@ -18,8 +18,10 @@
 #define ROUTER_H__
 
 #include "yella_uuid.h"
+#include "common/return_code.h"
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 typedef enum
 {
@@ -33,16 +35,21 @@ typedef struct yella_router yella_router;
 
 typedef struct yella_msg_part
 {
-    uint8_t* msg;
+    uint8_t* data;
     size_t size;
 } yella_msg_part;
 
 yella_router* yella_create_router(yella_uuid* id);
 void yella_destroy_router(yella_router* rtr);
+void yella_router_receive(yella_router* rtr,
+                          yella_msg_part* part,
+                          size_t count,
+                          size_t milliseconds_to_wait);
 /**
- * @note This function takes ownership of msgs
+ * @note This function takes ownership of the data, but not of the msgs
+ * array itself.
  */
-void yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count);
+bool yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count);
 yella_router_state yella_router_get_state(void);
 
 #endif

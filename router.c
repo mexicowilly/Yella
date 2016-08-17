@@ -20,7 +20,6 @@
 #include "common/thread.h"
 #include <zmq.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <assert.h>
 
 typedef struct yella_router
@@ -183,10 +182,9 @@ static void yella_monitor_socket(void* p)
                   "The socket monitor is stopping");
 }
 
-static void yella_zmq_free(void* data, void* part_data)
+static void yella_zmq_free(void* data, void* a)
 {
     free(data);
-    free(part_data);
 }
 
 yella_router* yella_create_router(yella_uuid* id)
@@ -271,28 +269,83 @@ void yella_destroy_router(yella_router* rtr)
     free(rtr);
 }
 
-void yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count)
+void yella_router_receive(yella_router* rtr,
+                          yella_msg_part* part,
+                          size_t count,
+                          size_t milliseconds_to_wait)
+{
+    zmq_pollitem_t pi;
+    int rc;
+    zmq_msg_t delim;
+    zmq_msg_t payload;
+    size_t i;
+
+    for (i = 0; i < count; i++)
+    {
+        part[i].data = NULL;
+        part[i].size = 0;
+    }
+    pi.socket = rtr->socket;
+    pi.events = ZMQ_POLLIN;
+    if (zmq_poll(&pi, 1, milliseconds_to_wait) > 0)
+    {
+        zmq_msg_init(&delim);
+        rc = zmq_msg_recv(&delim, rtr->socket, 0);
+        if (rc == -1)
+        {
+            CHUCHO_C_ERROR(yella_logger("yella"),
+                           "Could not send message delimiter: %s",
+                           zmq_strerror(zmq_errno()));
+        }
+        assert(zmq_msg_size(&delim) == 0);
+        zmq_msg_close(&delim);
+        for (i = 0; i < count; i++)
+        {
+            if (zmq_poll(&pi, 1, milliseconds_to_wait) > 0)
+            {
+                zmq_msg_init(&payload);
+                rc = zmq_msg_recv(&payload, rtr->socket, 0);
+                if (zmq_msg_size(&payload) > 0)
+                {
+                    part[i].size = zmq_msg_size(&payload);
+                    part[i].data = malloc(part[i].size);
+                    memcpy(part[i].data, zmq_msg_data(&payload), part[i].size);
+                }
+                zmq_msg_close(&payload);
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+}
+
+bool yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count)
 {
     zmq_msg_t msg;
     size_t i;
     int rc;
     size_t expected;
+    bool result;
 
+    result = true;
     zmq_msg_init(&msg);
     rc = zmq_msg_send(&msg, rtr->socket, ZMQ_SNDMORE);
     if (rc == -1)
     {
         CHUCHO_C_ERROR(yella_logger("yella"),
                        "Could not send message delimiter: %s",
-                       zmq_strerror(rc));
+                       zmq_strerror(zmq_errno()));
         zmq_msg_close(&msg);
         i = 0;
+        result = false;
     }
     else
     {
         for (i = 0; i < count; i++)
         {
-            zmq_msg_init_data(&msg, msgs[i].msg, msgs[i].size, yella_zmq_free, &msgs[i]);
+            zmq_msg_init_data(&msg, msgs[i].data, msgs[i].size, yella_zmq_free, NULL);
             expected = msgs[i].size;
             yella_lock_mutex(rtr->mtx);
             rc = zmq_msg_send(&msg, rtr->socket, (i == count - 1) ? 0 : ZMQ_SNDMORE);
@@ -302,17 +355,15 @@ void yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count)
                 CHUCHO_C_ERROR(yella_logger("yella"),
                                "Could not send message (%i): %s",
                                i,
-                               zmq_strerror(rc));
+                               zmq_strerror(zmq_errno()));
                 zmq_msg_close(&msg);
+                result = false;
                 break;
             }
         }
     }
     /* Release unsent message data */
     for ( ; i < count; i++)
-    {
-        free(msgs[i].msg);
-        free(&msgs[i]);
-    }
-    free(msgs);
+        free(msgs[i].data);
+    return result;
 }

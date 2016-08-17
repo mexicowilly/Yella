@@ -25,11 +25,13 @@
 
 static const char* YELLA_MSG_TO_SEND = "My dog has fleas";
 
-typedef struct server_thread_arg
+typedef struct test_state
 {
-    const char* command;
-    yella_event* evt;
-} server_thread_arg;
+    yella_event* server_is_ready;
+    yella_event* receiver_is_ready;
+    yella_thread* thr;
+    yella_router* rtr;
+} test_state;
 
 static void server_thread(void* p)
 {
@@ -41,9 +43,9 @@ static void server_thread(void* p)
     zmq_msg_t payload_msg;
     char* id;
     char* payload;
-    server_thread_arg* arg;
+    test_state* arg;
 
-    arg = (server_thread_arg*)p;
+    arg = (test_state*)p;
     ctx = zmq_ctx_new();
     sock = zmq_socket(ctx, ZMQ_ROUTER);
     assert_non_null(sock);
@@ -55,98 +57,157 @@ static void server_thread(void* p)
                        zmq_strerror(zmq_errno()));
         assert_true(false);
     }
-    yella_signal_event(arg->evt);
-    if (strcmp(arg->command, "receive") == 0)
+    yella_signal_event(arg->server_is_ready);
+
+    zmq_msg_init(&id_msg);
+    rc = zmq_msg_recv(&id_msg, sock, 0);
+    if (rc == -1)
     {
-        zmq_msg_init(&id_msg);
-        rc = zmq_msg_recv(&id_msg, sock, 0);
-        if (rc == -1)
-        {
-            CHUCHO_C_ERROR(yella_logger("router-test"),
-                           "zmq_msg_recv (id): %s",
-                           zmq_strerror(zmq_errno()));
-            assert_true(false);
-        }
-        id = malloc(zmq_msg_size(&id_msg) + 1);
-        strncpy(id, (char*)zmq_msg_data(&id_msg), zmq_msg_size(&id_msg));
-        zmq_msg_close(&id_msg);
-        CHUCHO_C_INFO(yella_logger("router-test"),
-                      "Got identity: %s",
-                      id);
-        free(id);
-        zmq_msg_init(&delim_msg);
-        rc = zmq_msg_recv(&delim_msg, sock, 0);
-        if (rc == -1)
-        {
-            CHUCHO_C_ERROR(yella_logger("router-test"),
-                           "zmq_msg_recv (delim): %s",
-                           zmq_strerror(zmq_errno()));
-            assert_true(false);
-        }
-        assert_int_equal(zmq_msg_size(&delim_msg), 0);
-        zmq_msg_close(&delim_msg);
-        CHUCHO_C_INFO(yella_logger("router-test"),
-                      "Got delimiter");
-        zmq_msg_init(&payload_msg);
-        rc = zmq_msg_recv(&payload_msg, sock, 0);
-        if (rc == -1)
-        {
-            CHUCHO_C_ERROR(yella_logger("router-test"),
-                           "zmq_msg_recv (payload): %s",
-                           zmq_strerror(zmq_errno()));
-            assert_true(false);
-        }
-        payload = malloc(zmq_msg_size(&payload_msg) + 1);
-        strncpy(payload, (char*)zmq_msg_data(&payload_msg), zmq_msg_size(&payload_msg) + 1);
-        zmq_msg_close(&payload_msg);
-        CHUCHO_C_INFO(yella_logger("router-test"),
-                      "Got payload: %s",
-                      payload);
-        assert_string_equal(payload, YELLA_MSG_TO_SEND);
-        free(payload);
+        CHUCHO_C_ERROR(yella_logger("router-test"),
+                       "zmq_msg_recv (id): %s",
+                       zmq_strerror(zmq_errno()));
+        assert_true(false);
     }
+    id = malloc(zmq_msg_size(&id_msg) + 1);
+    strncpy(id, (char*)zmq_msg_data(&id_msg), zmq_msg_size(&id_msg));
+    zmq_msg_close(&id_msg);
+    CHUCHO_C_INFO(yella_logger("router-test"),
+                  "Got identity: %s",
+                  id);
+    zmq_msg_init(&delim_msg);
+    rc = zmq_msg_recv(&delim_msg, sock, 0);
+    if (rc == -1)
+    {
+        CHUCHO_C_ERROR(yella_logger("router-test"),
+                       "zmq_msg_recv (delim): %s",
+                       zmq_strerror(zmq_errno()));
+        assert_true(false);
+    }
+    assert_int_equal(zmq_msg_size(&delim_msg), 0);
+    zmq_msg_close(&delim_msg);
+    CHUCHO_C_INFO(yella_logger("router-test"),
+                  "Got delimiter");
+    zmq_msg_init(&payload_msg);
+    rc = zmq_msg_recv(&payload_msg, sock, 0);
+    if (rc == -1)
+    {
+        CHUCHO_C_ERROR(yella_logger("router-test"),
+                       "zmq_msg_recv (payload): %s",
+                       zmq_strerror(zmq_errno()));
+        assert_true(false);
+    }
+    payload = malloc(zmq_msg_size(&payload_msg) + 1);
+    strncpy(payload, (char*)zmq_msg_data(&payload_msg), zmq_msg_size(&payload_msg) + 1);
+    zmq_msg_close(&payload_msg);
+    CHUCHO_C_INFO(yella_logger("router-test"),
+                  "Got payload: %s",
+                  payload);
+    assert_string_equal(payload, YELLA_MSG_TO_SEND);
+
+    yella_wait_for_event(arg->receiver_is_ready);
+    zmq_msg_init_size(&id_msg, strlen(id));
+    memcpy(zmq_msg_data(&id_msg), id, strlen(id));
+    free(id);
+    rc = zmq_msg_send(&id_msg, sock, ZMQ_SNDMORE);
+    if (rc == -1)
+    {
+        CHUCHO_C_ERROR(yella_logger("router-test"),
+                       "zmq_msg_send (id): %s",
+                       zmq_strerror(zmq_errno()));
+        assert_true(false);
+    }
+    zmq_msg_init(&delim_msg);
+    rc = zmq_msg_send(&delim_msg, sock, ZMQ_SNDMORE);
+    if (rc == -1)
+    {
+        CHUCHO_C_ERROR(yella_logger("router-test"),
+                       "zmq_msg_send (delim): %s",
+                       zmq_strerror(zmq_errno()));
+        assert_true(false);
+    }
+    zmq_msg_init_size(&payload_msg, strlen(payload));
+    memcpy(zmq_msg_data(&payload_msg), payload, strlen(id));
+    free(payload);
+    rc = zmq_msg_send(&payload_msg, sock, 0);
+    if (rc == -1)
+    {
+        CHUCHO_C_ERROR(yella_logger("router-test"),
+                       "zmq_msg_send (payload): %s",
+                       zmq_strerror(zmq_errno()));
+        assert_true(false);
+    }
+
     zmq_close(sock);
     zmq_ctx_destroy(ctx);
 }
 
+static void receive(void** arg)
+{
+    yella_msg_part msg;
+    test_state* ts;
+
+    ts = (test_state*)*arg;
+    yella_signal_event(ts->receiver_is_ready);
+    yella_router_receive(ts->rtr, &msg, 1, 5000);
+    assert_int_equal(msg.size, strlen(YELLA_MSG_TO_SEND));
+    assert_true(memcmp(msg.data, YELLA_MSG_TO_SEND, msg.size) == 0);
+    free(msg.data);
+}
+
 static void send(void** arg)
 {
-    yella_uuid* id;
-    yella_router* rtr;
-    yella_msg_part* msg;
-    yella_thread* thr;
-    server_thread_arg targ;
+    yella_msg_part msg;
+    test_state* ts;
 
-    targ.command = "receive";
-    targ.evt = yella_create_event();
-    thr = yella_create_thread(server_thread, &targ);
-    yella_wait_for_event(targ.evt);
-    yella_destroy_event(targ.evt);
+    ts = (test_state*)*arg;
+    yella_wait_for_event(ts->server_is_ready);
+    msg.size = strlen(YELLA_MSG_TO_SEND);
+    msg.data = malloc(msg.size);
+    strncpy(msg.data, YELLA_MSG_TO_SEND, msg.size);
+    yella_router_send(ts->rtr, &msg, 1);
+}
+
+static int set_up(void** arg)
+{
+    test_state* targ;
+    yella_uuid* id;
+
+    *arg = malloc(sizeof(test_state));
+    targ = *arg;
+    targ->server_is_ready = yella_create_event();
+    targ->receiver_is_ready = yella_create_event();
+    targ->thr = yella_create_thread(server_thread, targ);
     yella_settings_set_text("router", "tcp://127.0.0.1:19567");
     id = yella_create_uuid();
-    rtr = yella_create_router(id);
-    msg = malloc(sizeof(yella_msg_part));
-    msg->size = strlen(YELLA_MSG_TO_SEND);
-    msg->msg = malloc(msg->size);
-    strncpy(msg->msg, YELLA_MSG_TO_SEND, msg->size);
-    yella_router_send(rtr, msg, 1);
-    yella_destroy_router(rtr);
+    targ->rtr = yella_create_router(id);
     yella_destroy_uuid(id);
-    yella_join_thread(thr);
-    yella_destroy_thread(thr);
+    return 0;
+}
+
+static int tear_down(void** arg)
+{
+    test_state* targ;
+
+    targ = *arg;
+    yella_destroy_router(targ->rtr);
+    yella_join_thread(targ->thr);
+    yella_destroy_thread(targ->thr);
+    yella_destroy_event(targ->server_is_ready);
+    yella_destroy_event(targ->receiver_is_ready);
+    free(targ);
+    return 0;
 }
 
 int main()
 {
-    const struct CMUnitTest tests[] = { cmocka_unit_test(send) };
+    const struct CMUnitTest tests[] =
+    {
+        cmocka_unit_test(send),
+        cmocka_unit_test(receive)
+    };
 
 #if defined(YELLA_POSIX)
-    /*
-    helper = "test/agent/router_test_helper";
-    if (!yella_file_exists(helper))
-        assert_true(false);
-        */
     setenv("CMOCKA_TEST_ABORT", "1", 1);
 #endif
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests(tests, set_up, tear_down);
 }
