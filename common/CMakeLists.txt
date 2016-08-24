@@ -33,6 +33,8 @@ ADD_LIBRARY(common SHARED
             log.c
             log.h
             macro_util.h
+            ptr_list.c
+            ptr_list.h
             return_code.c
             return_code.h
             settings.c

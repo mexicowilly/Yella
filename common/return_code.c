@@ -30,5 +30,11 @@ const char* yella_strerror(yella_rc rc)
         return "Does not exist";
     else if (rc == YELLA_READ_ERROR)
         return "Error reading";
+    else if (rc == YELLA_FILE_SYSTEM_ERROR)
+        return "File system error";
+    else if (rc == YELLA_NO_PERMISSION)
+        return "No permission";
+    else if (rc == YELLA_ALREADY_EXISTS)
+        return "Already exists";
     return "";
 }

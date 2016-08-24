@@ -20,40 +20,41 @@ PROJECT(yella C)
 
 INCLUDE(Configure.cmake)
 
+ENABLE_TESTING()
+
 SET(YELLA_VERSION 1.1)
+
+SET(YELLA_GEN_DIR "${CMAKE_BINARY_DIR}/gen")
+FILE(MAKE_DIRECTORY "${YELLA_GEN_DIR}")
 
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}"
                     "${YELLA_CHUCHO_INCLUDE_DIR}"
-                    "${YELLA_ZEROMQ_INCLUDE_DIR}")
-IF(YELLA_POSIX)
-    INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
-ENDIF()
+                    "${YELLA_GEN_DIR}")
+
+SET(YELLA_COMMON_GEN
+    "${YELLA_GEN_DIR}/flatbuffers_common_builder.h"
+    "${YELLA_GEN_DIR}/flatbuffers_common_reader.h")
+ADD_CUSTOM_COMMAND(OUTPUT ${YELLA_COMMON_GEN}
+                   COMMAND "${YELLA_FLATCC}" -c -w -o "${YELLA_GEN_DIR}")
+ADD_CUSTOM_TARGET(flatb_common_gen
+                  DEPENDS ${YELLA_COMMON_GEN})
+MACRO(YELLA_GEN_TARGET YELLA_TARGET)
+    UNSET(YELLA_TARGET_GEN)
+    FOREACH(YELLA_FBS ${ARGN})
+        GET_FILENAME_COMPONENT(YELLA_FBS_BASE "${YELLA_FBS}" NAME_WE)
+        SET(YELLA_LOCAL_GEN
+            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_builder.h"
+            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_reader.h")
+        ADD_CUSTOM_COMMAND(OUTPUT ${YELLA_LOCAL_GEN}
+                           COMMAND "${YELLA_FLATCC}" -w -o "${YELLA_GEN_DIR}" "${YELLA_FBS}"
+                           DEPENDS "${YELLA_FBS}")
+        LIST(APPEND YELLA_TARGET_GEN ${YELLA_LOCAL_GEN})
+    ENDFOREACH()
+    ADD_CUSTOM_TARGET(${YELLA_TARGET}_gen
+                      DEPENDS ${YELLA_TARGET_GEN})
+    ADD_DEPENDENCIES(${YELLA_TARGET} flatb_common_gen ${YELLA_TARGET}_gen)
+ENDMACRO()
 
 ADD_SUBDIRECTORY(common)
-
-IF(YELLA_POSIX)
-    SET(YELLA_PLATFORM_SOURCES
-        platform/posix/runtime_link_posix.c
-        platform/posix/yella_uuid_posix.c)
-ENDIF()
-
-ADD_EXECUTABLE(yella
-               main.c
-               router.c
-               router.h
-               yella_uuid.h
-               ${YELLA_PLATFORM_SOURCES})
-TARGET_LINK_LIBRARIES(yella common
-                      "${YELLA_ZEROMQ_LIB}")
-IF(YELLA_POSIX)
-    TARGET_LINK_LIBRARIES(yella "${YELLA_UUID_LIB}")
-ENDIF()
-IF(YELLA_LINUX)
-    TARGET_LINK_LIBRARIES(yella dl)
-ENDIF()
-
-SET_SOURCE_FILES_PROPERTIES(main.c PROPERTIES
-                            COMPILE_DEFINITIONS YELLA_VERSION=${YELLA_VERSION})
-
-ENABLE_TESTING()
+ADD_SUBDIRECTORY(agent)
 ADD_SUBDIRECTORY(test)

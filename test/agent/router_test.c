@@ -15,9 +15,9 @@
  */
 
 #if defined(YELLA_POSIX)
-#include "platform/posix/yella_uuid_posix.c"
+#include "agent/platform/posix/yella_uuid_posix.c"
 #endif
-#include "router.c"
+#include "agent/router.c"
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>

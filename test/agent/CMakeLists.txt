@@ -15,3 +15,8 @@
 #
 
 YELLA_TEST(router_test ${YELLA_ZEROMQ_LIB} ${YELLA_UUID_LIB})
+IF(YELLA_POSIX)
+    TARGET_INCLUDE_DIRECTORIES(router_test PRIVATE
+                               "${YELLA_UUID_INCLUDE_DIR}")
+ENDIF()
+

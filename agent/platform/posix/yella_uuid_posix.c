@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-#include "yella_uuid.h"
+#include "agent/yella_uuid.h"
 #include <uuid.h>
 #include <stdlib.h>
 

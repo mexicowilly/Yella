@@ -26,7 +26,10 @@ typedef enum
     YELLA_INVALID_FORMAT,
     YELLA_LOGIC_ERROR,
     YELLA_DOES_NOT_EXIST,
-    YELLA_READ_ERROR
+    YELLA_READ_ERROR,
+    YELLA_FILE_SYSTEM_ERROR,
+    YELLA_NO_PERMISSION,
+    YELLA_ALREADY_EXISTS
 } yella_rc;
 
 YELLA_EXPORT const char* yella_strerror(yella_rc rc);

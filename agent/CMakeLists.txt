@@ -1,0 +1,49 @@
+#
+# Copyright 2016 Will Mason
+# 
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+
+IF(YELLA_POSIX)
+    INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
+    SET(YELLA_PLATFORM_SOURCES
+        platform/posix/runtime_link_posix.c
+        platform/posix/yella_uuid_posix.c)
+ENDIF()
+
+INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}"
+                    "${YELLA_ZEROMQ_INCLUDE_DIR}")
+
+ADD_EXECUTABLE(yella
+               main.c
+               router.c
+               router.h
+               yella_uuid.h
+               ${YELLA_PLATFORM_SOURCES})
+
+YELLA_GEN_TARGET(yella
+                  "${CMAKE_CURRENT_SOURCE_DIR}/serialization/private/boot_state.fbs")
+
+TARGET_LINK_LIBRARIES(yella
+                      common
+                      "${YELLA_ZEROMQ_LIB}"
+                      "${YELLA_FLATCC_LIB}")
+IF(YELLA_POSIX)
+    TARGET_LINK_LIBRARIES(yella "${YELLA_UUID_LIB}")
+ENDIF()
+IF(YELLA_LINUX)
+    TARGET_LINK_LIBRARIES(yella dl)
+ENDIF()
+
+SET_SOURCE_FILES_PROPERTIES(main.c PROPERTIES
+                            COMPILE_DEFINITIONS YELLA_VERSION=${YELLA_VERSION})

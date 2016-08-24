@@ -14,19 +14,11 @@
  *    limitations under the License.
  */
 
-#if !defined(FILE_H__)
-#define FILE_H__
+#include "boot_state.h"
+#include "boot_state_builder.h"
+#include "boot_state_reader.h"
+#include "common/settings.h"
 
-#include "export.h"
-#include "return_code.h"
-#include <stdint.h>
-#include <stdbool.h>
-
-YELLA_EXPORT char* yella_base_name(const char* const path);
-YELLA_EXPORT yella_rc yella_create_directory(const char* const name);
-YELLA_EXPORT char* yella_dir_name(const char* const path);
-YELLA_EXPORT yella_rc yella_ensure_dir_exists(const char* const name);
-YELLA_EXPORT bool yella_file_exists(const char* const name);
-YELLA_EXPORT uint64_t yella_file_size(const char* const name);
-
-#endif
+void yella_load_boot_state(void)
+{
+}
