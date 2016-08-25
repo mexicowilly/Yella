@@ -17,3 +17,4 @@
 YELLA_TEST(settings_test)
 YELLA_TEST(file_test)
 YELLA_TEST(ptr_list_test)
+YELLA_TEST(ptr_vector_test)

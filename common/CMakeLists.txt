@@ -35,6 +35,8 @@ ADD_LIBRARY(common SHARED
             macro_util.h
             ptr_list.c
             ptr_list.h
+            ptr_vector.c
+            ptr_vector.h
             return_code.c
             return_code.h
             settings.c
