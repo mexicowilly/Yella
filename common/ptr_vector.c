@@ -101,7 +101,7 @@ void yella_push_front_ptr_vector(yella_ptr_vector* v, void* p)
     if (v->size == v->capacity)
     {
         v->capacity = v->capacity * 1.5;
-        v->data = realloc(v->data, v->capacity);
+        v->data = realloc(v->data, sizeof(void*) * v->capacity);
     }
     memmove(v->data + 1, v->data, v->size * sizeof(void*));
     v->data[0] = p;

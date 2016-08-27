@@ -15,8 +15,10 @@
  */
 
 #include "agent/yella_uuid.h"
+#include "common/log.h"
 #include <uuid.h>
 #include <stdlib.h>
+#include <string.h>
 
 struct yella_uuid
 {
@@ -31,6 +33,27 @@ yella_uuid* yella_create_uuid(void)
     id = malloc(sizeof(yella_uuid));
     uuid_generate(id->id);
     id->text = NULL;
+    return id;
+}
+
+yella_uuid* yella_create_uuid_from_bytes(const uint8_t* bytes, size_t len)
+{
+    size_t uuid_size;
+    yella_uuid* id;
+
+    uuid_size = sizeof(uuid_t);
+    if (len != uuid_size)
+    {
+        CHUCHO_C_ERROR(yella_logger("yella"),
+                       "Cannot create UUID. The given size of %zu does not match the required %zu",
+                       len,
+                       uuid_size);
+        return NULL;
+    }
+    id = malloc(sizeof(yella_uuid));
+    memcpy(id->id, bytes, len);
+    id->text = NULL;
+    return id;
 }
 
 void yella_destroy_uuid(yella_uuid* id)

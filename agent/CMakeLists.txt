@@ -14,6 +14,9 @@
 #    limitations under the License.
 #
 
+INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}"
+                    "${YELLA_ZEROMQ_INCLUDE_DIR}")
+
 IF(YELLA_POSIX)
     INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
     SET(YELLA_PLATFORM_SOURCES
@@ -21,18 +24,17 @@ IF(YELLA_POSIX)
         platform/posix/yella_uuid_posix.c)
 ENDIF()
 
-INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}"
-                    "${YELLA_ZEROMQ_INCLUDE_DIR}")
-
 ADD_EXECUTABLE(yella
                main.c
                router.c
                router.h
+               saved_state.c
+               saved_state.h
                yella_uuid.h
                ${YELLA_PLATFORM_SOURCES})
 
 YELLA_GEN_TARGET(yella
-                  "${CMAKE_CURRENT_SOURCE_DIR}/serialization/private/boot_state.fbs")
+                 "${CMAKE_CURRENT_SOURCE_DIR}/serialization/private/saved_state.fbs")
 
 TARGET_LINK_LIBRARIES(yella
                       common

@@ -17,6 +17,7 @@
 #include "common/file.h"
 #include "common/log.h"
 #include "common/text_util.h"
+#include "common/ptr_vector.h"
 #include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
@@ -24,6 +25,8 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <limits.h>
+
+const char* YELLA_DIR_SEP = "/";
 
 static bool yella_do_stat(const char* const name, struct stat* info)
 {
@@ -39,6 +42,22 @@ static bool yella_do_stat(const char* const name, struct stat* info)
         return false;
     }
     return true;
+}
+
+static yella_ptr_vector* yella_get_dirs(const char* const fqpath)
+{
+    char* cur;
+    yella_ptr_vector* vec;
+
+    vec = yella_create_ptr_vector();
+    cur = yella_dir_name(fqpath);
+    while (strcmp(cur, "/") != 0)
+    {
+        yella_push_front_ptr_vector(vec, cur);
+        cur = yella_dir_name(cur);
+    }
+    free(cur);
+    return vec;
 }
 
 static const char* yella_last_not(const char* const str, char c)
@@ -142,12 +161,12 @@ char* yella_dir_name(const char* const path)
 
 yella_rc yella_ensure_dir_exists(const char* const name)
 {
-    struct stat info;
     char rp[PATH_MAX + 1];
     int err;
-    char** elems;
-    size_t idx;
-    size_t capacity;
+    yella_ptr_vector* dirs;
+    size_t i;
+    yella_rc rc;
+    char* cur;
 
     if (realpath(name, rp) == NULL)
     {
@@ -158,16 +177,20 @@ yella_rc yella_ensure_dir_exists(const char* const name)
                        strerror(err));
         return YELLA_FILE_SYSTEM_ERROR;
     }
-    capacity = 10;
-    elems = malloc(capacity * sizeof(char*));
-    idx = 0;
-
-    if (!yella_file_exists(name))
-        return YELLA_DOES_NOT_EXIST;
-    if (!yella_do_stat(name, &info))
-        return YELLA_FILE_SYSTEM_ERROR;
-    if (S_ISDIR(info.st_mode))
-        return YELLA_NO_ERROR;
+    dirs = yella_get_dirs(rp);
+    yella_push_back_ptr_vector(dirs, yella_text_dup(rp));
+    for (i = 0; i < yella_ptr_vector_size(dirs); i++)
+    {
+        cur = yella_ptr_vector_at(dirs, i);
+        if (!yella_file_exists(cur))
+        {
+            rc = yella_create_directory(cur);
+            if (rc != YELLA_NO_ERROR)
+                break;
+        }
+    }
+    yella_destroy_ptr_vector(dirs);
+    return rc;
 }
 
 bool yella_file_exists(const char* const name)

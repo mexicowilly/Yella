@@ -29,6 +29,7 @@ IF(YELLA_POSIX)
 ENDIF()
 
 ADD_LIBRARY(common SHARED
+            file.c
             file.h
             log.c
             log.h
