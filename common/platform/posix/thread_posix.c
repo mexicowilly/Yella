@@ -36,6 +36,25 @@ struct yella_thread
     pthread_t thr;
 };
 
+struct yella_condition_variable
+{
+    pthread_cond_t cond;
+};
+
+void yella_broadcast_condition_variable(yella_condition_variable* cond)
+{
+    pthread_cond_broadcast(&cond->cond);
+}
+
+yella_condition_variable* yella_create_condition_variable(void)
+{
+    yella_condition_variable* result;
+
+    result = malloc(sizeof(yella_condition_variable));
+    pthread_cond_init(&result->cond, NULL);
+    return result;
+}
+
 yella_event* yella_create_event(void)
 {
     yella_event* result;
@@ -63,6 +82,12 @@ yella_thread* yella_create_thread(yella_thread_func f, void* arg)
     result = malloc(sizeof(yella_thread));
     pthread_create(&result->thr, NULL, (void*(*)(void*))f, arg);
     return result;
+}
+
+void yella_destroy_condition_variable(yella_condition_variable* cond)
+{
+    pthread_cond_destroy(&cond->cond);
+    free(cond);
 }
 
 void yella_destroy_event(yella_event* evt)
@@ -98,6 +123,11 @@ void yella_lock_mutex(yella_mutex* mtx)
     pthread_mutex_lock(&mtx->mtx);
 }
 
+void yella_signal_condition_variable(yella_condition_variable* cond)
+{
+    pthread_cond_signal(&cond->cond);
+}
+
 void yella_signal_event(yella_event* evt)
 {
     pthread_mutex_lock(&evt->mtx);
@@ -109,6 +139,23 @@ void yella_signal_event(yella_event* evt)
 void yella_unlock_mutex(yella_mutex* mtx)
 {
     pthread_mutex_unlock(&mtx->mtx);
+}
+
+void yella_wait_milliseconds_for_condition_variable(yella_condition_variable* cond,
+                                                    yella_mutex* mtx,
+                                                    unsigned milliseconds)
+{
+    struct timespec ts;
+
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += milliseconds % 1000;
+    ts.tv_nsec += milliseconds / 1000 * 1000000;
+    if (ts.tv_nsec >= 1000000000)
+    {
+        ts.tv_nsec -= 1000000000;
+        ts.tv_sec++;
+    }
+    pthread_cond_timedwait(&cond->cond, &mtx->mtx, &ts);
 }
 
 void yella_wait_for_event(yella_event* evt)

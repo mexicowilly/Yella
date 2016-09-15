@@ -39,6 +39,8 @@ typedef struct yella_msg_part
     size_t size;
 } yella_msg_part;
 
+typedef void (*yella_router_state_callback)(yella_router_state, void*);
+
 yella_router* yella_create_router(yella_uuid* id);
 void yella_destroy_router(yella_router* rtr);
 void yella_router_receive(yella_router* rtr,
@@ -50,6 +52,7 @@ void yella_router_receive(yella_router* rtr,
  * array itself.
  */
 bool yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count);
-yella_router_state yella_router_get_state(void);
+yella_router_state yella_router_get_state(yella_router* rtr);
+void yella_set_router_state_callback(yella_router* rtr, yella_router_state_callback cb, void* data);
 
 #endif

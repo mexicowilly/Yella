@@ -28,6 +28,8 @@ typedef struct yella_router
     void* socket;
     yella_mutex* mtx;
     yella_router_state state;
+    yella_router_state_callback callback;
+    void* callback_data;
 } yella_router;
 
 typedef struct yella_monitor_event
@@ -63,6 +65,8 @@ static void set_state(yella_router* rtr, yella_router_state state)
                       state_text[rtr->state],
                       state_text[state]);
         rtr->state = state;
+        if (rtr->callback != NULL)
+            rtr->callback(state, rtr->callback_data);
     }
     yella_unlock_mutex(rtr->mtx);
 }
@@ -71,11 +75,12 @@ static char* create_monitor_socket_name(yella_uuid* id)
 {
     const char* id_text;
     char* ep;
+    int len;
 
     id_text = yella_uuid_to_text(id);
-    ep = malloc(9 + strlen(id_text) + 1);
-    strcpy(ep, "inproc://");
-    strcat(ep, id_text);
+    len = snprintf(NULL, 0, "%s%s", "inproc://", id_text) + 1;
+    ep = malloc(len);
+    snprintf(ep, len, "%s%s", "inproc://", id_text);
     return ep;
 }
 
@@ -251,6 +256,8 @@ yella_router* yella_create_router(yella_uuid* id)
         goto err_out;
     }
     rtr->mtx = yella_create_mutex();
+    rtr->callback = NULL;
+    rtr->callback_data = NULL;
     return rtr;
 err_out:
     yella_destroy_router(rtr);
@@ -267,6 +274,16 @@ void yella_destroy_router(yella_router* rtr)
     if (rtr->context != NULL)
         zmq_ctx_destroy(rtr->context);
     free(rtr);
+}
+
+yella_router_state yella_router_get_state(yella_router* rtr)
+{
+    yella_router_state st;
+
+    yella_lock_mutex(rtr->mtx);
+    st = rtr->state;
+    yella_unlock_mutex(rtr->mtx);
+    return st;
 }
 
 void yella_router_receive(yella_router* rtr,
@@ -366,4 +383,12 @@ bool yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count)
     for ( ; i < count; i++)
         free(msgs[i].data);
     return result;
+}
+
+void yella_set_router_state_callback(yella_router* rtr, yella_router_state_callback cb, void* data)
+{
+    yella_lock_mutex(rtr->mtx);
+    rtr->callback = cb;
+    rtr->callback_data = data;
+    yella_unlock_mutex(rtr->mtx);
 }

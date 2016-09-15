@@ -46,7 +46,13 @@ static char* yella_bs_file_name(void)
     return fname;
 }
 
-uint32_t yella_saved_state_count(yella_saved_state* bs)
+static void yella_reset_ss(yella_saved_state* st)
+{
+    st->boot_count = 1;
+    st->id = yella_create_uuid();
+}
+
+uint32_t yella_saved_state_boot_count(const yella_saved_state* bs)
 {
     return bs->boot_count;
 }
@@ -73,12 +79,10 @@ yella_saved_state* yella_load_saved_state(void)
     if (rc == YELLA_NO_ERROR)
     {
         tbl = yella_fb_saved_state_as_root(raw);
-        if (yella_fb_saved_state_boot_count_is_present(tbl))
-            bs->boot_count = yella_fb_saved_state_boot_count(tbl);
-        else
-            is_corrupt = true;
-        if (yella_fb_saved_state_uuid_is_present(tbl))
+        if (yella_fb_saved_state_boot_count_is_present(tbl) &&
+            yella_fb_saved_state_uuid_is_present(tbl))
         {
+            bs->boot_count = yella_fb_saved_state_boot_count(tbl) + 1;
             id_vec = yella_fb_saved_state_uuid(tbl);
             bs->id = yella_create_uuid_from_bytes(id_vec, flatbuffers_uint8_vec_len(id_vec));
         }
@@ -86,14 +90,14 @@ yella_saved_state* yella_load_saved_state(void)
         {
             is_corrupt = true;
         }
+        free(raw);
     }
     else if (rc == YELLA_DOES_NOT_EXIST)
     {
         CHUCHO_C_INFO(yella_logger("yella"),
                       "The file %s does not exist. This is first boot.",
                       fname);
-        bs->boot_count = 1;
-        bs->id = yella_create_uuid();
+        yella_reset_ss(bs);
     }
     else
     {
@@ -105,8 +109,7 @@ yella_saved_state* yella_load_saved_state(void)
                       "The file %s is corrupt. It is being recreated.",
                       fname);
         remove(fname);
-        bs->boot_count = 1;
-        bs->id = yella_create_uuid();
+        yella_reset_ss(bs);
     }
     free(fname);
     return bs;
@@ -132,7 +135,7 @@ yella_rc yella_save_saved_state(yella_saved_state* bs)
     raw = flatcc_builder_finalize_buffer(&bld, &size);
     flatcc_builder_clear(&bld);
     fname = yella_bs_file_name();
-    f = fopen(fname, "w");
+    f = fopen(fname, "wb");
     if (f == NULL)
     {
         err = errno;

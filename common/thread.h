@@ -40,6 +40,19 @@ YELLA_EXPORT void yella_lock_mutex(yella_mutex* mtx);
 YELLA_EXPORT void yella_unlock_mutex(yella_mutex* mtx);
 
 /**
+ * Condition variables
+ */
+typedef struct yella_condition_variable yella_condition_variable;
+
+YELLA_EXPORT void yella_broadcast_condition_variable(yella_condition_variable* cond);
+YELLA_EXPORT yella_condition_variable* yella_create_condition_variable(void);
+YELLA_EXPORT void yella_destroy_condition_variable(yella_condition_variable* cond);
+YELLA_EXPORT void yella_signal_condition_variable(yella_condition_variable* cond);
+YELLA_EXPORT void yella_wait_milliseconds_for_condition_variable(yella_condition_variable* cond,
+                                                                 yella_mutex* mtx,
+                                                                 unsigned milliseconds);
+
+/**
  * Threads
  */
 typedef struct yella_thread yella_thread;

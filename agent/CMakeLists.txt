@@ -25,11 +25,15 @@ IF(YELLA_POSIX)
 ENDIF()
 
 ADD_EXECUTABLE(yella
+               agent.c
+               agent.h
                main.c
                router.c
                router.h
                saved_state.c
                saved_state.h
+               spool.c
+               spool.h
                yella_uuid.h
                ${YELLA_PLATFORM_SOURCES})
 
@@ -39,7 +43,8 @@ YELLA_GEN_TARGET(yella
 TARGET_LINK_LIBRARIES(yella
                       common
                       "${YELLA_ZEROMQ_LIB}"
-                      "${YELLA_FLATCC_LIB}")
+                      "${YELLA_FLATCC_LIB}"
+                      m)
 IF(YELLA_POSIX)
     TARGET_LINK_LIBRARIES(yella "${YELLA_UUID_LIB}")
 ENDIF()

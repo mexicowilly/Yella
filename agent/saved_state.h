@@ -22,7 +22,7 @@
 
 typedef struct yella_saved_state yella_saved_state;
 
-uint32_t yella_saved_state_count(yella_saved_state* bs);
+uint32_t yella_saved_state_boot_count(const yella_saved_state* bs);
 void yella_destroy_saved_state(yella_saved_state* bs);
 yella_saved_state* yella_load_saved_state(void);
 yella_rc yella_save_saved_state(yella_saved_state* bs);

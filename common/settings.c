@@ -33,7 +33,7 @@ typedef struct setting
     union
     {
         char* text;
-        uint32_t uint32;
+        uint64_t uint;
     } value;
     yella_setting_value_type type;
     char color;
@@ -71,9 +71,9 @@ static void handle_yaml_node(const yaml_node_t* node,
             {
                 yella_settings_set_text(key_desc->key, node->data.scalar.value); 
             }
-            else if (key_desc->type == YELLA_SETTING_VALUE_UINT32)
+            else if (key_desc->type == YELLA_SETTING_VALUE_UINT)
             {
-                yella_settings_set_uint32(key_desc->key, yella_text_to_int(node->data.scalar.value));
+                yella_settings_set_uint(key_desc->key, yella_text_to_int(node->data.scalar.value));
             }
         }
     }
@@ -233,7 +233,7 @@ void yella_retrieve_settings(const yella_setting_desc* desc, size_t count)
     }
 }
 
-const uint32_t* yella_settings_get_uint32(const char* const key)
+const uint64_t* yella_settings_get_uint(const char* const key)
 {
     setting to_find;
     setting* found;
@@ -247,14 +247,14 @@ const uint32_t* yella_settings_get_uint32(const char* const key)
                        key);
         return NULL;
     }
-    else if(found->type != YELLA_SETTING_VALUE_UINT32)
+    else if(found->type != YELLA_SETTING_VALUE_UINT)
     {
         CHUCHO_C_ERROR(yella_logger("yella.common"),
-                       "The setting %s is not of type uint32_t",
+                       "The setting %s is not of type uint",
                        key);
         return NULL;
     }
-    return &found->value.uint32;
+    return &found->value.uint;
 }
 
 const char* yella_settings_get_text(const char* const key)
@@ -281,7 +281,7 @@ const char* yella_settings_get_text(const char* const key)
     return found->value.text;
 }
 
-void yella_settings_set_uint32(const char* const key, uint32_t val)
+void yella_settings_set_uint(const char* const key, uint64_t val)
 {
     setting to_find;
     setting* found;
@@ -292,13 +292,13 @@ void yella_settings_set_uint32(const char* const key, uint32_t val)
     {
         found = malloc(sizeof(setting));
         found->key = yella_text_dup(key);
-        found->value.uint32 = val;
-        found->type = YELLA_SETTING_VALUE_UINT32;
+        found->value.uint = val;
+        found->type = YELLA_SETTING_VALUE_UINT;
         sglib_setting_add(&settings, found);
     }
     else
     {
-        found->value.uint32 = val;
+        found->value.uint = val;
     }
 }
 

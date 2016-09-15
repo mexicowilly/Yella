@@ -75,16 +75,16 @@ static void initial_settings(void** arg)
 
 static void get_set(void** arg)
 {
-    const uint32_t* val;
+    const uint64_t* val;
     const char* str;
 
-    yella_settings_set_uint32("int-test", 67);
-    val = yella_settings_get_uint32("int-test");
+    yella_settings_set_uint("int-test", 67);
+    val = yella_settings_get_uint("int-test");
     assert_non_null(val);
     assert_int_equal(*val, 67);
-    val = yella_settings_get_uint32("config-file");
+    val = yella_settings_get_uint("config-file");
     assert_null(val);
-    val = yella_settings_get_uint32("doggy");
+    val = yella_settings_get_uint("doggy");
     assert_null(val);
     yella_settings_set_text("text-test", "whoa");
     str = yella_settings_get_text("text-test");

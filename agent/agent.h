@@ -17,15 +17,14 @@
 #if !defined(AGENT_H__)
 #define AGENT_H__
 
-#include "router.h"
+#include <stdint.h>
+#include <stddef.h>
 
-typedef struct yella_agent
-{
-    yella_uuid identity;
-    yella_router* router;
-} yella_agent;
+typedef struct yella_agent yella_agent;
 
-void yella_agent_run(void);
-void yella_agent_send(const uint8_t* msg, size_t size);
+yella_agent* yella_create_agent(void);
+void yella_destroy_agent(yella_agent* agent);
+void yella_agent_run(yella_agent* agent);
+void yella_agent_send(yella_agent* agent, const uint8_t* msg, size_t size);
 
 #endif

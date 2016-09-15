@@ -25,8 +25,17 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <limits.h>
+#include <dirent.h>
 
 const char* YELLA_DIR_SEP = "/";
+
+struct yella_directory_iterator
+{
+    DIR* dir;
+    struct dirent* entry;
+    char fqn[PATH_MAX + 1];
+    size_t dir_name_len;
+};
 
 static bool yella_do_stat(const char* const name, struct stat* info)
 {
@@ -127,6 +136,56 @@ yella_rc yella_create_directory(const char* const name)
     return result;
 }
 
+yella_directory_iterator* yella_create_directory_iterator(const char* const dir)
+{
+    yella_directory_iterator* result;
+    int err;
+    size_t len;
+
+    result = malloc(sizeof(yella_directory_iterator));
+    result->dir = opendir(dir);
+    if (result->dir == NULL)
+    {
+        err = errno;
+        CHUCHO_C_ERROR(yella_logger("yella.common"),
+                       "Could not open directory %s for reading: %s",
+                       dir,
+                       strerror(err));
+        free(result);
+        return NULL;
+    }
+    result->entry = malloc(sizeof(struct dirent) + NAME_MAX + 1);
+    strcpy(result->fqn, dir);
+    len = strlen(result->fqn);
+    if (result->fqn[len - 1] != YELLA_DIR_SEP[0])
+        strcat(result->fqn, YELLA_DIR_SEP);
+    result->dir_name_len = strlen(result->fqn);
+    return result;
+}
+
+void yella_destroy_directory_iterator(yella_directory_iterator* itor)
+{
+    free(itor->entry);
+    closedir(itor->dir);
+    free(itor);
+}
+
+const char* yella_directory_iterator_next(yella_directory_iterator* itor)
+{
+    struct dirent* found;
+
+    do
+    {
+        readdir_r(itor->dir, itor->entry, &found);
+    } while (found != NULL &&
+             (strcmp(found->d_name, ".") == 0 || strcmp(found->d_name, "..") == 0));
+    if (found == NULL)
+        return NULL;
+    itor->fqn[itor->dir_name_len] = 0;
+    strcat(itor->fqn, found->d_name);
+    return itor->fqn;
+}
+
 char* yella_dir_name(const char* const path)
 {
     size_t len;
@@ -198,9 +257,9 @@ bool yella_file_exists(const char* const name)
     return access(name, F_OK) == 0;
 }
 
-uint64_t yella_file_size(const char* const name)
+uintmax_t yella_file_size(const char* const name)
 {
     struct stat info;
 
-    return yella_do_stat(name, &info) ? info.st_size : UINT64_MAX;
+    return yella_do_stat(name, &info) ? info.st_size : UINTMAX_MAX;
 }

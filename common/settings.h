@@ -25,7 +25,7 @@
 typedef enum yella_setting_value_type
 {
     YELLA_SETTING_VALUE_TEXT,
-    YELLA_SETTING_VALUE_UINT32
+    YELLA_SETTING_VALUE_UINT
 } yella_setting_value_type;
 
 typedef struct yella_setting_desc
@@ -39,9 +39,9 @@ YELLA_EXPORT void yella_destroy_settings_doc(void);
 YELLA_EXPORT void yella_initialize_settings(void);
 YELLA_EXPORT yella_rc yella_load_settings_doc(void);
 YELLA_EXPORT void yella_retrieve_settings(const yella_setting_desc* desc, size_t count);
-YELLA_EXPORT const uint32_t* yella_settings_get_uint32(const char* const key);
+YELLA_EXPORT const uint64_t* yella_settings_get_uint(const char* const key);
 YELLA_EXPORT const char* yella_settings_get_text(const char* const key);
-YELLA_EXPORT void yella_settings_set_uint32(const char* const key, uint32_t val);
+YELLA_EXPORT void yella_settings_set_uint(const char* const key, uint64_t val);
 YELLA_EXPORT void yella_settings_set_text(const char* const key, const char* const val);
 
 #endif

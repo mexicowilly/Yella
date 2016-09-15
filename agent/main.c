@@ -39,19 +39,6 @@ static void process_command_line(int argc, char* argv[])
     }
 }
 
-static void retrieve_agent_settings(void)
-{
-    yella_setting_desc descs[] =
-    {
-        { "data-dir", YELLA_SETTING_VALUE_TEXT },
-        { "log-dir", YELLA_SETTING_VALUE_TEXT },
-        { "plugin-dir", YELLA_SETTING_VALUE_TEXT },
-        { "spool-dir", YELLA_SETTING_VALUE_TEXT },
-        { "router", YELLA_SETTING_VALUE_TEXT }
-    };
-    yella_retrieve_settings(descs, 5);
-}
-
 int main(int argc, char* argv[])
 {
     yella_initialize_settings();
@@ -59,10 +46,6 @@ int main(int argc, char* argv[])
     chucho_cnf_set_file_name(yella_settings_get_text("config-file"));
     CHUCHO_C_INFO(yella_logger("yella"),
                   "Yella version " YELLA_VALUE_STR(YELLA_VERSION) " is starting");
-    yella_load_settings_doc();
-    retrieve_agent_settings();
-    /* load plugins */
-    yella_destroy_settings_doc();
     /* run the app */
     yella_destroy_settings();
     yella_destroy_loggers();

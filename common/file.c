@@ -31,7 +31,7 @@ yella_rc yella_file_contents(const char* const name, uint8_t** contents)
     if (!yella_file_exists(name))
         return YELLA_DOES_NOT_EXIST;
     size = yella_file_size(name);
-    f = fopen(name, "r");
+    f = fopen(name, "rb");
     if (f == NULL)
     {
         err = errno;
