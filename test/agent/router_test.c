@@ -197,10 +197,18 @@ static void send(void** arg)
     yella_destroy_sender(sndr);
 }
 
+
+static void state_changed(yella_router_state st, void* data)
+{
+    if (st == YELLA_ROUTER_CONNECTED)
+        yella_signal_event((yella_event*)data);
+}
+
 static int set_up(void** arg)
 {
     test_state* targ;
     yella_uuid* id;
+    yella_event* state_event;
 
     *arg = malloc(sizeof(test_state));
     targ = *arg;
@@ -212,6 +220,10 @@ static int set_up(void** arg)
     yella_settings_set_uint("poll-milliseconds", 500);
     targ->id = yella_create_uuid();
     targ->rtr = yella_create_router(targ->id);
+    state_event = yella_create_event();
+    yella_set_router_state_callback(targ->rtr, state_changed, state_event);
+    yella_wait_for_event(state_event);
+    yella_destroy_event(state_event);
     return 0;
 }
 
