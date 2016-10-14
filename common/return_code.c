@@ -36,5 +36,7 @@ const char* yella_strerror(yella_rc rc)
         return "No permission";
     else if (rc == YELLA_ALREADY_EXISTS)
         return "Already exists";
+    else if (rc == YELLA_WRITE_ERROR)
+        return "Write error";
     return "";
 }

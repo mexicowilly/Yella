@@ -32,6 +32,7 @@ typedef enum
 } yella_router_state;
 
 typedef struct yella_router yella_router;
+typedef struct yella_sender yella_sender;
 
 typedef struct yella_msg_part
 {
@@ -40,19 +41,28 @@ typedef struct yella_msg_part
 } yella_msg_part;
 
 typedef void (*yella_router_state_callback)(yella_router_state, void*);
+typedef void (*yella_router_message_received_callback)(const uint8_t* header,
+                                                       size_t header_len,
+                                                       const uint8_t* body,
+                                                       size_t body_len,
+                                                       void* caller_data);
 
 yella_router* yella_create_router(yella_uuid* id);
 void yella_destroy_router(yella_router* rtr);
-void yella_router_receive(yella_router* rtr,
-                          yella_msg_part* part,
-                          size_t count,
-                          size_t milliseconds_to_wait);
+yella_router_state yella_router_get_state(yella_router* rtr);
+void yella_set_router_state_callback(yella_router* rtr,
+                                     yella_router_state_callback cb,
+                                     void* data);
+void yella_set_router_message_received_callback(yella_router* rtr,
+                                                yella_router_message_received_callback cb,
+                                                void* data);
+
+yella_sender* yella_create_sender(yella_router* rtr);
+void yella_destroy_sender(yella_sender* sndr);
 /**
  * @note This function takes ownership of the data, but not of the msgs
  * array itself.
  */
-bool yella_router_send(yella_router* rtr, yella_msg_part* msgs, size_t count);
-yella_router_state yella_router_get_state(yella_router* rtr);
-void yella_set_router_state_callback(yella_router* rtr, yella_router_state_callback cb, void* data);
+bool yella_send(yella_sender* sndr, yella_msg_part* msgs, size_t count);
 
 #endif

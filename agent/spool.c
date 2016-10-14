@@ -101,23 +101,26 @@ static void add_to_spool_size(yella_spool* sp, intmax_t val)
     double pct;
     const uint64_t* max_total;
 
-    yella_lock_mutex(sp->size_guard);
-    assert(val >= 0 || -val >= sp->size);
-    sp->size += val;
-    max_total = yella_settings_get_uint("max-total-spool");
-    assert(max_total != NULL);
-    pct = sp->size * 100.0 / (double)*max_total;
-    if (fabs(pct - last_reported_pct) >= 10.0)
+    if (val != 0)
     {
-        last_reported_pct = trunc(pct / 10.0);
-        CHUCHO_C_INFO(yella_logger("yella.spool"),
-                      "The spool is at %0f%% of capacity (%ju bytes)",
-                      last_reported_pct,
-                      sp->size);
+        yella_lock_mutex(sp->size_guard);
+        assert(val > 0 || -val >= sp->size);
+        sp->size += val;
+        max_total = yella_settings_get_uint("max-total-spool");
+        assert(max_total != NULL);
+        pct = sp->size * 100.0 / (double)*max_total;
+        if (fabs(pct - last_reported_pct) >= 10.0)
+        {
+            last_reported_pct = trunc(pct / 10.0);
+            CHUCHO_C_INFO(yella_logger("yella.spool"),
+                          "The spool is at %0f%% of capacity (%ju bytes)",
+                          last_reported_pct,
+                          sp->size);
+        }
+        if (sp->size_notification != NULL)
+            sp->size_notification(pct, sp->size_notification_data);
+        yella_unlock_mutex(sp->size_guard);
     }
-    if (sp->size_notification != NULL)
-        sp->size_notification(pct, sp->size_notification_data);
-    yella_unlock_mutex(sp->size_guard);
 }
 
 static bool increment_write_spool_partition(yella_spool* sp)
@@ -458,12 +461,14 @@ static void reader_thread_main(void* arg)
     uint32_t msg_size;
     long start_pos;
     long end_pos;
+    yella_sender* sndr;
 
     sp = (yella_spool*)arg;
     ch_data.guard = yella_create_mutex();
     ch_data.cond = yella_create_condition_variable();
     ch_data.st = yella_router_get_state(sp->rtr);
     yella_set_router_state_callback(sp->rtr, router_state_changed, &ch_data);
+    sndr = yella_create_sender(sp->rtr);
     msgs_capacity = 0;
     msgs = NULL;
     while (true)
@@ -511,7 +516,7 @@ static void reader_thread_main(void* arg)
                 /* error */
             }
         }
-        if (yella_router_send(sp->rtr, msgs, msg_count))
+        if (yella_send(sndr, msgs, msg_count))
         {
             msg_count |= YELLA_VISITED_BIT;
             end_pos = ftell(sp->readf);
@@ -530,6 +535,7 @@ static void reader_thread_main(void* arg)
     free(msgs);
     yella_destroy_condition_variable(ch_data.cond);
     yella_destroy_mutex(ch_data.guard);
+    yella_destroy_sender(sndr);
     CHUCHO_C_INFO(yella_logger("yella.spool"),
                   "The spool reader thread is exiting");
 }
@@ -561,6 +567,7 @@ static uintmax_t current_spool_size()
     {
         if (is_spool_file(cur))
             result += yella_file_size(cur);
+        cur = yella_directory_iterator_next(itor);
     }
     yella_destroy_directory_iterator(itor);
     return result;
@@ -569,8 +576,6 @@ static uintmax_t current_spool_size()
 yella_spool* yella_create_spool(const yella_saved_state* state, yella_router* rtr)
 {
     yella_spool* sp;
-    char* fname;
-    int err;
 
     sp = malloc(sizeof(yella_spool));
     /* You don't own the router */

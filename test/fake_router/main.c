@@ -14,25 +14,8 @@
  *    limitations under the License.
  */
 
-#if !defined(RETURN_CODE_H__)
-#define RETURN_CODE_H__
+#include <zmq.h>
 
-#include "export.h"
-
-typedef enum
+int main(int argc, char* argv[])
 {
-    YELLA_NO_ERROR,
-    YELLA_TOO_BIG,
-    YELLA_INVALID_FORMAT,
-    YELLA_LOGIC_ERROR,
-    YELLA_DOES_NOT_EXIST,
-    YELLA_READ_ERROR,
-    YELLA_FILE_SYSTEM_ERROR,
-    YELLA_NO_PERMISSION,
-    YELLA_ALREADY_EXISTS,
-    YELLA_WRITE_ERROR
-} yella_rc;
-
-YELLA_EXPORT const char* yella_strerror(yella_rc rc);
-
-#endif
+}

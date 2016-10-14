@@ -41,12 +41,16 @@ static void retrieve_agent_settings(void)
         { "spool-dir", YELLA_SETTING_VALUE_TEXT },
         { "router", YELLA_SETTING_VALUE_TEXT },
         { "max-total-spool", YELLA_SETTING_VALUE_UINT },
-        { "max-spool-partition", YELLA_SETTING_VALUE_UINT }
+        { "max-spool-partition", YELLA_SETTING_VALUE_UINT },
+        { "reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
+        { "poll-milliseconds", YELLA_SETTING_VALUE_UINT }
     };
 
     yella_settings_set_uint("max-total-spool", 1 * YELLA_GIGABYTE);
     yella_settings_set_uint("max-spool-partition", 2 * YELLA_MEGABYTE);
-    yella_retrieve_settings(descs, 7);
+    yella_settings_set_uint("reconnect-timeout-seconds", 5);
+    yella_settings_set_uint("poll-milliseconds", 500);
+    yella_retrieve_settings(descs, sizeof(descs) / sizeof(descs[0]));
 }
 
 yella_agent* yella_create_agent(void)

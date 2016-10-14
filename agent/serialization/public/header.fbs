@@ -16,11 +16,39 @@
 
 namespace yella.fb;
 
-table saved_state
+enum compression : byte
 {
-    boot_count: uint;
-    uuid: [ubyte];
-    mac_addrs: [ulong];
+    NONE,
+    LZ4
 }
 
-root_type saved_state;
+enum group_disposition : byte
+{
+    MORE,
+    END
+}
+
+table sequence
+{
+    major: uint;
+    minor: uint;
+}
+
+table group
+{
+    identifier: string;
+    disposition: group_disposition;
+}
+
+table header
+{
+    seconds_since_epoch: ulong;
+    sender: string;
+    recipient: string;
+    message_type: string;
+    seq: sequence;
+    grp: group;
+    cmp: compression;
+}
+
+root_type header;

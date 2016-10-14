@@ -38,7 +38,8 @@ ADD_EXECUTABLE(yella
                ${YELLA_PLATFORM_SOURCES})
 
 YELLA_GEN_TARGET(yella
-                 "${CMAKE_CURRENT_SOURCE_DIR}/serialization/private/saved_state.fbs")
+                 serialization/private/saved_state.fbs
+                 serialization/public/header.fbs)
 
 TARGET_LINK_LIBRARIES(yella
                       common

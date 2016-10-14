@@ -16,11 +16,32 @@
 
 namespace yella.fb;
 
-table saved_state
+table read_burst
 {
-    boot_count: uint;
-    uuid: [ubyte];
-    mac_addrs: [ulong];
+    count: uint;
+    messages_per_second: double;
 }
 
-root_type saved_state;
+table read_pause
+{
+    milliseconds: uint;
+    disconnect: bool;
+}
+
+union read_step_impl
+{
+    read_burst,
+    read_pause
+}
+
+table read_step
+{
+    step: read_step_impl;
+}
+
+table spool_test
+{
+    steps: [read_step];
+}
+
+root_type spool_test;
