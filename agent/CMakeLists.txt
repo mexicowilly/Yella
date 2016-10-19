@@ -28,6 +28,8 @@ ADD_EXECUTABLE(yella
                agent.c
                agent.h
                main.c
+               message_header.c
+               message_header.h
                router.c
                router.h
                saved_state.c

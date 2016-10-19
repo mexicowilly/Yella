@@ -305,6 +305,8 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
     zmq_msg_t delim;
     zmq_msg_t header;
     zmq_msg_t body;
+    yella_msg_part hpart;
+    yella_msg_part bpart;
     int rc;
     size_t overcount;
 
@@ -376,11 +378,11 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
     }
     if (rtr->recv_callback != NULL)
     {
-        rtr->recv_callback(zmq_msg_data(&header),
-                           zmq_msg_size(&header),
-                           zmq_msg_data(&body),
-                           zmq_msg_size(&body),
-                           rtr->recv_callback_data);
+        hpart.data = zmq_msg_data(&header);
+        hpart.size = zmq_msg_size(&header);
+        bpart.data = zmq_msg_data(&body);
+        bpart.size = zmq_msg_size(&body);
+        rtr->recv_callback(&hpart, &bpart, rtr->recv_callback_data);
     }
     zmq_msg_close(&header);
     zmq_msg_close(&body);

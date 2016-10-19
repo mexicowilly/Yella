@@ -152,16 +152,14 @@ static void server_thread(void* p)
     zmq_ctx_destroy(ctx);
 }
 
-static void message_received(const uint8_t* header,
-                             size_t header_len,
-                             const uint8_t* body,
-                             size_t body_len,
+static void message_received(const yella_msg_part* header,
+                             const yella_msg_part* body,
                              void* caller_data)
 {
-    assert_int_equal(1, header_len);
-    assert_int_equal('h', *header);
-    assert_int_equal(body_len, strlen(YELLA_MSG_TO_SEND));
-    assert_true(memcmp(body, YELLA_MSG_TO_SEND, body_len) == 0);
+    assert_int_equal(1, header->size);
+    assert_int_equal('h', *header->data);
+    assert_int_equal(strlen(YELLA_MSG_TO_SEND), body->size);
+    assert_true(memcmp(body->data, YELLA_MSG_TO_SEND, body->size) == 0);
     CHUCHO_C_INFO(yella_logger("router-test"),
                   "Received message data back");
     yella_signal_event((yella_event*)caller_data);

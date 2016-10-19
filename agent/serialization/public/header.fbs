@@ -36,7 +36,8 @@ table sequence
 
 table group
 {
-    identifier: string;
+    // If you call this 'identifier', it causes compilation problems
+    id: string;
     disposition: group_disposition;
 }
 
