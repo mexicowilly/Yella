@@ -46,10 +46,10 @@ table header
     seconds_since_epoch: ulong;
     sender: string;
     recipient: string;
-    message_type: string;
+    type: string;
+    cmp: compression;
     seq: sequence;
     grp: group;
-    cmp: compression;
 }
 
 root_type header;

@@ -149,7 +149,7 @@ static void server_thread(void* p)
         assert_true(false);
     }
     zmq_close(sock);
-    zmq_ctx_destroy(ctx);
+    zmq_ctx_term(ctx);
 }
 
 static void message_received(const yella_msg_part* header,

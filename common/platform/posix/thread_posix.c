@@ -18,6 +18,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <errno.h>
 
 struct yella_event
 {
@@ -134,6 +135,21 @@ void yella_signal_event(yella_event* evt)
     evt->signaled = true;
     pthread_cond_broadcast(&evt->cnd);
     pthread_mutex_unlock(&evt->mtx);
+}
+
+void yella_sleep_this_thread(unsigned milliseconds)
+{
+    struct timespec to_wait;
+    struct timespec remaining;
+    int rc;
+
+    to_wait.tv_sec = milliseconds / 1000;
+    to_wait.tv_nsec = (milliseconds % 1000) * 1000000;
+    do
+    {
+        rc = nanosleep(&to_wait, &remaining);
+        to_wait = remaining;
+    } while (rc != 0 && errno == EINTR);
 }
 
 void yella_unlock_mutex(yella_mutex* mtx)

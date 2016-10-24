@@ -21,6 +21,7 @@
 #include <stddef.h>
 
 typedef struct yella_ptr_vector yella_ptr_vector;
+typedef void (*yella_ptr_destructor)(void* elem, void* udata);
 
 YELLA_EXPORT yella_ptr_vector* yella_create_ptr_vector(void);
 YELLA_EXPORT void yella_clear_ptr_vector(yella_ptr_vector* v);
@@ -32,5 +33,6 @@ YELLA_EXPORT void* yella_ptr_vector_at(yella_ptr_vector* v, unsigned off);
 YELLA_EXPORT size_t yella_ptr_vector_size(yella_ptr_vector* v);
 YELLA_EXPORT void yella_push_back_ptr_vector(yella_ptr_vector* v, void* p);
 YELLA_EXPORT void yella_push_front_ptr_vector(yella_ptr_vector* v, void* p);
+YELLA_EXPORT void yella_set_ptr_vector_destructor(yella_ptr_vector* v, yella_ptr_destructor pd, void* udata);
 
 #endif

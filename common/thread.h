@@ -53,6 +53,11 @@ YELLA_EXPORT void yella_wait_milliseconds_for_condition_variable(yella_condition
                                                                  unsigned milliseconds);
 
 /**
+ * Sleep
+ */
+YELLA_EXPORT void yella_sleep_this_thread(unsigned milliseconds);
+
+/**
  * Threads
  */
 typedef struct yella_thread yella_thread;

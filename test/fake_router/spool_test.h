@@ -14,28 +14,11 @@
  *    limitations under the License.
  */
 
-#include "fake_router.h"
-#include "spool_test.h"
-#include <zmq.h>
-#include <string.h>
-#include <stdbool.h>
-#include <stdlib.h>
+#if !defined(YELLA_SPOOL_TEST_H__)
+#define YELLA_SPOOL_TEST_H__
 
-int main(int argc, char* argv[])
-{
-    void* zmctx;
-    void* sock;
-    msg_pair mp;
+#include <stdint.h>
 
-    zmctx = zmq_ctx_new();
-    sock = create_socket(zmctx);
-    while (true)
-    {
-        mp = read_message(sock);
-        if (strcmp(mp.hdr->type, "spool_test") == 0)
-            sock = spool_test(zmctx, sock, mp.body);
-    }
-    zmq_close(sock);
-    zmq_ctx_term(zmctx);
-    return EXIT_SUCCESS;
-}
+void* spool_test(void* ctx, void* sock, const uint8_t const* msg);
+
+#endif

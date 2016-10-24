@@ -129,13 +129,43 @@ static void big(void** arg)
     yella_destroy_ptr_vector(vec);
 }
 
+struct test_destructor_data
+{
+    int val;
+};
+
+static void test_destructor(void* p, void* udata)
+{
+    struct test_destructor_data* d;
+
+    d = (struct test_destructor_data*)udata;
+    d->val = -1;
+    free(p);
+}
+
+static void destructor(void** arg)
+{
+    yella_ptr_vector* vec;
+    struct test_destructor_data tdd;
+    int* p;
+
+    tdd.val = 1;
+    vec = yella_create_ptr_vector();
+    yella_set_ptr_vector_destructor(vec, test_destructor, &tdd);
+    p = malloc(sizeof(int));
+    yella_push_back_ptr_vector(vec, p);
+    yella_destroy_ptr_vector(vec);
+    assert_int_equal(tdd.val, -1);
+}
+
 int main()
 {
     const struct CMUnitTest tests[] =
     {
         cmocka_unit_test(simple),
         cmocka_unit_test(erase),
-        cmocka_unit_test(big)
+        cmocka_unit_test(big),
+        cmocka_unit_test(destructor)
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

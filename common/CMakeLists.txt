@@ -16,7 +16,8 @@
 
 SET(COMMON_SO_VERSION 1)
 
-INCLUDE_DIRECTORIES("${YELLA_LIBYAML_INCLUDE_DIR}")
+INCLUDE_DIRECTORIES("${YELLA_LIBYAML_INCLUDE_DIR}"
+                    "${YELLA_FLATCC_INCLUDE_DIR}")
 
 IF(YELLA_POSIX)
     SET(COMMON_PLATFORM_SOURCES
@@ -34,6 +35,8 @@ ADD_LIBRARY(common SHARED
             log.c
             log.h
             macro_util.h
+            message_header.c
+            message_header.h
             ptr_list.c
             ptr_list.h
             ptr_vector.c
@@ -54,7 +57,10 @@ IF(DEFINED YELLA_SO_FLAGS)
     SET_TARGET_PROPERTIES(common PROPERTIES
                           COMPILE_FLAGS "${YELLA_SO_FLAGS}")
 ENDIF()
+YELLA_GEN_TARGET(common
+                 serialization/public/header.fbs)
 TARGET_LINK_LIBRARIES(common
+                      "${YELLA_FLATCC_LIB}"
                       "${YELLA_CHUCHO_LIB}"
                       "${YELLA_LIBYAML_LIB}"
                       ${CMAKE_THREAD_LIBS_INIT})

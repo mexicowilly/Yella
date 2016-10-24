@@ -14,8 +14,8 @@
 #    limitations under the License.
 #
 
-INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}"
-                    "${YELLA_ZEROMQ_INCLUDE_DIR}")
+INCLUDE_DIRECTORIES("${YELLA_ZEROMQ_INCLUDE_DIR}"
+                    "${YELLA_FLATCC_INCLUDE_DIR}")
 
 IF(YELLA_POSIX)
     INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
@@ -28,8 +28,6 @@ ADD_EXECUTABLE(yella
                agent.c
                agent.h
                main.c
-               message_header.c
-               message_header.h
                router.c
                router.h
                saved_state.c
@@ -40,13 +38,11 @@ ADD_EXECUTABLE(yella
                ${YELLA_PLATFORM_SOURCES})
 
 YELLA_GEN_TARGET(yella
-                 serialization/private/saved_state.fbs
-                 serialization/public/header.fbs)
+                 serialization/private/saved_state.fbs)
 
 TARGET_LINK_LIBRARIES(yella
                       common
                       "${YELLA_ZEROMQ_LIB}"
-                      "${YELLA_FLATCC_LIB}"
                       m)
 IF(YELLA_POSIX)
     TARGET_LINK_LIBRARIES(yella "${YELLA_UUID_LIB}")

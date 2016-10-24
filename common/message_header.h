@@ -17,6 +17,7 @@
 #if !defined(MESSAGE_HEADER_H__)
 #define MESSAGE_HEADER_H__
 
+#include "export.h"
 #include <stdint.h>
 #include <time.h>
 
@@ -44,18 +45,20 @@ typedef struct yella_group
     yella_group_disposition disposition;
 } yella_group;
 
-typedef struct yella_message_header yella_message_header;
+typedef struct yella_message_header
+{
+    time_t time;
+    char* sender;
+    char* recipient;
+    char* type;
+    yella_compression cmp;
+    yella_sequence* seq;
+    yella_group* grp;
+} yella_message_header;
 
-uint8_t* yella_pack_mhdr(const yella_message_header const* mhdr, size_t* size);
-yella_message_header* yella_unpack_mhdr(const uint8_t const* bytes);
-void yella_destroy_mhdr(yella_message_header* mhdr);
-
-const yella_compression yella_mhdr_get_compression(const yella_message_header const* mhdr);
-const yella_group* yella_mhdr_get_group(const yella_message_header const* mhdr);
-const char* yella_mhdr_get_message_type(const yella_message_header const* mhdr);
-const char* yella_mhdr_get_recipient(const yella_message_header const* mhdr);
-const char* yella_mhdr_get_sender(const yella_message_header const* mhdr);
-const yella_sequence* yella_mhdr_get_sequence(const yella_message_header const* mhdr);
-time_t yella_mhdr_get_time(const yella_message_header const* mhdr);
+YELLA_EXPORT yella_message_header* yella_create_mhdr(void);
+YELLA_EXPORT void yella_destroy_mhdr(yella_message_header* mhdr);
+YELLA_EXPORT uint8_t* yella_pack_mhdr(const yella_message_header const* mhdr, size_t* size);
+YELLA_EXPORT yella_message_header* yella_unpack_mhdr(const uint8_t const* bytes);
 
 #endif
