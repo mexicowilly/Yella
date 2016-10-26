@@ -14,9 +14,12 @@
 #    limitations under the License.
 #
 
-YELLA_TEST(router_test ${YELLA_ZEROMQ_LIB} ${YELLA_UUID_LIB})
+INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}")
 IF(YELLA_POSIX)
-    TARGET_INCLUDE_DIRECTORIES(router_test PRIVATE
-                               "${YELLA_UUID_INCLUDE_DIR}")
+    INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
 ENDIF()
 
+YELLA_TEST(router-test ${YELLA_ZEROMQ_LIB} ${YELLA_UUID_LIB})
+YELLA_TEST(spool-test ${YELLA_ZEROMQ_LIB} ${YELLA_UUID_LIB} m)
+
+ADD_DEPENDENCIES(spool-test yella-gen fake-router-gen)

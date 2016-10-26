@@ -14,29 +14,18 @@
  *    limitations under the License.
  */
 
-#include "fake_router.h"
-#include "spool_test.h"
-#include <zmq.h>
-#include <string.h>
-#include <stdbool.h>
-#include <stdlib.h>
+#if defined(YELLA_POSIX)
+#include "agent/platform/posix/yella_uuid_posix.c"
+#endif
+#include "agent/router.c"
+#include "agent/saved_state.c"
+#include "agent/spool.c"
+#include <stdarg.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <cmocka.h>
 
-int main(int argc, char* argv[])
+int main()
 {
-    void* zmctx;
-    void* sock;
-    msg_pair* mp;
 
-    zmctx = zmq_ctx_new();
-    sock = create_socket(zmctx);
-    while (true)
-    {
-        mp = read_message(sock);
-        if (strcmp(mp->hdr->type, "spool_test") == 0)
-            sock = spool_test(zmctx, sock, mp->body);
-        destroy_msg_pair(mp);
-    }
-    zmq_close(sock);
-    zmq_ctx_term(zmctx);
-    return EXIT_SUCCESS;
 }

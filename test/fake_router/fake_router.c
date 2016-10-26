@@ -32,17 +32,25 @@ void* create_socket(void* ctx)
     return sock;
 }
 
-msg_pair read_message(void* sock)
+void destroy_msg_pair(msg_pair* mp)
+{
+    yella_destroy_mhdr(mp->hdr);
+    free(mp->body);
+    free(mp);
+}
+
+msg_pair* read_message(void* sock)
 {
     zmq_msg_t id;
     zmq_msg_t delim;
     zmq_msg_t hdr;
     zmq_msg_t body;
     int rc;
-    msg_pair result;
+    msg_pair* result;
 
-    result.hdr = NULL;
-    result.body = NULL;
+    result = malloc(sizeof(msg_pair));
+    result->hdr = NULL;
+    result->body = NULL;
     zmq_msg_init(&id);
     rc = zmq_msg_recv(&id, sock, 0);
     assert(rc != -1);
@@ -59,15 +67,15 @@ msg_pair read_message(void* sock)
     assert(rc != -1);
     assert(zmq_msg_more(&hdr) != 0);
     assert(zmq_msg_size(&hdr) > 0);
-    result.hdr = yella_unpack_mhdr(zmq_msg_data(&hdr));
+    result->hdr = yella_unpack_mhdr(zmq_msg_data(&hdr));
     zmq_msg_close(&hdr);
     zmq_msg_init(&body);
     rc = zmq_msg_recv(&body, sock, 0);
     assert(rc != -1);
     assert(zmq_msg_more(&body) == 0);
     assert(zmq_msg_size(&body) > 0);
-    result.body = malloc(zmq_msg_size(&body));
-    memcpy(result.body, zmq_msg_data(&body), zmq_msg_size(&body));
+    result->body = malloc(zmq_msg_size(&body));
+    memcpy(result->body, zmq_msg_data(&body), zmq_msg_size(&body));
     zmq_msg_close(&body);
     return result;
 }

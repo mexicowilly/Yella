@@ -19,6 +19,7 @@ namespace yella.fb;
 table read_burst
 {
     count: uint;
+    // messages_per_second is optional
     messages_per_second: double;
 }
 

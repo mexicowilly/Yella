@@ -26,6 +26,7 @@ typedef struct msg_pair
 } msg_pair;
 
 void* create_socket(void* ctx);
-msg_pair read_message(void* sock);
+void destroy_msg_pair(msg_pair* mp);
+msg_pair* read_message(void* sock);
 
 #endif

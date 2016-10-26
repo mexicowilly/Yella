@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-YELLA_TEST(settings_test)
-YELLA_TEST(file_test)
-YELLA_TEST(ptr_list_test)
-YELLA_TEST(ptr_vector_test)
+YELLA_TEST(settings-test)
+YELLA_TEST(file-test)
+YELLA_TEST(ptr-list-test)
+YELLA_TEST(ptr-vector-test)

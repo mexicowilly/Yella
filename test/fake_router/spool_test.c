@@ -40,7 +40,7 @@ typedef struct read_step
     read_pause* pause;
 } read_step;
 
-void destroy_read_step(void* p, void* udata)
+static void destroy_read_step(void* p, void* udata)
 {
     read_step* rs;
 
@@ -50,7 +50,7 @@ void destroy_read_step(void* p, void* udata)
     free(rs);
 }
 
-yella_ptr_vector* unpack_spool_test(const uint8_t const* msg)
+static yella_ptr_vector* unpack_spool_test(const uint8_t const* msg)
 {
     yella_ptr_vector* vec;
     yella_fb_read_step_vec_t steps;
@@ -73,7 +73,8 @@ yella_ptr_vector* unpack_spool_test(const uint8_t const* msg)
             cur->burst = malloc(sizeof(read_burst));
             cur->pause = NULL;
             cur->burst->count = yella_fb_read_burst_count(burst);
-            cur->burst->messages_per_second = yella_fb_read_burst_messages_per_second(burst);
+            cur->burst->messages_per_second = yella_fb_read_burst_messages_per_second_is_present(burst) ?
+                yella_fb_read_burst_messages_per_second(burst) :-1.0;
         }
         else if (yella_fb_read_step_step_type(step) == yella_fb_read_step_impl_read_pause)
         {
@@ -98,6 +99,9 @@ void* spool_test(void* ctx, void* sock, const uint8_t const* msg)
     yella_ptr_vector* steps;
     unsigned i;
     read_step* step;
+    uint32_t j;
+    msg_pair* mp;
+    double msgs_per_sec;
 
     steps = unpack_spool_test(msg);
     for (i = 0; i < yella_ptr_vector_size(steps); i++)
@@ -105,6 +109,12 @@ void* spool_test(void* ctx, void* sock, const uint8_t const* msg)
         step = yella_ptr_vector_at(steps, i);
         if (step->burst != NULL)
         {
+            msgs_per_sec = 0.0;
+            for (j = 0; j < step->burst->count; j++)
+            {
+                mp = read_message(sock);
+                destroy_msg_pair(mp);
+            }
         }
         else if (step->pause != NULL)
         {
