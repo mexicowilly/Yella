@@ -22,4 +22,4 @@ ENDIF()
 YELLA_TEST(router-test ${YELLA_ZEROMQ_LIB} ${YELLA_UUID_LIB})
 YELLA_TEST(spool-test ${YELLA_ZEROMQ_LIB} ${YELLA_UUID_LIB} m)
 
-ADD_DEPENDENCIES(spool-test yella-gen fake-router-gen)
+ADD_DEPENDENCIES(spool-test yella-gen)

@@ -21,6 +21,7 @@
 #include "common/settings.h"
 #include "common/file.h"
 #include "common/log.h"
+#include "common/text_util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -31,35 +32,25 @@ struct yella_saved_state
     yella_uuid* id;
 };
 
-static char* yella_bs_file_name(void)
+static char* ss_file_name(void)
 {
-    const char* data_dir;
-    const char* bs_part;
-    char* fname;
-
-    data_dir = yella_settings_get_text("data-dir");
-    bs_part = "saved_state.flatb";
-    fname = malloc(strlen(data_dir) + 1 + strlen(bs_part) + 1);
-    strcpy(fname, data_dir);
-    strcat(fname, YELLA_DIR_SEP);
-    strcat(fname, bs_part);
-    return fname;
+    return yella_sprintf("%s%s%s", yella_settings_get_text("data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
 }
 
-static void yella_reset_ss(yella_saved_state* st)
+static void reset_ss(yella_saved_state* st)
 {
     st->boot_count = 1;
     st->id = yella_create_uuid();
 }
 
-uint32_t yella_saved_state_boot_count(const yella_saved_state* bs)
+uint32_t yella_saved_state_boot_count(const yella_saved_state* ss)
 {
-    return bs->boot_count;
+    return ss->boot_count;
 }
 
-void yella_destroy_saved_state(yella_saved_state* bs)
+void yella_destroy_saved_state(yella_saved_state* ss)
 {
-    free(bs);
+    free(ss);
 }
 
 yella_saved_state* yella_load_saved_state(void)
@@ -68,13 +59,13 @@ yella_saved_state* yella_load_saved_state(void)
     uint8_t* raw;
     yella_fb_saved_state_table_t tbl;
     bool is_corrupt;
-    yella_saved_state* bs;
+    yella_saved_state* ss;
     yella_rc rc;
     flatbuffers_uint8_vec_t id_vec;
 
-    bs = malloc(sizeof(yella_saved_state));
+    ss = malloc(sizeof(yella_saved_state));
     is_corrupt = false;
-    fname = yella_bs_file_name();
+    fname = ss_file_name();
     rc = yella_file_contents(fname, &raw);
     if (rc == YELLA_NO_ERROR)
     {
@@ -82,9 +73,9 @@ yella_saved_state* yella_load_saved_state(void)
         if (yella_fb_saved_state_boot_count_is_present(tbl) &&
             yella_fb_saved_state_uuid_is_present(tbl))
         {
-            bs->boot_count = yella_fb_saved_state_boot_count(tbl) + 1;
+            ss->boot_count = yella_fb_saved_state_boot_count(tbl) + 1;
             id_vec = yella_fb_saved_state_uuid(tbl);
-            bs->id = yella_create_uuid_from_bytes(id_vec, flatbuffers_uint8_vec_len(id_vec));
+            ss->id = yella_create_uuid_from_bytes(id_vec, flatbuffers_uint8_vec_len(id_vec));
         }
         else
         {
@@ -97,7 +88,7 @@ yella_saved_state* yella_load_saved_state(void)
         CHUCHO_C_INFO(yella_logger("yella"),
                       "The file %s does not exist. This is first boot.",
                       fname);
-        yella_reset_ss(bs);
+        reset_ss(ss);
     }
     else
     {
@@ -109,13 +100,13 @@ yella_saved_state* yella_load_saved_state(void)
                       "The file %s is corrupt. It is being recreated.",
                       fname);
         remove(fname);
-        yella_reset_ss(bs);
+        reset_ss(ss);
     }
     free(fname);
-    return bs;
+    return ss;
 }
 
-yella_rc yella_save_saved_state(yella_saved_state* bs)
+yella_rc yella_save_saved_state(yella_saved_state* ss)
 {
     FILE* f;
     flatcc_builder_t bld;
@@ -127,14 +118,14 @@ yella_rc yella_save_saved_state(yella_saved_state* bs)
 
     flatcc_builder_init(&bld);
     yella_fb_saved_state_start_as_root(&bld);
-    yella_fb_saved_state_boot_count_add(&bld, bs->boot_count);
+    yella_fb_saved_state_boot_count_add(&bld, ss->boot_count);
     yella_fb_saved_state_uuid_create(&bld,
-                                   (uint8_t*)yella_uuid_bytes(bs->id),
-                                   yella_uuid_byte_count(bs->id));
+                                    (uint8_t*)yella_uuid_bytes(ss->id),
+                                    yella_uuid_byte_count(ss->id));
     yella_fb_saved_state_end_as_root(&bld);
     raw = flatcc_builder_finalize_buffer(&bld, &size);
     flatcc_builder_clear(&bld);
-    fname = yella_bs_file_name();
+    fname = ss_file_name();
     f = fopen(fname, "wb");
     if (f == NULL)
     {

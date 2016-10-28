@@ -86,12 +86,12 @@ void yella_pop_front_ptr_vector(yella_ptr_vector* v)
         yella_erase_ptr_vector_at(v, 0);
 }
 
-void* yella_ptr_vector_at(yella_ptr_vector* v, unsigned off)
+void* yella_ptr_vector_at(const yella_ptr_vector* v, unsigned off)
 {
     return (off < v->size) ? v->data[off] : NULL;
 }
 
-size_t yella_ptr_vector_size(yella_ptr_vector* v)
+size_t yella_ptr_vector_size(const yella_ptr_vector* v)
 {
     return v->size;
 }

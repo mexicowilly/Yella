@@ -82,17 +82,11 @@ static bool is_spool_file(const char* const name)
 
 static char* spool_file_name(uint32_t major_seq, uint32_t minor_seq)
 {
-    const char* dir;
-    char* result;
-    const char* fmt;
-    size_t len;
-
-    fmt = "%s%s%lu-%lu.yella.spool";
-    dir = yella_settings_get_text("spool-dir");
-    len = snprintf(NULL, 0, fmt, dir, YELLA_DIR_SEP, (unsigned long)major_seq, (unsigned long)minor_seq) + 1;
-    result = malloc(len);
-    snprintf(result, len, fmt, dir, YELLA_DIR_SEP, (unsigned long)major_seq, (unsigned long)minor_seq);
-    return result;
+    return yella_sprintf("%s%s%lu-%lu.yella.spool",
+                         yella_settings_get_text("spool-dir"),
+                         YELLA_DIR_SEP,
+                         (unsigned long)major_seq,
+                         (unsigned long)minor_seq);
 }
 
 static void add_to_spool_size(yella_spool* sp, intmax_t val)

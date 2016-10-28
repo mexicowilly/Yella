@@ -25,6 +25,38 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
+typedef struct test_state
+{
+    yella_uuid* id;
+    yella_router* rtr;
+    yella_spool* sp;
+} test_state;
+
+static void state_changed(yella_router_state st, void* data)
+{
+    if (st == YELLA_ROUTER_CONNECTED)
+        yella_signal_event((yella_event*)data);
+}
+
+static int set_up(void** arg)
+{
+    test_state* targ;
+    yella_event* state_event;
+
+    *arg = malloc(sizeof(test_state));
+    targ = *arg;
+    yella_settings_set_text("router", "tcp://127.0.0.1:19567");
+    yella_settings_set_uint("reconnect-timeout-seconds", 5);
+    yella_settings_set_uint("poll-milliseconds", 500);
+    targ->id = yella_create_uuid();
+    targ->rtr = yella_create_router(targ->id);
+    state_event = yella_create_event();
+    yella_set_router_state_callback(targ->rtr, state_changed, state_event);
+    yella_wait_for_event(state_event);
+    yella_destroy_event(state_event);
+    return 0;
+}
+
 int main()
 {
 

@@ -17,6 +17,25 @@
 #include "text_util.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+char* yella_sprintf(const char* const fmt, ...)
+{
+    va_list args;
+    va_list args2;
+    int req;
+    char* result;
+
+    va_start(args, fmt);
+    va_copy(args2, args);
+    req = vsnprintf(NULL, 0, fmt, args) + 1;
+    va_end(args);
+    result = malloc(req);
+    vsnprintf(result, req, fmt, args2);
+    va_end(args2);
+    return result;
+}
 
 char* yella_text_dup(const char* const t)
 {

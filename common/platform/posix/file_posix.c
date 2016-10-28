@@ -225,7 +225,7 @@ yella_rc yella_ensure_dir_exists(const char* const name)
     yella_ptr_vector* dirs;
     size_t i;
     yella_rc rc;
-    char* cur;
+    const char* cur;
 
     if (realpath(name, rp) == NULL)
     {

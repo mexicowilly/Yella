@@ -14,15 +14,13 @@
 #    limitations under the License.
 #
 
-INCLUDE_DIRECTORIES("${YELLA_ZEROMQ_INCLUDE_DIR}")
+INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}")
 
-ADD_EXECUTABLE(fake-router EXCLUDE_FROM_ALL
-               fake_router.c
-               fake_router.h
-               main.c
-               spool_test.c
-               spool_test.h)
+ADD_LIBRARY(test-common STATIC EXCLUDE_FROM_ALL
+            spool_test.c
+            spool_test.h)
 
-TARGET_LINK_LIBRARIES(fake-router
-                      test-common
-                      "${YELLA_ZEROMQ_LIB}")
+TARGET_LINK_LIBRARIES(test-common common)
+
+YELLA_GEN_TARGET(test-common
+                 "${CMAKE_CURRENT_SOURCE_DIR}/../serialization/spool_test.fbs")

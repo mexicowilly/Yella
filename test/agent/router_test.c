@@ -205,7 +205,6 @@ static void state_changed(yella_router_state st, void* data)
 static int set_up(void** arg)
 {
     test_state* targ;
-    yella_uuid* id;
     yella_event* state_event;
 
     *arg = malloc(sizeof(test_state));
