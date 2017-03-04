@@ -23,7 +23,8 @@ IF(YELLA_POSIX)
     SET(COMMON_PLATFORM_SOURCES
         platform/posix/file_posix.c
         platform/posix/settings_posix.c
-        platform/posix/thread_posix.c)
+        platform/posix/thread_posix.c
+        platform/posix/time_util_posix.c)
     SET_SOURCE_FILES_PROPERTIES(platform/posix/settings_posix.c
                                 PROPERTIES
                                 COMPILE_DEFINITIONS "YELLA_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
@@ -48,6 +49,7 @@ ADD_LIBRARY(common SHARED
             text_util.c
             text_util.h
             thread.h
+            time_util.h
             ${COMMON_PLATFORM_SOURCES})
 SET_TARGET_PROPERTIES(common PROPERTIES
                       VERSION ${YELLA_VERSION}

@@ -43,11 +43,6 @@ static void reset_ss(yella_saved_state* st)
     st->id = yella_create_uuid();
 }
 
-uint32_t yella_saved_state_boot_count(const yella_saved_state* ss)
-{
-    return ss->boot_count;
-}
-
 void yella_destroy_saved_state(yella_saved_state* ss)
 {
     free(ss);
@@ -146,4 +141,14 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
         remove(fname);
     }
     free(fname);
+}
+
+uint32_t yella_saved_state_boot_count(const yella_saved_state* ss)
+{
+    return ss->boot_count;
+}
+
+yella_uuid* yella_saved_state_uuid(const yella_saved_state* ss)
+{
+    return ss->id;
 }

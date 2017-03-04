@@ -26,3 +26,5 @@ ADD_EXECUTABLE(fake-router EXCLUDE_FROM_ALL
 TARGET_LINK_LIBRARIES(fake-router
                       test-common
                       "${YELLA_ZEROMQ_LIB}")
+
+ADD_DEPENDENCIES(all-targets fake-router)

@@ -17,8 +17,8 @@
 #if !defined(YELLA_SPOOL_TEST_H__)
 #define YELLA_SPOOL_TEST_H__
 
-#include <stdint.h>
+#include "fake_router.h"
 
-void* spool_test(void* ctx, void* sock, const uint8_t const* msg);
+void* spool_test(void* ctx, void* sock, const msg_pair* const mp);
 
 #endif

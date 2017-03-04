@@ -42,7 +42,7 @@ typedef struct read_step
 read_step* create_read_burst(size_t count);
 read_step* create_read_pause(size_t milliseconds, bool disconnect);
 yella_ptr_vector* create_read_step_vector(void);
-const uint8_t* pack_spool_test(const yella_ptr_vector* steps, size_t* size);
+uint8_t* pack_spool_test(const yella_ptr_vector* steps, size_t* size);
 void set_read_burst_messages_per_second(read_burst* burst, double messages_per_second);
 yella_ptr_vector* unpack_spool_test(const uint8_t const* msg);
 

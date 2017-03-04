@@ -23,10 +23,12 @@ typedef struct msg_pair
 {
     yella_message_header* hdr;
     uint8_t* body;
+    size_t body_size;
 } msg_pair;
 
 void* create_socket(void* ctx);
 void destroy_msg_pair(msg_pair* mp);
-msg_pair* read_message(void* sock);
+msg_pair* read_message(void* sock, unsigned time_out_millis);
+void send_message(void* sock, const msg_pair* const mp);
 
 #endif

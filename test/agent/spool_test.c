@@ -27,9 +27,9 @@
 
 typedef struct test_state
 {
-    yella_uuid* id;
     yella_router* rtr;
     yella_spool* sp;
+    yella_saved_state* ss;
 } test_state;
 
 static void state_changed(yella_router_state st, void* data)
@@ -48,12 +48,25 @@ static int set_up(void** arg)
     yella_settings_set_text("router", "tcp://127.0.0.1:19567");
     yella_settings_set_uint("reconnect-timeout-seconds", 5);
     yella_settings_set_uint("poll-milliseconds", 500);
-    targ->id = yella_create_uuid();
-    targ->rtr = yella_create_router(targ->id);
+    targ->ss = yella_load_saved_state();
+    targ->rtr = yella_create_router(yella_saved_state_uuid(targ->ss));
     state_event = yella_create_event();
     yella_set_router_state_callback(targ->rtr, state_changed, state_event);
     yella_wait_for_event(state_event);
     yella_destroy_event(state_event);
+    targ->sp = yella_create_spool(targ->ss, targ->rtr);
+    return 0;
+}
+
+static int tear_down(void** arg)
+{
+    test_state* targ;
+
+    targ = *arg;
+    yella_destroy_spool(targ->sp);
+    yella_destroy_router(targ->rtr);
+    yella_destroy_saved_state(targ->ss);
+    free(targ);
     return 0;
 }
 

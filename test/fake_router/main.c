@@ -31,9 +31,9 @@ int main(int argc, char* argv[])
     sock = create_socket(zmctx);
     while (true)
     {
-        mp = read_message(sock);
+        mp = read_message(sock, 10 * 1000);
         if (strcmp(mp->hdr->type, "spool_test") == 0)
-            sock = spool_test(zmctx, sock, mp->body);
+            sock = spool_test(zmctx, sock, mp);
         destroy_msg_pair(mp);
     }
     zmq_close(sock);

@@ -18,9 +18,14 @@ INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}")
 
 ADD_LIBRARY(test-common STATIC EXCLUDE_FROM_ALL
             spool_test.c
-            spool_test.h)
+            spool_test.h
+            spool_test_result.c
+            spool_test_result.h)
 
 TARGET_LINK_LIBRARIES(test-common common)
 
 YELLA_GEN_TARGET(test-common
-                 "${CMAKE_CURRENT_SOURCE_DIR}/../serialization/spool_test.fbs")
+                 "${CMAKE_CURRENT_SOURCE_DIR}/../serialization/spool_test.fbs"
+                 "${CMAKE_CURRENT_SOURCE_DIR}/../serialization/spool_test_result.fbs")
+
+ADD_DEPENDENCIES(all-targets test-common)

@@ -17,7 +17,6 @@
 #include "spool_test.h"
 #include "common/ptr_vector.h"
 #include "common/thread.h"
-#include "spool_test_reader.h"
 #include "spool_test_builder.h"
 #include <assert.h>
 
@@ -65,13 +64,13 @@ yella_ptr_vector* create_read_step_vector(void)
     return vec;
 }
 
-const uint8_t* pack_spool_test(const yella_ptr_vector* steps, size_t* size)
+uint8_t* pack_spool_test(const yella_ptr_vector* steps, size_t* size)
 {
     flatcc_builder_t bld;
     size_t i;
     const read_step* step;
     yella_fb_read_step_impl_union_ref_t burst_or_pause;
-    const uint8_t* result;
+    uint8_t* result;
 
     flatcc_builder_init(&bld);
     yella_fb_spool_test_start_as_root(&bld);
