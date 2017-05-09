@@ -17,8 +17,11 @@
 #include "spool_test.h"
 #include "common/ptr_vector.h"
 #include "common/thread.h"
+#include "common/log.h"
 #include "spool_test_builder.h"
+#include <yaml.h>
 #include <assert.h>
+#include <errno.h>
 
 read_step* create_read_burst(size_t count)
 {
@@ -44,6 +47,29 @@ read_step* create_read_pause(size_t milliseconds, bool disconnect)
     return result;
 }
 
+write_step* create_write_burst(size_t count)
+{
+    write_step* result;
+
+    result = malloc(sizeof(write_step));
+    result->burst = malloc(sizeof(write_burst));
+    result->pause = NULL;
+    result->burst->count = count;
+    result->burst->messages_per_second = NULL;
+    return result;
+}
+
+write_step* create_write_pause(size_t milliseconds)
+{
+    write_step* result;
+
+    result = malloc(sizeof(write_step));
+    result->pause = malloc(sizeof(write_pause));
+    result->burst = NULL;
+    result->pause->milliseconds = milliseconds;
+    return result;
+}
+
 static void destroy_read_step(void* p, void* udata)
 {
     read_step* rs;
@@ -64,7 +90,66 @@ yella_ptr_vector* create_read_step_vector(void)
     return vec;
 }
 
-uint8_t* pack_spool_test(const yella_ptr_vector* steps, size_t* size)
+static void destroy_write_step(void* p, void* udata)
+{
+    write_step* ws;
+
+    ws = (write_step*)p;
+    free(ws->burst->messages_per_second);
+    free(ws->burst);
+    free(ws->pause);
+    free(ws);
+}
+
+yella_ptr_vector* create_write_step_vector(void)
+{
+    yella_ptr_vector* vec;
+
+    vec = yella_create_ptr_vector();
+    yella_set_ptr_vector_destructor(vec, destroy_write_step, NULL);
+    return vec;
+}
+
+static void handle_yaml_node(const yaml_node_t* node,
+                             yaml_document_t* doc,
+                             yella_ptr_vector* read_steps,
+                             yella_ptr_vector* write_steps,
+                             read_step* cur_read,
+                             write_step* cur_write)
+{
+    yaml_node_item_t* seq_item;
+    yaml_node_t* key_node;
+    yaml_node_pair_t* pr;
+
+    if (node->type == YAML_SCALAR_NODE)
+    {
+    }
+    else if (node->type == YAML_MAPPING_NODE)
+    {
+        for (pr = node->data.mapping.pairs.start;
+             pr < node->data.mapping.pairs.top;
+             pr++)
+        {
+            key_node = yaml_document_get_node(doc, pr->key);
+        }
+    }
+    else if (node->type == YAML_SEQUENCE_NODE)
+    {
+        for (seq_item = node->data.sequence.items.start;
+             seq_item < node->data.sequence.items.top;
+             seq_item++)
+        {
+            handle_yaml_node(yaml_document_get_node(doc, *seq_item),
+                             doc,
+                             read_steps,
+                             write_steps,
+                             cur_read,
+                             cur_write);
+        }
+    }
+}
+
+uint8_t* pack_spool_test(const yella_ptr_vector* read_steps, size_t* size)
 {
     flatcc_builder_t bld;
     size_t i;
@@ -75,9 +160,9 @@ uint8_t* pack_spool_test(const yella_ptr_vector* steps, size_t* size)
     flatcc_builder_init(&bld);
     yella_fb_spool_test_start_as_root(&bld);
     yella_fb_spool_test_steps_start(&bld);
-    for (i = 0; i < yella_ptr_vector_size(steps); i++)
+    for (i = 0; i < yella_ptr_vector_size(read_steps); i++)
     {
-        step = yella_ptr_vector_at(steps, i);
+        step = yella_ptr_vector_at(read_steps, i);
         assert((step->burst != NULL && step->pause == NULL) || (step->burst == NULL && step->pause != NULL));
         if (step->burst != NULL)
         {
@@ -103,6 +188,48 @@ uint8_t* pack_spool_test(const yella_ptr_vector* steps, size_t* size)
     result = flatcc_builder_finalize_buffer(&bld, size);
     flatcc_builder_clear(&bld);
     return result;
+}
+
+bool read_yaml_spool_test(const char* const file_name, yella_ptr_vector** read_steps, yella_ptr_vector** write_steps)
+{
+    yaml_parser_t parser;
+    FILE* f;
+    int err;
+    yaml_document_t doc;
+    yaml_node_t* root;
+
+    f = fopen(file_name, "r");
+    if (f == NULL)
+    {
+        err = errno;
+        CHUCHO_C_ERROR(yella_logger("yella.spool_test"),
+                       "Unable to open the test file %s for reading: %s",
+                       file_name,
+                       strerror(err));
+        return false;
+    }
+    yaml_parser_initialize(&parser);
+    yaml_parser_set_input_file(&parser, f);
+    if (!yaml_parser_load(&parser, &doc))
+    {
+        CHUCHO_C_ERROR(yella_logger("yella.spool_test"),
+                       "YAML error [%u, %u]: %s",
+                       parser.mark.line,
+                       parser.mark.column,
+                       parser.problem);
+        return false;
+    }
+    root = yaml_document_get_root_node(&doc);
+    if (root != NULL)
+    {
+        *read_steps = create_read_step_vector();
+        *write_steps = create_write_step_vector();
+        handle_yaml_node(root, &doc, *read_steps, *write_steps, NULL, NULL);
+    }
+    yaml_document_delete(&doc);
+    yaml_parser_delete(&parser);
+    fclose(f);
+    return true;
 }
 
 void set_read_burst_messages_per_second(read_burst* burst, double messages_per_second)

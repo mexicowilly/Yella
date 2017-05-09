@@ -39,11 +39,33 @@ typedef struct read_step
     read_pause* pause;
 } read_step;
 
+typedef struct write_burst
+{
+    size_t count;
+    double* messages_per_second;
+} write_burst;
+
+typedef struct write_pause
+{
+    size_t milliseconds;
+} write_pause;
+
+typedef struct write_step
+{
+    write_burst* burst;
+    write_pause* pause;
+} write_step;
+
 read_step* create_read_burst(size_t count);
 read_step* create_read_pause(size_t milliseconds, bool disconnect);
 yella_ptr_vector* create_read_step_vector(void);
-uint8_t* pack_spool_test(const yella_ptr_vector* steps, size_t* size);
+write_step* create_write_burst(size_t count);
+write_step* create_write_pause(size_t milliseconds);
+yella_ptr_vector* create_write_step_vector(void);
+uint8_t* pack_spool_test(const yella_ptr_vector* read_steps, size_t* size);
+bool read_yaml_spool_test(const char* const file_name, yella_ptr_vector** read_steps, yella_ptr_vector** write_steps);
 void set_read_burst_messages_per_second(read_burst* burst, double messages_per_second);
+/* Returns read steps only */
 yella_ptr_vector* unpack_spool_test(const uint8_t const* msg);
 
 #endif
