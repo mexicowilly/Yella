@@ -15,7 +15,7 @@
  */
 
 #include "agent/yella_uuid.h"
-#include "common/log.h"
+#include <chucho/log.h>
 #include <uuid.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,7 +44,7 @@ yella_uuid* yella_create_uuid_from_bytes(const uint8_t* bytes, size_t len)
     uuid_size = sizeof(uuid_t);
     if (len != uuid_size)
     {
-        CHUCHO_C_ERROR(yella_logger("yella"),
+        CHUCHO_C_ERROR("yella",
                        "Cannot create UUID. The given size of %zu does not match the required %zu",
                        len,
                        uuid_size);

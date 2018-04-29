@@ -18,9 +18,9 @@
 #include "common/file.h"
 #include "common/settings.h"
 #include "common/ptr_vector.h"
-#include "common/log.h"
 #include "common/thread.h"
 #include "common/text_util.h"
+#include <chucho/log.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -106,7 +106,7 @@ static void add_to_spool_size(yella_spool* sp, intmax_t val)
         if (fabs(pct - last_reported_pct) >= 10.0)
         {
             last_reported_pct = trunc(pct / 10.0);
-            CHUCHO_C_INFO(yella_logger("yella.spool"),
+            CHUCHO_C_INFO("yella.spool",
                           "The spool is at %0f%% of capacity (%ju bytes)",
                           last_reported_pct,
                           sp->size);
@@ -127,7 +127,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
     if (sp->writef != NULL && fclose(sp->writef) != 0)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.spool"),
+        CHUCHO_C_ERROR("yella.spool",
                        "Error closing write stream: %s",
                        strerror(err));
     }
@@ -138,7 +138,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
     if (sp->writef == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.spool"),
+        CHUCHO_C_ERROR("yella.spool",
                        "Unable to open spool file %s for writing: %s",
                        sp->write_file_name,
                        strerror(err));
@@ -152,7 +152,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
     if (num_written != sizeof(YELLA_SPOOL_ID))
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.spool"),
+        CHUCHO_C_ERROR("yella.spool",
                        "Unable to write to spool file %s",
                        fname);
         fclose(sp->writef);
@@ -167,7 +167,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
     if (rc != 0)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.spool"),
+        CHUCHO_C_ERROR("yella.spool",
                        "Unable to flush spool file %s",
                        fname);
         fclose(sp->writef);
@@ -176,7 +176,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
         sp->write_file_name = NULL;
         return false;
     }
-    CHUCHO_C_TRACE(yella_logger("yella.spool"),
+    CHUCHO_C_TRACE("yella.spool",
                    "Opened %s for writing",
                    sp->write_file_name);
     return true;
@@ -208,7 +208,7 @@ static bool increment_read_spool_partition(yella_spool* sp)
 
     if (sp->read_file_name != NULL)
     {
-        CHUCHO_C_TRACE(yella_logger("yella.spool"),
+        CHUCHO_C_TRACE("yella.spool",
                        "Closing read stream %s",
                        sp->read_file_name);
         free(sp->read_file_name);
@@ -217,7 +217,7 @@ static bool increment_read_spool_partition(yella_spool* sp)
     if (sp->readf != NULL && fclose(sp->readf) != 0)
     {
         err = errno;
-        CHUCHO_C_WARN(yella_logger("yella.spool"),
+        CHUCHO_C_WARN("yella.spool",
                       "Error closing read stream: %s",
                       strerror(err));
     }
@@ -249,7 +249,7 @@ static bool increment_read_spool_partition(yella_spool* sp)
         }
         else
         {
-            CHUCHO_C_WARN(yella_logger("yella.spool"),
+            CHUCHO_C_WARN("yella.spool",
                           "Found unexpected spool file %s. It is being removed.",
                           cur);
             yella_push_back_ptr_vector(to_remove, yella_text_dup(cur));
@@ -263,7 +263,7 @@ static bool increment_read_spool_partition(yella_spool* sp)
     if (sp->readf == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.spool"),
+        CHUCHO_C_ERROR("yella.spool",
                        "Unable to open spool file %s for reading: %s",
                        candidate,
                        strerror(err));
@@ -271,7 +271,7 @@ static bool increment_read_spool_partition(yella_spool* sp)
         return false;
     }
     sp->read_file_name = candidate;
-    CHUCHO_C_TRACE(yella_logger("yella.spool"),
+    CHUCHO_C_TRACE("yella.spool",
                    "Opened %s for reading",
                    sp->read_file_name);
     fseek(sp->readf, sizeof(YELLA_SPOOL_ID), SEEK_SET);
@@ -295,11 +295,9 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
     uint32_t part_size;
     uint16_t i;
     int err;
-    chucho_logger* lgr;
     size_t visited_count;
     long cur_write_pos;
 
-    lgr = yella_logger("yella.spool");
     visited_count = 0;
     do
     {
@@ -313,7 +311,7 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                     sp->read_pos.minor_seq == sp->write_pos.minor_seq)
                 {
                     cur_write_pos = ftell(sp->writef);
-                    CHUCHO_C_TRACE(lgr,
+                    CHUCHO_C_TRACE("yella.spool",
                                    "Waiting for more data on file %s",
                                    sp->read_file_name);
                     while (!sp->is_stopped &&
@@ -328,7 +326,7 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                         return 0;
                     }
                     clearerr(sp->readf);
-                    CHUCHO_C_TRACE(lgr,
+                    CHUCHO_C_TRACE("yella.spool",
                                    "Ready to read more data from file %s",
                                    sp->read_file_name);
                 }
@@ -338,13 +336,13 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                 {
                     /* advance to next */
                     yella_unlock_mutex(sp->guard);
-                    CHUCHO_C_TRACE(lgr,
+                    CHUCHO_C_TRACE("yella.spool",
                                    "Done reading from %s. It is being removed.",
                                    sp->read_file_name);
                     if (fclose(sp->readf) != 0)
                     {
                         err = errno;
-                        CHUCHO_C_WARN(lgr,
+                        CHUCHO_C_WARN("yella.spool",
                                       "Error closing read stream %s: %s",
                                       sp->read_file_name,
                                       strerror(err));
@@ -357,7 +355,7 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                     else
                     {
                         err = errno;
-                        CHUCHO_C_WARN(lgr,
+                        CHUCHO_C_WARN("yella.spool",
                                       "Error removing read stream %s: %s",
                                       sp->read_file_name,
                                       strerror(err));
@@ -369,7 +367,7 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                 else
                 {
                     yella_unlock_mutex(sp->guard);
-                    CHUCHO_C_ERROR(lgr,
+                    CHUCHO_C_ERROR("yella.spool",
                                    "The spool reader at (%lu, %lu) has read beyond the spool writer at (%lu, %lu)",
                                    (unsigned long)sp->read_pos.major_seq,
                                    (unsigned long)sp->read_pos.minor_seq,
@@ -381,7 +379,7 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
             }
             else
             {
-                CHUCHO_C_ERROR(lgr,
+                CHUCHO_C_ERROR("yella.spool",
                                "Zero bytes were read from %s without reaching the end of file.",
                                sp->read_file_name);
                 return 0;
@@ -389,7 +387,7 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
         }
         else if (num_read < sizeof(msg_count))
         {
-            CHUCHO_C_ERROR(lgr,
+            CHUCHO_C_ERROR("yella.spool",
                            "An anomalous short read occurred on %s. Going to try again.",
                            sp->read_file_name);
             fseek(sp->readf, -(long)num_read, SEEK_CUR);
@@ -400,7 +398,7 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
             if (YELLA_EVENT_IS_VISITED(msg_count))
             {
                 /* fast forward to next */
-                CHUCHO_C_TRACE(lgr,
+                CHUCHO_C_TRACE("yella.spool",
                                "Fast forwarding over already visited event (%zu) in %s",
                                ++visited_count,
                                sp->read_file_name);
@@ -530,7 +528,7 @@ static void reader_thread_main(void* arg)
     yella_destroy_condition_variable(ch_data.cond);
     yella_destroy_mutex(ch_data.guard);
     yella_destroy_sender(sndr);
-    CHUCHO_C_INFO(yella_logger("yella.spool"),
+    CHUCHO_C_INFO("yella.spool",
                   "The spool reader thread is exiting");
 }
 
@@ -635,7 +633,7 @@ bool yella_write_spool(yella_spool* sp, yella_msg_part* msgs, size_t count)
     num_written = fwrite(&num, 1, sizeof(num), sp->writef);
     if (num_written != sizeof(num))
     {
-        CHUCHO_C_ERROR(yella_logger("yella.spool"),
+        CHUCHO_C_ERROR("yella.spool",
                        "Error writing message count to spool file. The spooler cannot continue.");
         yella_unlock_mutex(sp->guard);
         return false;
@@ -646,7 +644,7 @@ bool yella_write_spool(yella_spool* sp, yella_msg_part* msgs, size_t count)
         num_written = fwrite(&len, 1, sizeof(len), sp->writef);
         if (num_written != sizeof(len))
         {
-            CHUCHO_C_ERROR(yella_logger("yella.spool"),
+            CHUCHO_C_ERROR("yella.spool",
                            "Error writing message length (%zu) to spool file. The spooler cannot continue.",
                            i);
             yella_unlock_mutex(sp->guard);
@@ -655,7 +653,7 @@ bool yella_write_spool(yella_spool* sp, yella_msg_part* msgs, size_t count)
         fwrite(msgs[i].data, 1, len, sp->writef);
         if (num_written != len)
         {
-            CHUCHO_C_ERROR(yella_logger("yella.spool"),
+            CHUCHO_C_ERROR("yella.spool",
                            "Error writing message data (%zu) to spool file. The spooler cannot continue.",
                            i);
             yella_unlock_mutex(sp->guard);

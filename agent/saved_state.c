@@ -20,8 +20,8 @@
 #include "yella_uuid.h"
 #include "common/settings.h"
 #include "common/file.h"
-#include "common/log.h"
 #include "common/text_util.h"
+#include <chucho/log.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -80,7 +80,7 @@ yella_saved_state* yella_load_saved_state(void)
     }
     else if (rc == YELLA_DOES_NOT_EXIST)
     {
-        CHUCHO_C_INFO(yella_logger("yella"),
+        CHUCHO_C_INFO("yella",
                       "The file %s does not exist. This is first boot.",
                       fname);
         reset_ss(ss);
@@ -91,7 +91,7 @@ yella_saved_state* yella_load_saved_state(void)
     }
     if (is_corrupt)
     {
-        CHUCHO_C_INFO(yella_logger("yella"),
+        CHUCHO_C_INFO("yella",
                       "The file %s is corrupt. It is being recreated.",
                       fname);
         remove(fname);
@@ -125,22 +125,26 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
     if (f == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella"),
+        CHUCHO_C_ERROR("yella",
                        "Could not open %s for writing: %s",
                        fname,
                        strerror(err));
+        free(raw);
+        return YELLA_WRITE_ERROR;
     }
     num_written = fwrite(raw, 1, size, f);
     fclose(f);
     free(raw);
     if (num_written != size)
     {
-        CHUCHO_C_ERROR(yella_logger("yella"),
+        CHUCHO_C_ERROR("yella",
                        "The was a problem writing to %s. The boot state cannot be saved. Subsequent boots will be considered first boot.",
                        fname);
         remove(fname);
+        return YELLA_WRITE_ERROR;
     }
     free(fname);
+    return YELLA_NO_ERROR;
 }
 
 uint32_t yella_saved_state_boot_count(const yella_saved_state* ss)

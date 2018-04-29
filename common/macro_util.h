@@ -14,6 +14,8 @@
  *    limitations under the License.
  */
 
+#include <chucho/log.h>
+
 #if !defined(MACRO_UTIL_H__)
 #define MACRO_UTIL_H__
 
@@ -23,7 +25,7 @@
 #define YELLA_REQUIRE_FLATB_FIELD(tbl, tbl_var, fld, lgr, fl) \
     if (!yella_fb_##tbl##_##fld##_is_present(tbl_var)) \
     { \
-        CHUCHO_C_ERROR(yella_logger(lgr), \
+        CHUCHO_C_ERROR((lgr), \
                        "The " #tbl " field " #fld " is required"); \
         fl ; \
     }

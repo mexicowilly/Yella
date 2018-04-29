@@ -19,7 +19,6 @@
 #include "agent/yella_uuid.h"
 #include "agent/saved_state.h"
 #include "common/settings.h"
-#include "common/log.h"
 #include <stdlib.h>
 
 static const uint64_t YELLA_MEGABYTE = 1024 * 1024;

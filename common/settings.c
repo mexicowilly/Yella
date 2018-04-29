@@ -16,10 +16,10 @@
 
 #include "settings.h"
 #include "text_util.h"
-#include "log.h"
 #include "file.h"
 #include "sglib.h"
 #include "thread.h"
+#include <chucho/log.h>
 #include <yaml.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -69,11 +69,11 @@ static void handle_yaml_node(const yaml_node_t* node,
         {
             if (key_desc->type == YELLA_SETTING_VALUE_TEXT)
             {
-                yella_settings_set_text(key_desc->key, node->data.scalar.value); 
+                yella_settings_set_text(key_desc->key, (const char*)node->data.scalar.value);
             }
             else if (key_desc->type == YELLA_SETTING_VALUE_UINT)
             {
-                yella_settings_set_uint(key_desc->key, yella_text_to_int(node->data.scalar.value));
+                yella_settings_set_uint(key_desc->key, yella_text_to_int((const char*)node->data.scalar.value));
             }
         }
     }
@@ -89,7 +89,7 @@ static void handle_yaml_node(const yaml_node_t* node,
                 found = false;
                 for (index = 0; index < all_desc_count; index++)
                 {
-                    if (strcmp(all_desc[index].key, key_node->data.scalar.value) == 0)
+                    if (strcmp(all_desc[index].key, (const char*)key_node->data.scalar.value) == 0)
                     {
                         found = true;
                         break;
@@ -167,13 +167,13 @@ yella_rc yella_load_settings_doc(void)
     file_name = yella_settings_get_text("config-file");
     if (file_name == NULL)
     {
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "You must set the config-file setting before calling yaml_load_settings_doc");
         return YELLA_LOGIC_ERROR;
     }
     if (!yella_file_exists(file_name))
     {
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "The configuration file %s does not exist",
                        file_name);
         return YELLA_DOES_NOT_EXIST;
@@ -181,7 +181,7 @@ yella_rc yella_load_settings_doc(void)
     sz = yella_file_size(file_name);
     if (sz > 100 * 1024)
     {
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "The configuration file %s has a size of %llu, which is greater than the maximum allowed of 100 KB",
                        file_name,
                        sz);
@@ -191,7 +191,7 @@ yella_rc yella_load_settings_doc(void)
     if (f == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "Unable to open the config file %s for reading: %s",
                        file_name,
                        strerror(err));
@@ -202,7 +202,7 @@ yella_rc yella_load_settings_doc(void)
     yaml_doc = malloc(sizeof(yaml_document_t));
     if (!yaml_parser_load(&parser, yaml_doc))
     {
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "YAML error [%u, %u]: %s",
                        parser.mark.line,
                        parser.mark.column,
@@ -242,14 +242,14 @@ const uint64_t* yella_settings_get_uint(const char* const key)
     found = sglib_setting_find_member(settings, &to_find);
     if (found == NULL)
     {
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "The setting %s was not found",
                        key);
         return NULL;
     }
     else if(found->type != YELLA_SETTING_VALUE_UINT)
     {
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "The setting %s is not of type uint",
                        key);
         return NULL;
@@ -266,14 +266,14 @@ const char* yella_settings_get_text(const char* const key)
     found = sglib_setting_find_member(settings, &to_find);
     if (found == NULL)
     {
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "The setting %s was not found",
                        key);
         return NULL;
     }
     else if(found->type != YELLA_SETTING_VALUE_TEXT)
     {
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "The setting %s is not of type text",
                        key);
         return NULL;

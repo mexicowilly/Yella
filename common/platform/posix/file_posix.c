@@ -15,9 +15,9 @@
  */
 
 #include "common/file.h"
-#include "common/log.h"
 #include "common/text_util.h"
 #include "common/ptr_vector.h"
+#include <chucho/log.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <string.h>
@@ -44,7 +44,7 @@ static bool yella_do_stat(const char* const name, struct stat* info)
     if (stat(name, info) != 0)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "Could not get information about %s: %s",
                        name,
                        strerror(err));
@@ -122,7 +122,7 @@ yella_rc yella_create_directory(const char* const name)
     else
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "Could not create directory %s: %s",
                        name,
                        strerror(err));
@@ -147,7 +147,7 @@ yella_directory_iterator* yella_create_directory_iterator(const char* const dir)
     if (result->dir == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "Could not open directory %s for reading: %s",
                        dir,
                        strerror(err));
@@ -176,7 +176,7 @@ const char* yella_directory_iterator_next(yella_directory_iterator* itor)
 
     do
     {
-        readdir_r(itor->dir, itor->entry, &found);
+        found = readdir(itor->dir);
     } while (found != NULL &&
              (strcmp(found->d_name, ".") == 0 || strcmp(found->d_name, "..") == 0));
     if (found == NULL)
@@ -230,7 +230,7 @@ yella_rc yella_ensure_dir_exists(const char* const name)
     if (realpath(name, rp) == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "Could not resolve real path of %s: %s",
                        name,
                        strerror(err));

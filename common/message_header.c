@@ -17,7 +17,6 @@
 #include "message_header.h"
 #include "header_reader.h"
 #include "header_builder.h"
-#include "common/log.h"
 #include "common/text_util.h"
 #include "common/macro_util.h"
 
@@ -50,7 +49,7 @@ void yella_destroy_mhdr(yella_message_header* mhdr)
     free(mhdr);
 }
 
-uint8_t* yella_pack_mhdr(const yella_message_header const* mhdr, size_t* size)
+uint8_t* yella_pack_mhdr(const yella_message_header* const mhdr, size_t* size)
 {
     flatcc_builder_t bld;
     uint8_t* result;
@@ -75,7 +74,7 @@ uint8_t* yella_pack_mhdr(const yella_message_header const* mhdr, size_t* size)
     return result;
 }
 
-yella_message_header* yella_unpack_mhdr(const uint8_t const* bytes)
+yella_message_header* yella_unpack_mhdr(const uint8_t* const bytes)
 {
     yella_fb_header_table_t tbl;
     yella_fb_sequence_table_t seq;
@@ -110,7 +109,7 @@ yella_message_header* yella_unpack_mhdr(const uint8_t const* bytes)
     }
     if (yella_fb_header_grp_is_present(tbl))
     {
-        grp - yella_fb_header_grp(tbl);
+        grp = yella_fb_header_grp(tbl);
         YELLA_REQUIRE_FLATB_FIELD(group, grp, id, "yella.message_header", yella_destroy_mhdr(result);return NULL)
         YELLA_REQUIRE_FLATB_FIELD(group, grp, disposition, "yella.message_header", yella_destroy_mhdr(result);return NULL)
         result->grp = malloc(sizeof(yella_group));

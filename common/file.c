@@ -15,7 +15,7 @@
  */
 
 #include "common/file.h"
-#include "common/log.h"
+#include <chucho/log.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -35,7 +35,7 @@ yella_rc yella_file_contents(const char* const name, uint8_t** contents)
     if (f == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "Could not open %s for reading: %s",
                        name,
                        strerror(err));
@@ -46,7 +46,7 @@ yella_rc yella_file_contents(const char* const name, uint8_t** contents)
     fclose(f);
     if (num_read != size)
     {
-        CHUCHO_C_ERROR(yella_logger("yella.common"),
+        CHUCHO_C_ERROR("yella.common",
                        "Could not read %s",
                        name);
         free(*contents);

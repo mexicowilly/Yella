@@ -33,8 +33,6 @@ ENDIF()
 ADD_LIBRARY(common SHARED
             file.c
             file.h
-            log.c
-            log.h
             macro_util.h
             message_header.c
             message_header.h

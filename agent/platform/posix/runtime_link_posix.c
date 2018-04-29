@@ -14,8 +14,9 @@
  *    limitations under the License.
  */
 
-#include "common/log.h"
+#include <chucho/log.h>
 #include <dlfcn.h>
+#include <stddef.h>
 
 void close_shared_object(void* handle)
 {
@@ -29,7 +30,7 @@ void* open_shared_object(const char* const file_name)
     handle = dlopen(file_name, RTLD_LAZY);
     if(handle == NULL)
     {
-        CHUCHO_C_ERROR(yella_logger("yella"),
+        CHUCHO_C_ERROR("yella",
                        "The shared object %s could not be loaded: %s",
                        file_name,
                        dlerror());
@@ -42,7 +43,7 @@ void* shared_object_symbol(void* handle, const char* const name)
     void* sym = dlsym(handle, name);
     if (sym == NULL)
     {
-        CHUCHO_C_ERROR(yella_logger("yella"),
+        CHUCHO_C_ERROR("yella",
                        "The symbol %s could not be found: %s",
                        name,
                        dlerror());

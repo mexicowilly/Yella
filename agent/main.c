@@ -14,11 +14,11 @@
  *    limitations under the License.
  */
 
-#include "common/log.h"
 #include "common/settings.h"
 #include "common/macro_util.h"
 #include <chucho/configuration.h>
 #include <chucho/finalize.h>
+#include <chucho/log.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -44,11 +44,10 @@ int main(int argc, char* argv[])
     yella_initialize_settings();
     process_command_line(argc, argv);
     chucho_cnf_set_file_name(yella_settings_get_text("config-file"));
-    CHUCHO_C_INFO(yella_logger("yella"),
+    CHUCHO_C_INFO("yella",
                   "Yella version " YELLA_VALUE_STR(YELLA_VERSION) " is starting");
     /* run the app */
     yella_destroy_settings();
-    yella_destroy_loggers();
     chucho_finalize();
     return EXIT_SUCCESS;
 }
