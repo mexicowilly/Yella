@@ -129,7 +129,7 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
                                     (uint8_t*)yella_uuid_bytes(ss->id),
                                     yella_uuid_byte_count(ss->id));
     yella_fb_saved_state_mac_addrs_create(&bld,
-                                          (uint64_t*)ss->mac_addresses.addrs,
+                                          ss->mac_addresses.addrs,
                                           ss->mac_addresses.count);
     yella_fb_saved_state_end_as_root(&bld);
     raw = flatcc_builder_finalize_buffer(&bld, &size);
