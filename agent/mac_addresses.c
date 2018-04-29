@@ -19,5 +19,6 @@
 void yella_destroy_mac_addresses(yella_mac_addresses* addrs)
 {
     free(addrs->addrs);
+    free(addrs);
 }
 

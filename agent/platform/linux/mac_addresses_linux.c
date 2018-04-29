@@ -24,14 +24,15 @@
 #include <errno.h>
 #include <assert.h>
 
-yella_mac_addresses yella_get_mac_addresses(void)
+yella_mac_addresses* yella_get_mac_addresses(void)
 {
-    yella_mac_addresses result;
+    yella_mac_addresses* result;
     struct ifreq ifr;
     struct ifconf ifc;
     char buf[1024];
     unsigned i = 0;
 
+    result = malloc(sizeof(yella_mac_addresses));
     memset(&result, 0, sizeof(result));
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
     if (sock == -1)
@@ -54,7 +55,7 @@ yella_mac_addresses yella_get_mac_addresses(void)
     const struct ifreq* const end = it + (ifc.ifc_len / sizeof(struct ifreq));
     if (end - it > 1)
     {
-        result.addrs = calloc(sizeof(uint64_t), end - it - 1);
+        result->addrs = calloc(sizeof(uint64_t), end - it - 1);
         for (; it != end; ++it)
         {
             strcpy(ifr.ifr_name, it->ifr_name);
@@ -64,7 +65,7 @@ yella_mac_addresses yella_get_mac_addresses(void)
                 {
                     if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0)
                     {
-                        memcpy(&result.addrs[i++], ifr.ifr_hwaddr.sa_data, 6);
+                        memcpy(&result->addrs[i++], ifr.ifr_hwaddr.sa_data, 6);
                     }
                     else
                     {
@@ -88,6 +89,6 @@ yella_mac_addresses yella_get_mac_addresses(void)
                        "No interfaces with MAC addresses are present");
     }
     close(sock);
-    result.count = i;
+    result->count = i;
     return result;
 }
