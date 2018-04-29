@@ -18,6 +18,7 @@
 #include "saved_state_builder.h"
 #include "saved_state_reader.h"
 #include "yella_uuid.h"
+#include "mac_addresses.h"
 #include "common/settings.h"
 #include "common/file.h"
 #include "common/text_util.h"
@@ -30,6 +31,7 @@ struct yella_saved_state
 {
     uint32_t boot_count;
     yella_uuid* id;
+    yella_mac_addresses mac_addresses;
 };
 
 static char* ss_file_name(void)
@@ -41,6 +43,7 @@ static void reset_ss(yella_saved_state* st)
 {
     st->boot_count = 1;
     st->id = yella_create_uuid();
+    st->mac_addresses = yella_get_mac_addresses();
 }
 
 void yella_destroy_saved_state(yella_saved_state* ss)
@@ -57,6 +60,8 @@ yella_saved_state* yella_load_saved_state(void)
     yella_saved_state* ss;
     yella_rc rc;
     flatbuffers_uint8_vec_t id_vec;
+    flatbuffers_uint64_vec_t mac_addrs_vec;
+    int i;
 
     ss = malloc(sizeof(yella_saved_state));
     is_corrupt = false;
@@ -66,11 +71,17 @@ yella_saved_state* yella_load_saved_state(void)
     {
         tbl = yella_fb_saved_state_as_root(raw);
         if (yella_fb_saved_state_boot_count_is_present(tbl) &&
-            yella_fb_saved_state_uuid_is_present(tbl))
+            yella_fb_saved_state_uuid_is_present(tbl) &&
+            yella_fb_saved_state_mac_addrs_is_present(tbl))
         {
             ss->boot_count = yella_fb_saved_state_boot_count(tbl) + 1;
             id_vec = yella_fb_saved_state_uuid(tbl);
             ss->id = yella_create_uuid_from_bytes(id_vec, flatbuffers_uint8_vec_len(id_vec));
+            mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
+            ss->mac_addresses.count = flatbuffers_uint64_vec_len(mac_addrs_vec);
+            ss->mac_addresses.addrs = calloc(ss->mac_addresses.count, sizeof(uint64_t));
+            for (i = 0; i < ss->mac_addresses.count; i++)
+                ss->mac_addresses.addrs[i] = flatbuffers_uint64_vec_at(mac_addrs_vec, i);
         }
         else
         {
@@ -117,6 +128,9 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
     yella_fb_saved_state_uuid_create(&bld,
                                     (uint8_t*)yella_uuid_bytes(ss->id),
                                     yella_uuid_byte_count(ss->id));
+    yella_fb_saved_state_mac_addrs_create(&bld,
+                                          (uint64_t*)ss->mac_addresses.addrs,
+                                          ss->mac_addresses.count);
     yella_fb_saved_state_end_as_root(&bld);
     raw = flatcc_builder_finalize_buffer(&bld, &size);
     flatcc_builder_clear(&bld);
@@ -152,7 +166,7 @@ uint32_t yella_saved_state_boot_count(const yella_saved_state* ss)
     return ss->boot_count;
 }
 
-yella_uuid* yella_saved_state_uuid(const yella_saved_state* ss)
+const yella_uuid* yella_saved_state_uuid(const yella_saved_state* ss)
 {
     return ss->id;
 }

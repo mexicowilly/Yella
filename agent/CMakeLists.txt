@@ -24,9 +24,15 @@ IF(YELLA_POSIX)
         platform/posix/yella_uuid_posix.c)
 ENDIF()
 
+IF(YELLA_LINUX)
+    LIST(APPEND YELLA_PLATFORM_SOURCES
+         platform/linux/mac_addresses_linux.c)
+ENDIF()
+
 ADD_EXECUTABLE(yella
                agent.c
                agent.h
+               mac_addresses.h
                main.c
                router.c
                router.h

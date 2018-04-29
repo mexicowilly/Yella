@@ -1,12 +1,12 @@
 /*
  * Copyright 2016 Will Mason
- * 
+ *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,19 +14,18 @@
  *    limitations under the License.
  */
 
-#if !defined(SAVED_STATE_H__)
-#define SAVED_STATE_H__
-
-#include "yella_uuid.h"
-#include "common/return_code.h"
+#include <stdlib.h>
 #include <stdint.h>
 
-typedef struct yella_saved_state yella_saved_state;
+#if !defined(MAC_ADDRESSES_H__)
+#define MAC_ADDRESSES_H__
 
-void yella_destroy_saved_state(yella_saved_state* ss);
-yella_saved_state* yella_load_saved_state(void);
-yella_rc yella_save_saved_state(yella_saved_state* ss);
-uint32_t yella_saved_state_boot_count(const yella_saved_state* ss);
-const yella_uuid* yella_saved_state_uuid(const yella_saved_state* ss);
+typedef struct yella_mac_addresses
+{
+    uint64_t* addrs;
+    size_t count;
+} yella_mac_addresses;
+
+yella_mac_addresses yella_get_mac_addresses(void);
 
 #endif
