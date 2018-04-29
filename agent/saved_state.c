@@ -79,7 +79,7 @@ yella_saved_state* yella_load_saved_state(void)
             ss->id = yella_create_uuid_from_bytes(id_vec, flatbuffers_uint8_vec_len(id_vec));
             mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
             ss->mac_addresses.count = flatbuffers_uint64_vec_len(mac_addrs_vec);
-            ss->mac_addresses.addrs = calloc(ss->mac_addresses.count, sizeof(uint64_t));
+            ss->mac_addresses.addrs = malloc(ss->mac_addresses.count * sizeof(uint64_t));
             for (i = 0; i < ss->mac_addresses.count; i++)
                 ss->mac_addresses.addrs[i] = flatbuffers_uint64_vec_at(mac_addrs_vec, i);
         }
