@@ -48,6 +48,7 @@ static void reset_ss(yella_saved_state* st)
 
 void yella_destroy_saved_state(yella_saved_state* ss)
 {
+    yella_destroy_mac_addresses(&ss->mac_addresses);
     free(ss);
 }
 

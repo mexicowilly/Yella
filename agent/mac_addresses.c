@@ -14,19 +14,10 @@
  *    limitations under the License.
  */
 
-#include <stdlib.h>
-#include <stdint.h>
+#include "mac_addresses.h"
 
-#if !defined(MAC_ADDRESSES_H__)
-#define MAC_ADDRESSES_H__
-
-typedef struct yella_mac_addresses
+void yella_destroy_mac_addresses(yella_mac_addresses* addrs)
 {
-    uint64_t* addrs;
-    size_t count;
-} yella_mac_addresses;
+    free(addrs->addrs);
+}
 
-void yella_destroy_mac_addresses(yella_mac_addresses* addrs);
-yella_mac_addresses yella_get_mac_addresses(void);
-
-#endif
