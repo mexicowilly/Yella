@@ -17,16 +17,16 @@
 #if !defined(SPOOL_H__)
 #define SPOOL_H__
 
-#include "agent/router.h"
 #include "agent/saved_state.h"
+#include <stdbool.h>
 
 typedef struct yella_spool yella_spool;
 
 typedef void (*yella_spool_size_notification)(double percent_full, void* data);
 
-yella_spool* yella_create_spool(const yella_saved_state* state, yella_router* rtr);
+yella_spool* yella_create_spool(const yella_saved_state* state);
 void yella_destroy_spool(yella_spool* sp);
-void yella_set_spool_size_notification(yella_spool* sp, yella_spool_size_notification sn, void* data);
-bool yella_write_spool(yella_spool* sp, yella_msg_part* msgs, size_t count);
+uint8_t* yella_pop_spool(yella_spool* sp, size_t* sz);
+bool yella_push_spool(yella_spool* sp, const uint8_t* msg, size_t sz);
 
 #endif

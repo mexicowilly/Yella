@@ -20,6 +20,18 @@
 #include <stdint.h>
 #include <stddef.h>
 
+/*
+ * Settings used by the agent:
+ *
+ * router
+ * reconnect-timeout-seconds
+ * data-dir
+ * spool-dir
+ * max-total-spool
+ * max-spool-partition
+ * config-file
+ */
+
 typedef struct yella_agent yella_agent;
 
 yella_agent* yella_create_agent(void);
