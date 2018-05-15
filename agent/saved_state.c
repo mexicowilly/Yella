@@ -174,7 +174,7 @@ const yella_mac_addresses* yella_saved_state_mac_addresses(const yella_saved_sta
     return ss->mac_addresses;
 }
 
-const yella_uuid* yella_saved_state_uuid(const yella_saved_state* ss)
+yella_uuid* yella_saved_state_uuid(const yella_saved_state* ss)
 {
     return ss->id;
 }

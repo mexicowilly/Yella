@@ -54,7 +54,7 @@ static void server_thread(void* p)
     rc = zmq_bind(sock, "tcp://*:19567");
     if (rc != 0)
     {
-        CHUCHO_C_ERROR(yella_logger("router-test"),
+        CHUCHO_C_ERROR("router-test",
                        "zmq_bind: %s",
                        zmq_strerror(zmq_errno()));
         assert_true(false);
@@ -65,7 +65,7 @@ static void server_thread(void* p)
     rc = zmq_msg_recv(&id_msg, sock, 0);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR(yella_logger("router-test"),
+        CHUCHO_C_ERROR("router-test",
                        "zmq_msg_recv (id): %s",
                        zmq_strerror(zmq_errno()));
         assert_true(false);
@@ -73,27 +73,27 @@ static void server_thread(void* p)
     id = malloc(zmq_msg_size(&id_msg) + 1);
     strncpy(id, (char*)zmq_msg_data(&id_msg), zmq_msg_size(&id_msg));
     zmq_msg_close(&id_msg);
-    CHUCHO_C_INFO(yella_logger("router-test"),
+    CHUCHO_C_INFO("router-test",
                   "Got identity: %s",
                   id);
     zmq_msg_init(&delim_msg);
     rc = zmq_msg_recv(&delim_msg, sock, 0);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR(yella_logger("router-test"),
+        CHUCHO_C_ERROR("router-test",
                        "zmq_msg_recv (delim): %s",
                        zmq_strerror(zmq_errno()));
         assert_true(false);
     }
     assert_int_equal(zmq_msg_size(&delim_msg), 0);
     zmq_msg_close(&delim_msg);
-    CHUCHO_C_INFO(yella_logger("router-test"),
+    CHUCHO_C_INFO("router-test",
                   "Got delimiter");
     zmq_msg_init(&payload_msg);
     rc = zmq_msg_recv(&payload_msg, sock, 0);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR(yella_logger("router-test"),
+        CHUCHO_C_ERROR("router-test",
                        "zmq_msg_recv (payload): %s",
                        zmq_strerror(zmq_errno()));
         assert_true(false);
@@ -101,7 +101,7 @@ static void server_thread(void* p)
     payload = malloc(zmq_msg_size(&payload_msg) + 1);
     strncpy(payload, (char*)zmq_msg_data(&payload_msg), zmq_msg_size(&payload_msg) + 1);
     zmq_msg_close(&payload_msg);
-    CHUCHO_C_INFO(yella_logger("router-test"),
+    CHUCHO_C_INFO("router-test",
                   "Got payload: %s",
                   payload);
     assert_string_equal(payload, YELLA_MSG_TO_SEND);
@@ -113,7 +113,7 @@ static void server_thread(void* p)
     rc = zmq_msg_send(&id_msg, sock, ZMQ_SNDMORE);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR(yella_logger("router-test"),
+        CHUCHO_C_ERROR("router-test",
                        "zmq_msg_send (id): %s",
                        zmq_strerror(zmq_errno()));
         assert_true(false);
@@ -122,7 +122,7 @@ static void server_thread(void* p)
     rc = zmq_msg_send(&delim_msg, sock, ZMQ_SNDMORE);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR(yella_logger("router-test"),
+        CHUCHO_C_ERROR("router-test",
                        "zmq_msg_send (delim): %s",
                        zmq_strerror(zmq_errno()));
         assert_true(false);
@@ -132,7 +132,7 @@ static void server_thread(void* p)
     rc = zmq_msg_send(&header_msg, sock, ZMQ_SNDMORE);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR(yella_logger("router-test"),
+        CHUCHO_C_ERROR("router-test",
                        "zmq_msg_send (header): %s",
                        zmq_strerror(zmq_errno()));
         assert_true(false);
@@ -143,7 +143,7 @@ static void server_thread(void* p)
     rc = zmq_msg_send(&payload_msg, sock, 0);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR(yella_logger("router-test"),
+        CHUCHO_C_ERROR("router-test",
                        "zmq_msg_send (payload): %s",
                        zmq_strerror(zmq_errno()));
         assert_true(false);
@@ -160,7 +160,7 @@ static void message_received(const yella_msg_part* header,
     assert_int_equal('h', *header->data);
     assert_int_equal(strlen(YELLA_MSG_TO_SEND), body->size);
     assert_true(memcmp(body->data, YELLA_MSG_TO_SEND, body->size) == 0);
-    CHUCHO_C_INFO(yella_logger("router-test"),
+    CHUCHO_C_INFO("router-test",
                   "Received message data back");
     yella_signal_event((yella_event*)caller_data);
 }
@@ -189,7 +189,7 @@ static void send(void** arg)
     yella_wait_for_event(ts->server_is_ready);
     msg.size = strlen(YELLA_MSG_TO_SEND);
     msg.data = malloc(msg.size);
-    strncpy(msg.data, YELLA_MSG_TO_SEND, msg.size);
+    strncpy((char*)msg.data, YELLA_MSG_TO_SEND, msg.size);
     sndr = yella_create_sender(ts->rtr);
     yella_send(sndr, &msg, 1);
     yella_destroy_sender(sndr);

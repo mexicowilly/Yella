@@ -29,6 +29,6 @@ yella_saved_state* yella_load_saved_state(void);
 yella_rc yella_save_saved_state(yella_saved_state* ss);
 uint32_t yella_saved_state_boot_count(const yella_saved_state* ss);
 const yella_mac_addresses* yella_saved_state_mac_addresses(const yella_saved_state* ss);
-const yella_uuid* yella_saved_state_uuid(const yella_saved_state* ss);
+yella_uuid* yella_saved_state_uuid(const yella_saved_state* ss);
 
 #endif

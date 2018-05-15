@@ -15,7 +15,6 @@
  */
 
 #include "fake_router.h"
-#include "spool_test.h"
 #include <zmq.h>
 #include <string.h>
 #include <stdbool.h>
@@ -32,8 +31,6 @@ int main(int argc, char* argv[])
     while (true)
     {
         mp = read_message(sock, 10 * 1000);
-        if (strcmp(mp->hdr->type, "spool_test") == 0)
-            sock = spool_test(zmctx, sock, mp);
         destroy_msg_pair(mp);
     }
     zmq_close(sock);

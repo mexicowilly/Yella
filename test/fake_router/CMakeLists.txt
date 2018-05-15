@@ -19,9 +19,7 @@ INCLUDE_DIRECTORIES("${YELLA_ZEROMQ_INCLUDE_DIR}")
 ADD_EXECUTABLE(fake-router EXCLUDE_FROM_ALL
                fake_router.c
                fake_router.h
-               main.c
-               spool_test.c
-               spool_test.h)
+               main.c)
 
 TARGET_LINK_LIBRARIES(fake-router
                       test-common

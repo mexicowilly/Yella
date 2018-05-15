@@ -54,7 +54,7 @@ static int set_up(void** arg)
     yella_set_router_state_callback(targ->rtr, state_changed, state_event);
     yella_wait_for_event(state_event);
     yella_destroy_event(state_event);
-    targ->sp = yella_create_spool(targ->ss, targ->rtr);
+    targ->sp = yella_create_spool(targ->ss);
     return 0;
 }
 

@@ -66,6 +66,6 @@ uint8_t* pack_spool_test(const yella_ptr_vector* read_steps, size_t* size);
 bool read_yaml_spool_test(const char* const file_name, yella_ptr_vector** read_steps, yella_ptr_vector** write_steps);
 void set_read_burst_messages_per_second(read_burst* burst, double messages_per_second);
 /* Returns read steps only */
-yella_ptr_vector* unpack_spool_test(const uint8_t const* msg);
+yella_ptr_vector* unpack_spool_test(const uint8_t* const msg);
 
 #endif
