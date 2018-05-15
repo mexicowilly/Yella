@@ -55,7 +55,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
     const struct ifreq* const end = it + (ifc.ifc_len / sizeof(struct ifreq));
     if (end - it > 1)
     {
-        result->addrs = calloc(sizeof(uint64_t), end - it - 1);
+        result->addrs = calloc(end - it - 1, sizeof(uint64_t));
         for (; it != end; ++it)
         {
             strcpy(ifr.ifr_name, it->ifr_name);

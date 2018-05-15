@@ -29,6 +29,11 @@ IF(YELLA_LINUX)
          platform/linux/mac_addresses_linux.c)
 ENDIF()
 
+IF(YELLA_MACINTOSH)
+    LIST(APPEND YELLA_PLATFORM_SOURCES
+         platform/macintosh/mac_addresses_macintosh.c)
+ENDIF()
+
 ADD_EXECUTABLE(yella
                agent.c
                agent.h
@@ -51,6 +56,9 @@ TARGET_LINK_LIBRARIES(yella
                       common
                       "${YELLA_ZEROMQ_LIB}"
                       m)
+IF(YELLA_MACINTOSH)
+    TARGET_LINK_LIBRARIES(yella "-framework IOKit" "-framework CoreFoundation")
+ENDIF()
 IF(YELLA_POSIX)
     TARGET_LINK_LIBRARIES(yella "${YELLA_UUID_LIB}")
 ENDIF()
