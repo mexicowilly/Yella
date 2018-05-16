@@ -488,6 +488,10 @@ bool yella_push_spool(yella_spool* sp, const uint8_t* msg, size_t sz)
     size_t i;
     size_t num_written;
 
+    if (sp->size >= *yella_settings_get_uint("max-total-spool"))
+    {
+
+    }
     if (ftell(sp->writef) >= *yella_settings_get_uint("max-spool-partition"))
     {
         if (!increment_write_spool_partition(sp))
