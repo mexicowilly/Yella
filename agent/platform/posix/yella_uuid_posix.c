@@ -44,7 +44,7 @@ yella_uuid* yella_create_uuid_from_bytes(const uint8_t* bytes, size_t len)
     uuid_size = sizeof(uuid_t);
     if (len != uuid_size)
     {
-        CHUCHO_C_ERROR("yella",
+        CHUCHO_C_ERROR("yella.agent",
                        "Cannot create UUID. The given size of %zu does not match the required %zu",
                        len,
                        uuid_size);

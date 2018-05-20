@@ -30,7 +30,7 @@ void* open_shared_object(const char* const file_name)
     handle = dlopen(file_name, RTLD_LAZY);
     if(handle == NULL)
     {
-        CHUCHO_C_ERROR("yella",
+        CHUCHO_C_ERROR("yella.agent",
                        "The shared object %s could not be loaded: %s",
                        file_name,
                        dlerror());
@@ -43,7 +43,7 @@ void* shared_object_symbol(void* handle, const char* const name)
     void* sym = dlsym(handle, name);
     if (sym == NULL)
     {
-        CHUCHO_C_ERROR("yella",
+        CHUCHO_C_ERROR("yella.agent",
                        "The symbol %s could not be found: %s",
                        name,
                        dlerror());

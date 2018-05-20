@@ -150,7 +150,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
 static bool init_writer(yella_spool* sp, const yella_saved_state* state)
 {
     sp->writef = NULL;
-    sp->write_pos.major_seq = yella_saved_state_boot_count(state);
+    sp->write_pos.major_seq = state->boot_count;
     sp->write_pos.minor_seq = 0;
     sp->write_file_name = NULL;
     return increment_write_spool_partition(sp);

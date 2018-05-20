@@ -23,6 +23,7 @@
 typedef struct yella_mac_address
 {
     uint8_t addr[6];
+    char text[18];
 } yella_mac_address;
 
 typedef struct yella_mac_addresses

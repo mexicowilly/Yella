@@ -16,14 +16,9 @@
 
 namespace yella.fb;
 
-struct mac_addr
+table mac_addr
 {
-    b1: ubyte;
-    b2: ubyte;
-    b3: ubyte;
-    b4: ubyte;
-    b5: ubyte;
-    b6: ubyte;
+    bytes: [ubyte];
 }
 
 table saved_state
