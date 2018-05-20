@@ -109,7 +109,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
 
     if (find_ethernet_interfaces(&itor))
     {
-        result->addrs = calloc(capacity, sizeof(uint64_t));
+        result->addrs = malloc(capacity * sizeof(yella_mac_address));
         service = IOIteratorNext(itor);
         while (service != 0)
         {
@@ -144,8 +144,8 @@ yella_mac_addresses* yella_get_mac_addresses(void)
                     if (result->count == capacity)
                     {
                         capacity *= 2;
-                        tmp = calloc(capacity, sizeof(uint64_t));
-                        memcpy(tmp, result->addrs, result->count * sizeof(uint64_t));
+                        tmp = malloc(capacity * sizeof(yella_mac_address));
+                        memcpy(tmp, result->addrs, result->count * sizeof(yella_mac_address));
                         free(result->addrs);
                         result->addrs = tmp;
                     }
@@ -160,7 +160,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
             service = IOIteratorNext(itor);
         }
         if (result->addrs != NULL)
-            result->addrs = realloc(result->addrs, result->count * sizeof(uint64_t));
+            result->addrs = realloc(result->addrs, result->count * sizeof(yella_mac_address));
     }
 
     return result;

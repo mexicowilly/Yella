@@ -39,7 +39,7 @@ char* yella_sprintf(const char* const fmt, ...)
 
 char* yella_text_dup(const char* const t)
 {
-    size_t len = strlen(t);
+    size_t len = strlen(t) + 1;
     char* result = malloc(len);
     if (result != NULL)
         strcpy(result, t);

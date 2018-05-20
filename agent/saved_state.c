@@ -62,7 +62,7 @@ yella_saved_state* yella_load_saved_state(void)
     yella_saved_state* ss;
     yella_rc rc;
     flatbuffers_uint8_vec_t id_vec;
-    flatbuffers_uint64_vec_t mac_addrs_vec;
+    yella_fb_mac_addr_vec_t mac_addrs_vec;
     int i;
 
     ss = malloc(sizeof(yella_saved_state));
@@ -81,10 +81,10 @@ yella_saved_state* yella_load_saved_state(void)
             ss->id = yella_create_uuid_from_bytes(id_vec, flatbuffers_uint8_vec_len(id_vec));
             mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
             ss->mac_addresses = malloc(sizeof(yella_mac_addresses));
-            ss->mac_addresses->count = flatbuffers_uint64_vec_len(mac_addrs_vec);
-            ss->mac_addresses->addrs = malloc(ss->mac_addresses->count * sizeof(uint64_t));
+            ss->mac_addresses->count = yella_fb_mac_addr_vec_len(mac_addrs_vec);
+            ss->mac_addresses->addrs = malloc(ss->mac_addresses->count * sizeof(yella_mac_address));
             for (i = 0; i < ss->mac_addresses->count; i++)
-                ss->mac_addresses->addrs[i] = flatbuffers_uint64_vec_at(mac_addrs_vec, i);
+                memcpy(&ss->mac_addresses->addrs[i], yella_fb_mac_addr_vec_at(mac_addrs_vec, i), sizeof(yella_mac_address));
         }
         else
         {
@@ -132,7 +132,7 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
                                     (uint8_t*)yella_uuid_bytes(ss->id),
                                     yella_uuid_byte_count(ss->id));
     yella_fb_saved_state_mac_addrs_create(&bld,
-                                          ss->mac_addresses->addrs,
+                                          (yella_fb_mac_addr_t*)ss->mac_addresses->addrs,
                                           ss->mac_addresses->count);
     yella_fb_saved_state_end_as_root(&bld);
     raw = flatcc_builder_finalize_buffer(&bld, &size);

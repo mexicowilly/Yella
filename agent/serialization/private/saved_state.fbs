@@ -16,11 +16,21 @@
 
 namespace yella.fb;
 
+struct mac_addr
+{
+    b1: ubyte;
+    b2: ubyte;
+    b3: ubyte;
+    b4: ubyte;
+    b5: ubyte;
+    b6: ubyte;
+}
+
 table saved_state
 {
     boot_count: uint;
     uuid: [ubyte];
-    mac_addrs: [ulong];
+    mac_addrs: [mac_addr];
 }
 
 root_type saved_state;

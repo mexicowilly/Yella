@@ -18,6 +18,8 @@
 #define THREAD_H__
 
 #include "export.h"
+#include <stdbool.h>
+#include <stddef.h>
 
 /**
  * Events
@@ -48,14 +50,14 @@ YELLA_EXPORT void yella_broadcast_condition_variable(yella_condition_variable* c
 YELLA_EXPORT yella_condition_variable* yella_create_condition_variable(void);
 YELLA_EXPORT void yella_destroy_condition_variable(yella_condition_variable* cond);
 YELLA_EXPORT void yella_signal_condition_variable(yella_condition_variable* cond);
-YELLA_EXPORT void yella_wait_milliseconds_for_condition_variable(yella_condition_variable* cond,
+YELLA_EXPORT bool yella_wait_milliseconds_for_condition_variable(yella_condition_variable* cond,
                                                                  yella_mutex* mtx,
-                                                                 unsigned milliseconds);
+                                                                 size_t milliseconds);
 
 /**
  * Sleep
  */
-YELLA_EXPORT void yella_sleep_this_thread(unsigned milliseconds);
+YELLA_EXPORT void yella_sleep_this_thread(size_t milliseconds);
 
 /**
  * Threads
