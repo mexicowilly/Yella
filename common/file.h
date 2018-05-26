@@ -21,6 +21,7 @@
 #include "return_code.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 YELLA_EXPORT extern const char* YELLA_DIR_SEP;
 
@@ -32,7 +33,7 @@ YELLA_EXPORT char* yella_dir_name(const char* const path);
 YELLA_EXPORT yella_rc yella_ensure_dir_exists(const char* const name);
 YELLA_EXPORT yella_rc yella_file_contents(const char* const name, uint8_t** contents);
 YELLA_EXPORT bool yella_file_exists(const char* const name);
-YELLA_EXPORT uintmax_t yella_file_size(const char* const name);
+YELLA_EXPORT yella_rc yella_file_size(const char* const name, size_t* sz);
 
 YELLA_EXPORT yella_directory_iterator* yella_create_directory_iterator(const char* const dir);
 YELLA_EXPORT void yella_destroy_directory_iterator(yella_directory_iterator* itor);

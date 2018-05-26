@@ -161,7 +161,7 @@ yella_rc yella_load_settings_doc(void)
     yaml_parser_t parser;
     FILE* f;
     int err;
-    uint64_t sz;
+    size_t sz = 0;
     const char* file_name;
 
     file_name = yella_settings_get_text("config-file");
@@ -178,7 +178,7 @@ yella_rc yella_load_settings_doc(void)
                        file_name);
         return YELLA_DOES_NOT_EXIST;
     }
-    sz = yella_file_size(file_name);
+    yella_file_size(file_name, &sz);
     if (sz > 100 * 1024)
     {
         CHUCHO_C_ERROR("yella.common",

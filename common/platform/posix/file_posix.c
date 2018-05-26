@@ -257,9 +257,30 @@ bool yella_file_exists(const char* const name)
     return access(name, F_OK) == 0;
 }
 
-uintmax_t yella_file_size(const char* const name)
+yella_rc yella_file_size(const char* const name, size_t* sz)
 {
     struct stat info;
+    int err;
+    yella_rc yrc;
 
-    return yella_do_stat(name, &info) ? info.st_size : UINTMAX_MAX;
+    if (stat(name, &info) == 0)
+    {
+        *sz = info.st_size;
+        yrc = YELLA_NO_ERROR;
+    }
+    else
+    {
+        err = errno;
+        if (err == EACCES)
+            yrc = YELLA_NO_PERMISSION;
+        else if (err == ENOENT)
+            yrc = YELLA_DOES_NOT_EXIST;
+        else
+            yrc = YELLA_FILE_SYSTEM_ERROR;
+        CHUCHO_C_ERROR("yella.common",
+                       "Could not get information about %s: %s",
+                       name,
+                       strerror(err));
+    }
+    return yrc;
 }

@@ -24,13 +24,13 @@
 yella_rc yella_file_contents(const char* const name, uint8_t** contents)
 {
     FILE* f;
-    uint64_t size;
+    size_t size = 0;
     int err;
     size_t num_read;
 
     if (!yella_file_exists(name))
         return YELLA_DOES_NOT_EXIST;
-    size = yella_file_size(name);
+    yella_file_size(name, &size);
     f = fopen(name, "rb");
     if (f == NULL)
     {
