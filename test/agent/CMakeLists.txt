@@ -14,12 +14,17 @@
 #    limitations under the License.
 #
 
-INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}")
 IF(YELLA_POSIX)
     INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
 ENDIF()
 
-YELLA_TEST(router-test ${YELLA_ZEROMQ_LIB} ${YELLA_UUID_LIB})
-#YELLA_TEST(spool-test ${YELLA_ZEROMQ_LIB} ${YELLA_UUID_LIB} m)
+IF(YELLA_POSIX)
+    SET(YELLA_PLATFORM_PART posix)
+ENDIF()
+
+YELLA_TEST(router-test
+           ${CMAKE_SOURCE_DIR}/agent/platform/${YELLA_PLATFORM_PART}/yella_uuid_${YELLA_PLATFORM_PART}.c
+           ${CMAKE_SOURCE_DIR}/agent/router.c)
+YELLA_TEST(spool-test ${CMAKE_SOURCE_DIR}/agent/spool.c)
 
 #ADD_DEPENDENCIES(spool-test yella-gen)

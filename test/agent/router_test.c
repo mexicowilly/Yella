@@ -14,10 +14,14 @@
  *    limitations under the License.
  */
 
-#if defined(YELLA_POSIX)
-#include "agent/platform/posix/yella_uuid_posix.c"
-#endif
-#include "agent/router.c"
+#include "agent/yella_uuid.h"
+#include "agent/router.h"
+#include "common/thread.h"
+#include "common/settings.h"
+#include <chucho/log.h>
+#include <zmq.h>
+#include <string.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>

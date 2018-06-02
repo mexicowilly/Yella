@@ -17,9 +17,9 @@
 #if !defined(SPOOL_H__)
 #define SPOOL_H__
 
-#include "saved_state.h"
 #include "msg_part.h"
 #include "common/return_code.h"
+#include <stddef.h>
 #include <stdbool.h>
 
 typedef struct yella_spool yella_spool;
@@ -41,13 +41,13 @@ typedef struct yella_spool_stats
     size_t cull_events;
 } yella_spool_stats;
 
-yella_spool* yella_create_spool(const yella_saved_state* state);
+yella_spool* yella_create_spool(uint32_t boot_count);
 void yella_destroy_spool(yella_spool* sp);
-yella_spool_stats yella_pool_get_stats(yella_spool* sp);
+yella_spool_stats yella_spool_get_stats(yella_spool * sp);
 yella_rc yella_spool_pop(yella_spool* sp,
                          size_t milliseconds_to_wait,
                          yella_msg_part** parts,
                          size_t* count);
-yella_rc yella_spool_push(yella_spool* sp, yella_msg_part* msgs, size_t count);
+yella_rc yella_spool_push(yella_spool* sp, const yella_msg_part* msgs, size_t count);
 
 #endif

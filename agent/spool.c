@@ -90,7 +90,6 @@ static bool increment_write_spool_partition(yella_spool* sp)
     size_t num_written;
     int rc;
 
-    yella_lock_mutex(sp->guard);
     if (sp->writef != NULL && fclose(sp->writef) != 0)
     {
         err = errno;
@@ -110,7 +109,6 @@ static bool increment_write_spool_partition(yella_spool* sp)
                        strerror(err));
         free(sp->write_file_name);
         sp->write_file_name = NULL;
-        yella_unlock_mutex(sp->guard);
         return false;
     }
     num_written = fwrite(&YELLA_SPOOL_ID, 1, sizeof(YELLA_SPOOL_ID), sp->writef);
@@ -124,7 +122,6 @@ static bool increment_write_spool_partition(yella_spool* sp)
         sp->writef = NULL;
         free(sp->write_file_name);
         sp->write_file_name = NULL;
-        yella_unlock_mutex(sp->guard);
         return false;
     }
     rc = fflush(sp->writef);
@@ -138,7 +135,6 @@ static bool increment_write_spool_partition(yella_spool* sp)
         sp->writef = NULL;
         free(sp->write_file_name);
         sp->write_file_name = NULL;
-        yella_unlock_mutex(sp->guard);
         return false;
     }
     sp->stats.current_size += num_written;
@@ -146,14 +142,13 @@ static bool increment_write_spool_partition(yella_spool* sp)
     CHUCHO_C_TRACE("yella.spool",
                    "Opened %s for writing",
                    sp->write_file_name);
-    yella_unlock_mutex(sp->guard);
     return true;
 }
 
-static bool init_writer(yella_spool* sp, const yella_saved_state* state)
+static bool init_writer(yella_spool* sp, uint32_t boot_count)
 {
     sp->writef = NULL;
-    sp->write_pos.major_seq = state->boot_count;
+    sp->write_pos.major_seq = boot_count;
     sp->write_pos.minor_seq = 0;
     sp->write_file_name = NULL;
     return increment_write_spool_partition(sp);
@@ -448,7 +443,7 @@ static bool write_pos_greater_than_read_pos(yella_spool* sp)
             ftell(sp->writef) > ftell(sp->readf));
 }
 
-yella_spool* yella_create_spool(const yella_saved_state* state)
+yella_spool* yella_create_spool(uint32_t boot_count)
 {
     yella_spool* sp;
     yella_rc yrc;
@@ -470,7 +465,7 @@ yella_spool* yella_create_spool(const yella_saved_state* state)
     sp->stats.partition_size = *yella_settings_get_uint("max-spool-partition");
     sp->stats.max_size = *yella_settings_get_uint("max-total-spool");
     sp->total_event_bytes_written = 0;
-    if (!init_writer(sp, state) || !init_reader(sp))
+    if (!init_writer(sp, boot_count) || !init_reader(sp))
     {
         yella_destroy_condition_variable(sp->was_written_cond);
         yella_destroy_mutex(sp->guard);
@@ -495,7 +490,7 @@ void yella_destroy_spool(yella_spool* sp)
     free(sp);
 }
 
-yella_spool_stats yella_pool_get_stats(yella_spool* sp)
+yella_spool_stats yella_spool_get_stats(yella_spool * sp)
 {
     yella_spool_stats stats;
 
@@ -567,7 +562,7 @@ yella_rc yella_spool_pop(yella_spool* sp,
     return yrc;
 }
 
-yella_rc yella_spool_push(yella_spool* sp, yella_msg_part* msgs, size_t count)
+yella_rc yella_spool_push(yella_spool* sp, const yella_msg_part* msgs, size_t count)
 {
     uint16_t num;
     uint32_t len;

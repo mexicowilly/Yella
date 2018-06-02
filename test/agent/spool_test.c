@@ -14,63 +14,40 @@
  *    limitations under the License.
  */
 
-#if defined(YELLA_POSIX)
-#include "agent/platform/posix/yella_uuid_posix.c"
-#endif
-#include "agent/router.c"
-#include "agent/saved_state.c"
-#include "agent/spool.c"
+#include "common/settings.h"
+#include "common/file.h"
+#include "agent/spool.h"
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
 
-typedef struct test_state
+static void simple()
 {
-    yella_router* rtr;
-    yella_spool* sp;
-    yella_saved_state* ss;
-} test_state;
+    yella_spool* sp = yella_create_spool(1);
 
-static void state_changed(yella_router_state st, void* data)
-{
-    if (st == YELLA_ROUTER_CONNECTED)
-        yella_signal_event((yella_event*)data);
+    yella_destroy_spool(sp);
 }
 
-static int set_up(void** arg)
+static int clean_spool(void** arg)
 {
-    test_state* targ;
-    yella_event* state_event;
-
-    *arg = malloc(sizeof(test_state));
-    targ = *arg;
-    yella_settings_set_text("router", "tcp://127.0.0.1:19567");
-    yella_settings_set_uint("reconnect-timeout-seconds", 5);
-    yella_settings_set_uint("poll-milliseconds", 500);
-    targ->ss = yella_load_saved_state();
-    targ->rtr = yella_create_router(yella_saved_state_uuid(targ->ss));
-    state_event = yella_create_event();
-    yella_set_router_state_callback(targ->rtr, state_changed, state_event);
-    yella_wait_for_event(state_event);
-    yella_destroy_event(state_event);
-    targ->sp = yella_create_spool(targ->ss);
-    return 0;
-}
-
-static int tear_down(void** arg)
-{
-    test_state* targ;
-
-    targ = *arg;
-    yella_destroy_spool(targ->sp);
-    yella_destroy_router(targ->rtr);
-    yella_destroy_saved_state(targ->ss);
-    free(targ);
+    yella_remove_all(yella_settings_get_text("spool-dir"));
     return 0;
 }
 
 int main()
 {
+    const struct CMUnitTest tests[] =
+    {
+        cmocka_unit_test_setup_teardown(simple, clean_spool, clean_spool)
+    };
 
+#if defined(YELLA_POSIX)
+    setenv("CMOCKA_TEST_ABORT", "1", 1);
+#endif
+    yella_settings_set_text("spool-dir", "test-spool");
+    yella_settings_set_uint("max-spool-partition", 1024 * 1024);
+    yella_settings_set_uint("max-total-spool", 100 * 1024 * 1024);
+    return cmocka_run_group_tests(tests, NULL, NULL);
 }
