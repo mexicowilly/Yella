@@ -513,6 +513,8 @@ yella_rc yella_spool_pop(yella_spool* sp,
     size_t num_read = 0;
     size_t event_size = 0;
     yella_rc yrc = YELLA_NO_ERROR;
+    long msg_off;
+    long cur_off;
 
     *parts = NULL;
     *count = 0;
@@ -524,10 +526,11 @@ yella_rc yella_spool_pop(yella_spool* sp,
         *count = msg_count;
         if (msg_count > 0)
         {
+            msg_off = ftell(sp->readf) - sizeof(msg_count);
             *parts = calloc(msg_count, sizeof(yella_msg_part));
             for (i = 0; i < msg_count; i++)
             {
-                if (fread(&msg_size, sizeof(msg_size), 1, sp->readf) != sizeof(msg_size))
+                if (fread(&msg_size, 1, sizeof(msg_size), sp->readf) != sizeof(msg_size))
                 {
                     CHUCHO_C_ERROR("yella.spool",
                                    "Unable to read the message size from %s",
@@ -551,6 +554,17 @@ yella_rc yella_spool_pop(yella_spool* sp,
                     return YELLA_READ_ERROR;
                 }
             }
+            msg_count |= YELLA_VISITED_BIT;
+            cur_off = ftell(sp->readf);
+            fseek(sp->readf, msg_off, SEEK_SET);
+            if (fwrite(&msg_count, 1, sizeof(msg_count), sp->readf) != sizeof(msg_count))
+            {
+                CHUCHO_C_ERROR("yella.spool",
+                               "Could not set the current event as visited (%s): %s",
+                               sp->read_file_name,
+                               strerror(errno));
+            }
+            fseek(sp->readf, cur_off, SEEK_SET);
         }
     }
     else
