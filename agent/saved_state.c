@@ -35,7 +35,6 @@ static char* ss_file_name(void)
 
 static void reset_ss(yella_saved_state* st)
 {
-    st->boot_count = 1;
     st->id = yella_create_uuid();
     st->mac_addresses = yella_get_mac_addresses();
 }
@@ -68,11 +67,9 @@ yella_saved_state* yella_load_saved_state(void)
     if (rc == YELLA_NO_ERROR)
     {
         tbl = yella_fb_saved_state_as_root(raw);
-        if (yella_fb_saved_state_boot_count_is_present(tbl) &&
-            yella_fb_saved_state_uuid_is_present(tbl) &&
+        if (yella_fb_saved_state_uuid_is_present(tbl) &&
             yella_fb_saved_state_mac_addrs_is_present(tbl))
         {
-            ss->boot_count = yella_fb_saved_state_boot_count(tbl) + 1;
             id_vec = yella_fb_saved_state_uuid(tbl);
             ss->id = yella_create_uuid_from_bytes(id_vec, flatbuffers_uint8_vec_len(id_vec));
             mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
@@ -125,8 +122,7 @@ yella_saved_state* yella_load_saved_state(void)
         addr_text[strlen(addr_text) - 1] = 0;
     }
     CHUCHO_C_INFO("yella.agent",
-                  "Saved state: boot_count = %lu, id = %s, mac_addresses = { %s }",
-                  (unsigned long)ss->boot_count,
+                  "Saved state: id = %s, mac_addresses = { %s }",
                   yella_uuid_to_text(ss->id),
                   addr_text);
     if (addr_text[0] != 0)
@@ -156,7 +152,6 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
         assert(mac_addrs[i] != 0);
     }
     yella_fb_saved_state_start_as_root(&bld);
-    yella_fb_saved_state_boot_count_add(&bld, ss->boot_count);
     yella_fb_saved_state_uuid_create(&bld,
                                     (uint8_t*)yella_uuid_bytes(ss->id),
                                     yella_uuid_byte_count(ss->id));

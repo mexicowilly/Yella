@@ -147,7 +147,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
                              sizeof(result->addrs[result->count++].text),
                              "%02x:%02x:%02x:%02x:%02x:%02x",
                              cur_addr[0], cur_addr[1], cur_addr[2], cur_addr[3], cur_addr[4], cur_addr[5]);
-                    if (result->count == capacity)
+                    if (++result->count == capacity)
                     {
                         capacity *= 2;
                         tmp = malloc(capacity * sizeof(yella_mac_address));

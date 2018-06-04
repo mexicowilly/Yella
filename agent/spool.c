@@ -85,7 +85,6 @@ static char* spool_file_name(uint32_t major_seq, uint32_t minor_seq)
 
 static bool increment_write_spool_partition(yella_spool* sp)
 {
-    char* fname;
     int err;
     size_t num_written;
     int rc;
@@ -117,7 +116,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
         err = errno;
         CHUCHO_C_ERROR("yella.spool",
                        "Unable to write to spool file %s",
-                       fname);
+                       sp->write_file_name);
         fclose(sp->writef);
         sp->writef = NULL;
         free(sp->write_file_name);
@@ -130,7 +129,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
         err = errno;
         CHUCHO_C_ERROR("yella.spool",
                        "Unable to flush spool file %s",
-                       fname);
+                       sp->write_file_name);
         fclose(sp->writef);
         sp->writef = NULL;
         free(sp->write_file_name);
@@ -145,16 +144,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
     return true;
 }
 
-static bool init_writer(yella_spool* sp, uint32_t boot_count)
-{
-    sp->writef = NULL;
-    sp->write_pos.major_seq = boot_count;
-    sp->write_pos.minor_seq = 0;
-    sp->write_file_name = NULL;
-    return increment_write_spool_partition(sp);
-}
-
-char* find_oldest_file(yella_spool* sp, spool_pos* pos)
+static char* find_file(yella_spool* sp, spool_pos* pos, bool (*cmp_func)(yella_spool* sp, const spool_pos* found_pos, const spool_pos* prev_pos))
 {
     yella_directory_iterator* itor;
     yella_ptr_vector* to_remove;
@@ -165,8 +155,6 @@ char* find_oldest_file(yella_spool* sp, spool_pos* pos)
     int rc;
     int i;
 
-    pos->major_seq = UINT32_MAX;
-    pos->minor_seq = UINT32_MAX;
     candidate = NULL;
     to_remove = yella_create_ptr_vector();
     itor = yella_create_directory_iterator(yella_settings_get_text("spool-dir"));
@@ -178,14 +166,10 @@ char* find_oldest_file(yella_spool* sp, spool_pos* pos)
         free(base);
         if (rc == 2 && is_spool_file(cur))
         {
-            if ((found_pos.major_seq < pos->major_seq ||
-                 (found_pos.major_seq == pos->major_seq && found_pos.minor_seq < pos->minor_seq)) &&
-                (found_pos.major_seq > sp->read_pos.major_seq ||
-                 (found_pos.major_seq == sp->read_pos.major_seq && found_pos.minor_seq > sp->read_pos.minor_seq)))
+            if (cmp_func(sp, &found_pos, pos))
             {
                 *pos = found_pos;
-                if (candidate != NULL)
-                    free(candidate);
+                free(candidate);
                 candidate = yella_text_dup(cur);
             }
         }
@@ -202,6 +186,57 @@ char* find_oldest_file(yella_spool* sp, spool_pos* pos)
         remove(yella_ptr_vector_at(to_remove, i));
     yella_destroy_ptr_vector(to_remove);
     return candidate;
+
+}
+
+static bool cmp_newest(yella_spool* sp, const spool_pos* found_pos, const spool_pos* prev_pos)
+{
+    return (found_pos->major_seq > prev_pos->major_seq ||
+            (found_pos->major_seq == prev_pos->major_seq && found_pos->minor_seq > prev_pos->minor_seq));
+
+}
+
+char* find_newest_file(yella_spool* sp, spool_pos* pos)
+{
+    pos->major_seq = 0;
+    pos->minor_seq = 0;
+    return find_file(sp, pos, cmp_newest);
+}
+
+static bool init_writer(yella_spool* sp)
+{
+    char* newest;
+    spool_pos pos;
+
+    sp->writef = NULL;
+    newest = find_newest_file(sp, &pos);
+    if (newest == NULL)
+    {
+        sp->write_pos.major_seq = 1;
+    }
+    else
+    {
+        sp->write_pos.major_seq = pos.major_seq + 1;
+        free(newest);
+    }
+    sp->write_pos.minor_seq = 0;
+    sp->write_file_name = NULL;
+    return increment_write_spool_partition(sp);
+}
+
+static bool cmp_oldest(yella_spool* sp, const spool_pos* found_pos, const spool_pos* prev_pos)
+{
+    return ((found_pos->major_seq < prev_pos->major_seq ||
+            (found_pos->major_seq == prev_pos->major_seq && found_pos->minor_seq < prev_pos->minor_seq)) &&
+           (found_pos->major_seq > sp->read_pos.major_seq ||
+            (found_pos->major_seq == sp->read_pos.major_seq && found_pos->minor_seq > sp->read_pos.minor_seq)));
+}
+
+char* find_oldest_file(yella_spool* sp, spool_pos* pos)
+{
+    pos->major_seq = UINT32_MAX;
+    pos->minor_seq = UINT32_MAX;
+    return find_file(sp, pos, cmp_oldest);
 }
 
 static void cull(yella_spool* sp)
@@ -443,7 +478,7 @@ static bool write_pos_greater_than_read_pos(yella_spool* sp)
             ftell(sp->writef) > ftell(sp->readf));
 }
 
-yella_spool* yella_create_spool(uint32_t boot_count)
+yella_spool* yella_create_spool(void)
 {
     yella_spool* sp;
     yella_rc yrc;
@@ -465,7 +500,7 @@ yella_spool* yella_create_spool(uint32_t boot_count)
     sp->stats.partition_size = *yella_settings_get_uint("max-spool-partition");
     sp->stats.max_size = *yella_settings_get_uint("max-total-spool");
     sp->total_event_bytes_written = 0;
-    if (!init_writer(sp, boot_count) || !init_reader(sp))
+    if (!init_writer(sp) || !init_reader(sp))
     {
         yella_destroy_condition_variable(sp->was_written_cond);
         yella_destroy_mutex(sp->guard);

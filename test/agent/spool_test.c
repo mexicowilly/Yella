@@ -48,7 +48,7 @@ static void simple()
     yella_msg_part* popped;
     size_t count_popped;
 
-    sp = yella_create_spool(1);
+    sp = yella_create_spool();
     rc = yella_spool_push(sp, one, 1);
     assert_true(rc == YELLA_NO_ERROR);
     rc = yella_spool_pop(sp, 250, &popped, &count_popped);
