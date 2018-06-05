@@ -71,7 +71,7 @@ yella_saved_state* yella_load_saved_state(void)
             yella_fb_saved_state_mac_addrs_is_present(tbl))
         {
             id_vec = yella_fb_saved_state_uuid(tbl);
-            ss->id = yella_create_uuid_from_bytes(id_vec, flatbuffers_uint8_vec_len(id_vec));
+            ss->id = yella_create_uuid_from_bytes(id_vec);
             mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
             ss->mac_addresses = malloc(sizeof(yella_mac_addresses));
             ss->mac_addresses->count = yella_fb_mac_addr_vec_len(mac_addrs_vec);
@@ -79,8 +79,8 @@ yella_saved_state* yella_load_saved_state(void)
             for (i = 0; i < ss->mac_addresses->count; i++)
             {
                 flatbuffers_uint8_vec_t bytes = yella_fb_mac_addr_bytes(yella_fb_mac_addr_vec_at(mac_addrs_vec, i));
-                assert(flatbuffers_uint8_vec_len(bytes) == sizeof(yella_mac_address));
-                memcpy(&ss->mac_addresses->addrs[i], bytes, sizeof(yella_mac_address));
+                assert(flatbuffers_uint8_vec_len(bytes) == sizeof(ss->mac_addresses->addrs[i].addr));
+                memcpy(&ss->mac_addresses->addrs[i], bytes, sizeof(ss->mac_addresses->addrs[i].addr));
             }
         }
         else
@@ -123,7 +123,7 @@ yella_saved_state* yella_load_saved_state(void)
     }
     CHUCHO_C_INFO("yella.agent",
                   "Saved state: id = %s, mac_addresses = { %s }",
-                  yella_uuid_to_text(ss->id),
+                  ss->id->text,
                   addr_text);
     if (addr_text[0] != 0)
         free(addr_text);
@@ -153,8 +153,8 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
     }
     yella_fb_saved_state_start_as_root(&bld);
     yella_fb_saved_state_uuid_create(&bld,
-                                    (uint8_t*)yella_uuid_bytes(ss->id),
-                                    yella_uuid_byte_count(ss->id));
+                                    ss->id->id,
+                                    sizeof(ss->id->text));
     yella_fb_saved_state_mac_addrs_create(&bld, mac_addrs, ss->mac_addresses->count);
     free(mac_addrs);
     yella_fb_saved_state_end_as_root(&bld);
