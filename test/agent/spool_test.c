@@ -16,6 +16,7 @@
 
 #include "common/settings.h"
 #include "common/file.h"
+#include "common/thread.h"
 #include "agent/spool.h"
 #include <stdlib.h>
 #include <stdarg.h>
@@ -38,6 +39,69 @@ static yella_msg_part make_part(const char* const text)
     return p;
 }
 
+typedef struct thread_arg
+{
+    yella_spool* sp;
+    size_t milliseconds_delay;
+    size_t count;
+} thread_arg;
+
+static void full_speed_main(void* data)
+{
+    thread_arg* targ = (thread_arg*)data;
+    size_t i;
+    yella_msg_part parts[2];
+
+    parts[0].data = malloc(sizeof(size_t));
+    parts[0].size = sizeof(size_t);
+    parts[1].data = malloc(sizeof(size_t));
+    parts[1].size = sizeof(size_t);
+    for (i = 0; i < targ->count; i++)
+    {
+        memcpy(parts[0].data, &i, sizeof(i));
+        memcpy(parts[1].data, &i, sizeof(i));
+        yella_spool_push(targ->sp, parts, 2);
+        yella_sleep_this_thread(targ->milliseconds_delay);
+    }
+}
+
+static void full_speed(void** targ)
+{
+    yella_spool* sp;
+    thread_arg thr_arg;
+    yella_thread* thr;
+    size_t i;
+    yella_rc rc;
+    yella_msg_part* popped;
+    size_t count_popped;
+    size_t found;
+
+    sp = yella_create_spool();
+    assert_non_null(sp);
+    thr_arg.milliseconds_delay = 0;
+    thr_arg.count = 1000000;
+    thr_arg.sp = sp;
+    thr = yella_create_thread(full_speed_main, &thr_arg);
+    assert_non_null(thr);
+    for (i = 0; i < 1000000; i++)
+    {
+        rc = yella_spool_pop(sp, 5000, &popped, &count_popped);
+        assert_int_equal(rc, YELLA_NO_ERROR);
+        assert_int_equal(count_popped, 2);
+        assert_int_equal(popped[0].size, sizeof(size_t));
+        memcpy(&found, popped[0].data, sizeof(found));
+        assert_int_equal(found, i);
+        assert_int_equal(popped[1].size, sizeof(size_t));
+        memcpy(&found, popped[1].data, sizeof(found));
+        assert_int_equal(found, i);
+        free(popped[0].data);
+        free(popped[1].data);
+        free(popped);
+    }
+    yella_join_thread(thr);
+    yella_destroy_thread(thr);
+}
+
 static void simple()
 {
     yella_spool* sp;
@@ -49,6 +113,7 @@ static void simple()
     size_t count_popped;
 
     sp = yella_create_spool();
+    assert_non_null(sp);
     rc = yella_spool_push(sp, one, 1);
     assert_true(rc == YELLA_NO_ERROR);
     rc = yella_spool_pop(sp, 250, &popped, &count_popped);
@@ -96,7 +161,8 @@ int main()
 {
     const struct CMUnitTest tests[] =
     {
-        cmocka_unit_test_setup_teardown(simple, clean_spool, NULL)
+        cmocka_unit_test_setup_teardown(simple, clean_spool, NULL),
+        cmocka_unit_test_setup_teardown(full_speed, clean_spool, NULL)
     };
 
 #if defined(YELLA_POSIX)
