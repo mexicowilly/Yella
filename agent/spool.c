@@ -252,6 +252,10 @@ static void cull(yella_spool* sp)
         sp->stats.bytes_culled += sz;
         ++sp->stats.files_destroyed;
         ++sp->stats.cull_events;
+        CHUCHO_C_WARN("yella.spool",
+                      "The spool filled, so the oldest bytes were culled. File %s: %zu bytes",
+                      oldest,
+                      sz);
     }
     else
     {
@@ -365,6 +369,9 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                     {
                         sp->stats.current_size -= sz;
                         ++sp->stats.files_destroyed;
+                        CHUCHO_C_TRACE("yella.spool",
+                                       "Removed read stream %s",
+                                       sp->read_file_name);
                     }
                     else
                     {
@@ -499,6 +506,7 @@ yella_spool* yella_create_spool(void)
     sp->stats.current_size = current_spool_size();
     sp->stats.partition_size = *yella_settings_get_uint("max-spool-partition");
     sp->stats.max_size = *yella_settings_get_uint("max-total-spool");
+    sp->stats.smallest_event_size = (size_t)-1;
     sp->total_event_bytes_written = 0;
     if (!init_writer(sp) || !init_reader(sp))
     {

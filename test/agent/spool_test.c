@@ -18,6 +18,7 @@
 #include "common/file.h"
 #include "common/thread.h"
 #include "agent/spool.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -65,6 +66,75 @@ static void full_speed_main(void* data)
     }
 }
 
+static char* stats_to_json(const yella_spool_stats* stats)
+{
+    int req;
+    char* buf = malloc(2048);
+
+    req = snprintf(buf, 2048, "{ \"partition_size\": %zu, \"max_size\": %zu, \"current_size\": %zu, \"largest_size\": %zu, \"files_created\": %zu, \"files_destroyed\": %zu, \"bytes_culled\": %zu, \"events_read\": %zu, \"events_written\": %zu, \"smallest_event_size\": %zu, \"largest_event_size\": %zu, \"average_event_size\": %zu, \"cull_events\": %zu }",
+                   stats->partition_size,
+                   stats->max_size,
+                   stats->current_size,
+                   stats->largest_size,
+                   stats->files_created,
+                   stats->files_destroyed,
+                   stats->bytes_culled,
+                   stats->events_read,
+                   stats->events_written,
+                   stats->smallest_event_size,
+                   stats->largest_event_size,
+                   stats->average_event_size,
+                   stats->cull_events);
+    buf = realloc(buf, req + 1);
+    return buf;
+}
+
+static void cull(void** targ)
+{
+    yella_spool* sp;
+    thread_arg thr_arg;
+    yella_thread* thr;
+    int total_popped_events;
+    yella_rc rc;
+    yella_msg_part* popped;
+    size_t count_popped;
+    yella_spool_stats stats;
+    char* tstats;
+
+    yella_settings_set_uint("max-spool-partition", 1024 * 1024);
+    yella_settings_set_uint("max-total-spool", 2 * 1024 * 1024);
+    sp = yella_create_spool();
+    assert_non_null(sp);
+    thr_arg.milliseconds_delay = 0;
+    thr_arg.count = 1000000;
+    thr_arg.sp = sp;
+    thr = yella_create_thread(full_speed_main, &thr_arg);
+    assert_non_null(thr);
+    yella_sleep_this_thread(3000);
+    total_popped_events = 0;
+    do
+    {
+        rc = yella_spool_pop(sp, 250, &popped, &count_popped);
+        if (rc == YELLA_NO_ERROR)
+        {
+            assert_int_equal(count_popped, 2);
+            free(popped[0].data);
+            free(popped[1].data);
+            free(popped);
+            ++total_popped_events;
+        }
+    } while (rc == YELLA_NO_ERROR);
+    yella_join_thread(thr);
+    yella_destroy_thread(thr);
+    stats = yella_spool_get_stats(sp);
+    yella_destroy_spool(sp);
+    assert_true(stats.bytes_culled > 0);
+    assert_true(total_popped_events < 1000000);
+    tstats = stats_to_json(&stats);
+    print_message("Stats: %s\n", tstats);
+    free(tstats);
+}
+
 static void full_speed(void** targ)
 {
     yella_spool* sp;
@@ -75,6 +145,8 @@ static void full_speed(void** targ)
     yella_msg_part* popped;
     size_t count_popped;
     size_t found;
+    yella_spool_stats stats;
+    char* tstats;
 
     sp = yella_create_spool();
     assert_non_null(sp);
@@ -100,6 +172,11 @@ static void full_speed(void** targ)
     }
     yella_join_thread(thr);
     yella_destroy_thread(thr);
+    stats = yella_spool_get_stats(sp);
+    yella_destroy_spool(sp);
+    tstats = stats_to_json(&stats);
+    print_message("Stats: %s\n", tstats);
+    free(tstats);
 }
 
 static void simple()
@@ -111,6 +188,8 @@ static void simple()
     yella_rc rc;
     yella_msg_part* popped;
     size_t count_popped;
+    yella_spool_stats stats;
+    char* tstats;
 
     sp = yella_create_spool();
     assert_non_null(sp);
@@ -148,11 +227,18 @@ static void simple()
     destroy_parts(popped, count_popped);
     rc = yella_spool_pop(sp, 250, &popped, &count_popped);
     assert_int_equal(rc, YELLA_TIMED_OUT);
+    stats = yella_spool_get_stats(sp);
+    tstats = stats_to_json(&stats);
+    print_message("Stats: %s\n", tstats);
+    free(tstats);
     yella_destroy_spool(sp);
 }
 
 static int clean_spool(void** arg)
 {
+    yella_settings_set_text("spool-dir", "test-spool");
+    yella_settings_set_uint("max-spool-partition", 1024 * 1024);
+    yella_settings_set_uint("max-total-spool", 100 * 1024 * 1024);
     yella_remove_all(yella_settings_get_text("spool-dir"));
     return 0;
 }
@@ -162,14 +248,12 @@ int main()
     const struct CMUnitTest tests[] =
     {
         cmocka_unit_test_setup_teardown(simple, clean_spool, NULL),
-        cmocka_unit_test_setup_teardown(full_speed, clean_spool, NULL)
+        cmocka_unit_test_setup_teardown(full_speed, clean_spool, NULL),
+        cmocka_unit_test_setup_teardown(cull, clean_spool, NULL)
     };
 
 #if defined(YELLA_POSIX)
     setenv("CMOCKA_TEST_ABORT", "1", 1);
 #endif
-    yella_settings_set_text("spool-dir", "test-spool");
-    yella_settings_set_uint("max-spool-partition", 1024 * 1024);
-    yella_settings_set_uint("max-total-spool", 100 * 1024 * 1024);
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
