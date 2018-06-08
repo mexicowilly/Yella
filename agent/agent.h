@@ -27,8 +27,8 @@
  * reconnect-timeout-seconds
  * data-dir
  * spool-dir
- * max-total-spool
- * max-spool-partition
+ * max--spool-partitions
+ * max-spool-partition-size
  * config-file
  */
 

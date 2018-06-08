@@ -26,8 +26,8 @@ typedef struct yella_spool yella_spool;
 
 typedef struct yella_spool_stats
 {
-    size_t partition_size;
-    size_t max_size;
+    size_t max_partition_size;
+    size_t max_partitions;
     size_t current_size;
     size_t largest_size;
     size_t files_created;

@@ -504,8 +504,8 @@ yella_spool* yella_create_spool(void)
     sp->was_written_cond = yella_create_condition_variable();
     memset(&sp->stats, 0, sizeof(yella_spool_stats));
     sp->stats.current_size = current_spool_size();
-    sp->stats.partition_size = *yella_settings_get_uint("max-spool-partition");
-    sp->stats.max_size = *yella_settings_get_uint("max-total-spool");
+    sp->stats.max_partition_size = *yella_settings_get_uint("max-spool-partition-size");
+    sp->stats.max_partitions = *yella_settings_get_uint("max-spool-partitions");
     sp->stats.smallest_event_size = (size_t)-1;
     sp->total_event_bytes_written = 0;
     if (!init_writer(sp) || !init_reader(sp))
@@ -641,7 +641,7 @@ yella_rc yella_spool_push(yella_spool* sp, const yella_msg_part* msgs, size_t co
     size_t event_size = 0;
 
     yella_lock_mutex(sp->guard);
-    if (ftell(sp->writef) >= sp->stats.partition_size)
+    if (ftell(sp->writef) >= sp->stats.max_partition_size)
     {
         if (!increment_write_spool_partition(sp))
         {
@@ -696,7 +696,7 @@ yella_rc yella_spool_push(yella_spool* sp, const yella_msg_part* msgs, size_t co
     if (sp->stats.smallest_event_size > event_size)
         sp->stats.smallest_event_size = event_size;
     sp->total_event_bytes_written += event_size;
-    if (sp->stats.current_size >= sp->stats.max_size)
+    if (sp->stats.current_size >= sp->stats.max_partitions * sp->stats.max_partition_size)
         cull(sp);
     yella_signal_condition_variable(sp->was_written_cond);
     yella_unlock_mutex(sp->guard);

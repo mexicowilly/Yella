@@ -81,6 +81,15 @@ yella_saved_state* yella_load_saved_state(void)
                 flatbuffers_uint8_vec_t bytes = yella_fb_mac_addr_bytes(yella_fb_mac_addr_vec_at(mac_addrs_vec, i));
                 assert(flatbuffers_uint8_vec_len(bytes) == sizeof(ss->mac_addresses->addrs[i].addr));
                 memcpy(&ss->mac_addresses->addrs[i], bytes, sizeof(ss->mac_addresses->addrs[i].addr));
+                snprintf(ss->mac_addresses->addrs[i].text,
+                         sizeof(ss->mac_addresses->addrs[i].text),
+                         "%02x:%02x:%02x:%02x:%02x:%02x",
+                         ss->mac_addresses->addrs[i].addr[0],
+                         ss->mac_addresses->addrs[i].addr[1],
+                         ss->mac_addresses->addrs[i].addr[2],
+                         ss->mac_addresses->addrs[i].addr[3],
+                         ss->mac_addresses->addrs[i].addr[4],
+                         ss->mac_addresses->addrs[i].addr[5]);
             }
         }
         else

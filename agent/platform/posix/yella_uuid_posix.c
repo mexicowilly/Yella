@@ -26,7 +26,7 @@ yella_uuid* yella_create_uuid(void)
 
     id = malloc(sizeof(yella_uuid));
     uuid_generate(id->id);
-    uuid_unparse(id->id, id->text);
+    uuid_unparse_lower(id->id, id->text);
     return id;
 }
 
@@ -36,7 +36,7 @@ yella_uuid* yella_create_uuid_from_bytes(const uint8_t* bytes)
 
     id = malloc(sizeof(yella_uuid));
     memcpy(id->id, bytes, sizeof(id->id));
-    uuid_unparse(id->id, id->text);
+    uuid_unparse_lower(id->id, id->text);
     return id;
 }
 

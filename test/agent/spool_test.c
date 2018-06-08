@@ -72,8 +72,8 @@ static char* stats_to_json(const yella_spool_stats* stats)
     char* buf = malloc(2048);
 
     req = snprintf(buf, 2048, "{ \"partition_size\": %zu, \"max_size\": %zu, \"current_size\": %zu, \"largest_size\": %zu, \"files_created\": %zu, \"files_destroyed\": %zu, \"bytes_culled\": %zu, \"events_read\": %zu, \"events_written\": %zu, \"smallest_event_size\": %zu, \"largest_event_size\": %zu, \"average_event_size\": %zu, \"cull_events\": %zu }",
-                   stats->partition_size,
-                   stats->max_size,
+                   stats->max_partition_size,
+                   stats->max_partitions,
                    stats->current_size,
                    stats->largest_size,
                    stats->files_created,
@@ -101,8 +101,8 @@ static void cull(void** targ)
     yella_spool_stats stats;
     char* tstats;
 
-    yella_settings_set_uint("max-spool-partition", 1024 * 1024);
-    yella_settings_set_uint("max-total-spool", 2 * 1024 * 1024);
+    yella_settings_set_uint("max-spool-partition-size", 1024 * 1024);
+    yella_settings_set_uint("max-spool-partitions", 2);
     sp = yella_create_spool();
     assert_non_null(sp);
     thr_arg.milliseconds_delay = 0;
@@ -288,8 +288,8 @@ static void simple(void** targ)
 static int clean_spool(void** arg)
 {
     yella_settings_set_text("spool-dir", "test-spool");
-    yella_settings_set_uint("max-spool-partition", 1024 * 1024);
-    yella_settings_set_uint("max-total-spool", 100 * 1024 * 1024);
+    yella_settings_set_uint("max-spool-partition-size", 1024 * 1024);
+    yella_settings_set_uint("max-spool-partitions", 100);
     yella_remove_all(yella_settings_get_text("spool-dir"));
     return 0;
 }
