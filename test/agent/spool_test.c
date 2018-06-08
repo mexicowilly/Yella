@@ -118,9 +118,7 @@ static void cull(void** targ)
         if (rc == YELLA_NO_ERROR)
         {
             assert_int_equal(count_popped, 2);
-            free(popped[0].data);
-            free(popped[1].data);
-            free(popped);
+            destroy_parts(popped, 2);
             ++total_popped_events;
         }
     } while (rc == YELLA_NO_ERROR);
@@ -166,9 +164,7 @@ static void full_speed(void** targ)
         assert_int_equal(popped[1].size, sizeof(size_t));
         memcpy(&found, popped[1].data, sizeof(found));
         assert_int_equal(found, i);
-        free(popped[0].data);
-        free(popped[1].data);
-        free(popped);
+        destroy_parts(popped, 2);
     }
     yella_join_thread(thr);
     yella_destroy_thread(thr);
@@ -179,7 +175,62 @@ static void full_speed(void** targ)
     free(tstats);
 }
 
-static void simple()
+static void pick_up(void** targ)
+{
+    yella_spool* sp;
+    thread_arg thr_arg;
+    yella_thread* thr;
+    yella_msg_part part;
+    yella_rc rc;
+    size_t i;
+    yella_msg_part* popped;
+    size_t count_popped;
+    size_t found;
+    yella_spool_stats stats;
+    char* tstats;
+
+    sp = yella_create_spool();
+    assert_non_null(sp);
+    thr_arg.milliseconds_delay = 0;
+    thr_arg.count = 100000;
+    thr_arg.sp = sp;
+    thr = yella_create_thread(full_speed_main, &thr_arg);
+    yella_join_thread(thr);
+    yella_destroy_thread(thr);
+    yella_destroy_spool(sp);
+    sp = yella_create_spool();
+    assert_non_null(sp);
+    part = make_part("My dog has fleas");
+    rc = yella_spool_push(sp, &part, 1);
+    assert_int_equal(rc, YELLA_NO_ERROR);
+    for (i = 0; i < 100000; i++)
+    {
+        rc = yella_spool_pop(sp, 250, &popped, &count_popped);
+        assert_int_equal(rc, YELLA_NO_ERROR);
+        assert_int_equal(count_popped, 2);
+        assert_int_equal(popped[0].size, sizeof(size_t));
+        memcpy(&found, popped[0].data, sizeof(found));
+        assert_int_equal(found, i);
+        assert_int_equal(popped[1].size, sizeof(size_t));
+        memcpy(&found, popped[1].data, sizeof(found));
+        assert_int_equal(found, i);
+        destroy_parts(popped, 2);
+    }
+    rc = yella_spool_pop(sp, 250, &popped, &count_popped);
+    assert_int_equal(rc, YELLA_NO_ERROR);
+    assert_int_equal(count_popped, 1);
+    assert_string_equal((char*)popped->data, "My dog has fleas");
+    destroy_parts(popped, 1);
+    rc = yella_spool_pop(sp, 250, &popped, &count_popped);
+    assert_int_equal(rc, YELLA_TIMED_OUT);
+    stats = yella_spool_get_stats(sp);
+    yella_destroy_spool(sp);
+    tstats = stats_to_json(&stats);
+    print_message("Stats: %s\n", tstats);
+    free(tstats);
+}
+
+static void simple(void** targ)
 {
     yella_spool* sp;
     yella_msg_part one[] = { make_part("This is one") };
@@ -249,7 +300,8 @@ int main()
     {
         cmocka_unit_test_setup_teardown(simple, clean_spool, NULL),
         cmocka_unit_test_setup_teardown(full_speed, clean_spool, NULL),
-        cmocka_unit_test_setup_teardown(cull, clean_spool, NULL)
+        cmocka_unit_test_setup_teardown(cull, clean_spool, NULL),
+        cmocka_unit_test_setup_teardown(pick_up, clean_spool, NULL)
     };
 
 #if defined(YELLA_POSIX)

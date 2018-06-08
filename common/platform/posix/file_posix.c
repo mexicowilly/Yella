@@ -228,7 +228,7 @@ yella_rc yella_ensure_dir_exists(const char* const name)
 {
     yella_ptr_vector* dirs;
     size_t i;
-    yella_rc rc;
+    yella_rc rc = YELLA_NO_ERROR;
     const char* cur;
 
     if (name == NULL || name[0] == 0)

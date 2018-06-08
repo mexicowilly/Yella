@@ -565,6 +565,11 @@ yella_rc yella_spool_pop(yella_spool* sp,
     if (write_pos_greater_than_read_pos(sp) ||
         yella_wait_milliseconds_for_condition_variable(sp->was_written_cond, sp->guard, milliseconds_to_wait))
     {
+        if (!write_pos_greater_than_read_pos(sp))
+        {
+            yella_unlock_mutex(sp->guard);
+            return YELLA_TIMED_OUT;
+        }
         msg_count = advance_to_next_unvisited(sp);
         *count = msg_count;
         if (msg_count > 0)
@@ -609,10 +614,18 @@ yella_rc yella_spool_pop(yella_spool* sp,
             }
             fseek(sp->readf, cur_off, SEEK_SET);
         }
+        else
+        {
+            CHUCHO_C_ERROR("yella.spool",
+                           "Expected an event to read");
+            yella_unlock_mutex(sp->guard);
+            return YELLA_LOGIC_ERROR;
+        }
     }
     else
     {
-        yrc = YELLA_TIMED_OUT;
+        yella_unlock_mutex(sp->guard);
+        return YELLA_TIMED_OUT;
     }
     ++sp->stats.events_read;
     yella_unlock_mutex(sp->guard);
