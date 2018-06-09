@@ -71,7 +71,7 @@ static char* stats_to_json(const yella_spool_stats* stats)
     int req;
     char* buf = malloc(2048);
 
-    req = snprintf(buf, 2048, "{ \"partition_size\": %zu, \"max_size\": %zu, \"current_size\": %zu, \"largest_size\": %zu, \"files_created\": %zu, \"files_destroyed\": %zu, \"bytes_culled\": %zu, \"events_read\": %zu, \"events_written\": %zu, \"smallest_event_size\": %zu, \"largest_event_size\": %zu, \"average_event_size\": %zu, \"cull_events\": %zu }",
+    req = snprintf(buf, 2048, "{ \"max_partition_size\": %zu, \"max_partitions\": %zu, \"current_size\": %zu, \"largest_size\": %zu, \"files_created\": %zu, \"files_destroyed\": %zu, \"bytes_culled\": %zu, \"events_read\": %zu, \"events_written\": %zu, \"smallest_event_size\": %zu, \"largest_event_size\": %zu, \"average_event_size\": %zu, \"cull_events\": %zu }",
                    stats->max_partition_size,
                    stats->max_partitions,
                    stats->current_size,
@@ -197,13 +197,26 @@ static void pick_up(void** targ)
     thr = yella_create_thread(full_speed_main, &thr_arg);
     yella_join_thread(thr);
     yella_destroy_thread(thr);
-    yella_destroy_spool(sp);
-    sp = yella_create_spool();
-    assert_non_null(sp);
+    for (i = 0; i < 50000; i++)
+    {
+        rc = yella_spool_pop(sp, 250, &popped, &count_popped);
+        assert_int_equal(rc, YELLA_NO_ERROR);
+        assert_int_equal(count_popped, 2);
+        assert_int_equal(popped[0].size, sizeof(size_t));
+        memcpy(&found, popped[0].data, sizeof(found));
+        assert_int_equal(found, i);
+        assert_int_equal(popped[1].size, sizeof(size_t));
+        memcpy(&found, popped[1].data, sizeof(found));
+        assert_int_equal(found, i);
+        destroy_parts(popped, 2);
+    }
     part = make_part("My dog has fleas");
     rc = yella_spool_push(sp, &part, 1);
     assert_int_equal(rc, YELLA_NO_ERROR);
-    for (i = 0; i < 100000; i++)
+    yella_destroy_spool(sp);
+    sp = yella_create_spool();
+    assert_non_null(sp);
+    for (; i < 100000; i++)
     {
         rc = yella_spool_pop(sp, 250, &popped, &count_popped);
         assert_int_equal(rc, YELLA_NO_ERROR);

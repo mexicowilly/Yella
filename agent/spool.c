@@ -616,10 +616,24 @@ yella_rc yella_spool_pop(yella_spool* sp,
         }
         else
         {
-            CHUCHO_C_ERROR("yella.spool",
-                           "Expected an event to read");
-            yella_unlock_mutex(sp->guard);
-            return YELLA_LOGIC_ERROR;
+            /*
+             * The reader has caught up with the writer, which hasn't yet written
+             * anything to a new file.
+             */
+            if (sp->read_pos.major_seq == sp->write_pos.major_seq &&
+                sp->read_pos.minor_seq == sp->write_pos.minor_seq &&
+                ftell(sp->readf) == ftell(sp->writef))
+            {
+                yella_unlock_mutex(sp->guard);
+                return YELLA_TIMED_OUT;
+            }
+            else
+            {
+                CHUCHO_C_ERROR("yella.spool",
+                               "Expected an event to read");
+                yella_unlock_mutex(sp->guard);
+                return YELLA_LOGIC_ERROR;
+            }
         }
     }
     else
