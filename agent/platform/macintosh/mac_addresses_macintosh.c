@@ -36,7 +36,7 @@ static bool find_ethernet_interfaces(io_iterator_t* matchingServices)
 
     if (matchingDict == NULL)
     {
-        CHUCHO_C_ERROR("yella", "Could not look up ethernet addresses (IOServiceMatching)");
+        CHUCHO_C_ERROR("yella.agent", "Could not look up ethernet addresses (IOServiceMatching)");
         return false;
     }
     else
@@ -68,7 +68,7 @@ static bool find_ethernet_interfaces(io_iterator_t* matchingServices)
 
         if (propertyMatchDict == NULL)
         {
-            CHUCHO_C_ERROR("yella", "Could not look up ethernet addresses (CFDictionaryCreateMutable)");
+            CHUCHO_C_ERROR("yella.agent", "Could not look up ethernet addresses (CFDictionaryCreateMutable)");
         }
         else
         {
@@ -90,7 +90,7 @@ static bool find_ethernet_interfaces(io_iterator_t* matchingServices)
     kernResult = IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, matchingServices);
     if (kernResult != KERN_SUCCESS)
     {
-        CHUCHO_C_ERROR("yella", "Could not look up ethernet addresses (IOServiceGetMatchingServices)");
+        CHUCHO_C_ERROR("yella.agent", "Could not look up ethernet addresses (IOServiceGetMatchingServices)");
         return false;
     }
 
@@ -105,11 +105,12 @@ yella_mac_addresses* yella_get_mac_addresses(void)
     size_t capacity = 20;
     yella_mac_addresses* result = calloc(1, sizeof(yella_mac_addresses));
     io_iterator_t itor;
-    uint64_t* tmp;
+    yella_mac_address* tmp;
+    uint8_t* cur_addr;
 
     if (find_ethernet_interfaces(&itor))
     {
-        result->addrs = calloc(capacity, sizeof(uint64_t));
+        result->addrs = malloc(capacity * sizeof(yella_mac_address));
         service = IOIteratorNext(itor);
         while (service != 0)
         {
@@ -127,7 +128,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
 
             if (kernResult != KERN_SUCCESS)
             {
-                CHUCHO_C_ERROR("yella", "Error getting interface parent entry for service %i", service);
+                CHUCHO_C_ERROR("yella.agent", "Error getting interface parent entry for service %i", service);
             }
             else
             {
@@ -139,13 +140,18 @@ yella_mac_addresses* yella_get_mac_addresses(void)
                 if (MACAddressAsCFData)
                 {
                     // Get the raw bytes of the MAC address from the CFData
-                    CFDataGetBytes(MACAddressAsCFData, CFRangeMake(0, kIOEthernetAddressSize), (UInt8*)&result->addrs[result->count++]);
+                    cur_addr = result->addrs[result->count].addr;
+                    CFDataGetBytes(MACAddressAsCFData, CFRangeMake(0, kIOEthernetAddressSize), cur_addr);
                     CFRelease(MACAddressAsCFData);
-                    if (result->count == capacity)
+                    snprintf(result->addrs[result->count].text,
+                             sizeof(result->addrs[result->count++].text),
+                             "%02x:%02x:%02x:%02x:%02x:%02x",
+                             cur_addr[0], cur_addr[1], cur_addr[2], cur_addr[3], cur_addr[4], cur_addr[5]);
+                    if (++result->count == capacity)
                     {
                         capacity *= 2;
-                        tmp = calloc(capacity, sizeof(uint64_t));
-                        memcpy(tmp, result->addrs, result->count * sizeof(uint64_t));
+                        tmp = malloc(capacity * sizeof(yella_mac_address));
+                        memcpy(tmp, result->addrs, result->count * sizeof(yella_mac_address));
                         free(result->addrs);
                         result->addrs = tmp;
                     }
@@ -160,7 +166,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
             service = IOIteratorNext(itor);
         }
         if (result->addrs != NULL)
-            result->addrs = realloc(result->addrs, result->count * sizeof(uint64_t));
+            result->addrs = realloc(result->addrs, result->count * sizeof(yella_mac_address));
     }
 
     return result;

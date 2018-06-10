@@ -102,11 +102,10 @@ static void* create_router_socket(yella_router* rtr)
                        "The router socket could not be created");
         return NULL;
     }
-    id_text = yella_uuid_to_text(rtr->id);
     zmq_setsockopt(sock,
                    ZMQ_IDENTITY,
-                   id_text,
-                   strlen(id_text));
+                   rtr->id->text,
+                   strlen(rtr->id->text));
     recon_timeout_millis = *yella_settings_get_uint("reconnect-timeout-seconds") * 1000;
     zmq_setsockopt(sock,
                    ZMQ_RECONNECT_IVL,

@@ -40,6 +40,7 @@ ADD_EXECUTABLE(yella
                mac_addresses.c
                mac_addresses.h
                main.c
+               msg_part.h
                router.c
                router.h
                saved_state.c

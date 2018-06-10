@@ -26,13 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-
-struct yella_saved_state
-{
-    uint32_t boot_count;
-    yella_uuid* id;
-    yella_mac_addresses* mac_addresses;
-};
+#include <assert.h>
 
 static char* ss_file_name(void)
 {
@@ -41,7 +35,6 @@ static char* ss_file_name(void)
 
 static void reset_ss(yella_saved_state* st)
 {
-    st->boot_count = 1;
     st->id = yella_create_uuid();
     st->mac_addresses = yella_get_mac_addresses();
 }
@@ -62,8 +55,10 @@ yella_saved_state* yella_load_saved_state(void)
     yella_saved_state* ss;
     yella_rc rc;
     flatbuffers_uint8_vec_t id_vec;
-    flatbuffers_uint64_vec_t mac_addrs_vec;
+    yella_fb_mac_addr_vec_t mac_addrs_vec;
     int i;
+    size_t addr_text_size;
+    char* addr_text = "";
 
     ss = malloc(sizeof(yella_saved_state));
     is_corrupt = false;
@@ -72,19 +67,30 @@ yella_saved_state* yella_load_saved_state(void)
     if (rc == YELLA_NO_ERROR)
     {
         tbl = yella_fb_saved_state_as_root(raw);
-        if (yella_fb_saved_state_boot_count_is_present(tbl) &&
-            yella_fb_saved_state_uuid_is_present(tbl) &&
+        if (yella_fb_saved_state_uuid_is_present(tbl) &&
             yella_fb_saved_state_mac_addrs_is_present(tbl))
         {
-            ss->boot_count = yella_fb_saved_state_boot_count(tbl) + 1;
             id_vec = yella_fb_saved_state_uuid(tbl);
-            ss->id = yella_create_uuid_from_bytes(id_vec, flatbuffers_uint8_vec_len(id_vec));
+            ss->id = yella_create_uuid_from_bytes(id_vec);
             mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
             ss->mac_addresses = malloc(sizeof(yella_mac_addresses));
-            ss->mac_addresses->count = flatbuffers_uint64_vec_len(mac_addrs_vec);
-            ss->mac_addresses->addrs = malloc(ss->mac_addresses->count * sizeof(uint64_t));
+            ss->mac_addresses->count = yella_fb_mac_addr_vec_len(mac_addrs_vec);
+            ss->mac_addresses->addrs = malloc(ss->mac_addresses->count * sizeof(yella_mac_address));
             for (i = 0; i < ss->mac_addresses->count; i++)
-                ss->mac_addresses->addrs[i] = flatbuffers_uint64_vec_at(mac_addrs_vec, i);
+            {
+                flatbuffers_uint8_vec_t bytes = yella_fb_mac_addr_bytes(yella_fb_mac_addr_vec_at(mac_addrs_vec, i));
+                assert(flatbuffers_uint8_vec_len(bytes) == sizeof(ss->mac_addresses->addrs[i].addr));
+                memcpy(&ss->mac_addresses->addrs[i], bytes, sizeof(ss->mac_addresses->addrs[i].addr));
+                snprintf(ss->mac_addresses->addrs[i].text,
+                         sizeof(ss->mac_addresses->addrs[i].text),
+                         "%02x:%02x:%02x:%02x:%02x:%02x",
+                         ss->mac_addresses->addrs[i].addr[0],
+                         ss->mac_addresses->addrs[i].addr[1],
+                         ss->mac_addresses->addrs[i].addr[2],
+                         ss->mac_addresses->addrs[i].addr[3],
+                         ss->mac_addresses->addrs[i].addr[4],
+                         ss->mac_addresses->addrs[i].addr[5]);
+            }
         }
         else
         {
@@ -94,7 +100,7 @@ yella_saved_state* yella_load_saved_state(void)
     }
     else if (rc == YELLA_DOES_NOT_EXIST)
     {
-        CHUCHO_C_INFO("yella",
+        CHUCHO_C_INFO("yella.agent",
                       "The file %s does not exist. This is first boot.",
                       fname);
         reset_ss(ss);
@@ -105,13 +111,31 @@ yella_saved_state* yella_load_saved_state(void)
     }
     if (is_corrupt)
     {
-        CHUCHO_C_INFO("yella",
+        CHUCHO_C_INFO("yella.agent",
                       "The file %s is corrupt. It is being recreated.",
                       fname);
         remove(fname);
         reset_ss(ss);
     }
     free(fname);
+    if (ss->mac_addresses->count > 0)
+    {
+        addr_text_size = ss->mac_addresses->count * sizeof(ss->mac_addresses->addrs[0].text) + ss->mac_addresses->count - 1;
+        addr_text = malloc(addr_text_size);
+        addr_text[0] = 0;
+        for (i = 0; i < ss->mac_addresses->count; i++)
+        {
+            strcat(addr_text, ss->mac_addresses->addrs[i].text);
+            strcat(addr_text, ",");
+        }
+        addr_text[strlen(addr_text) - 1] = 0;
+    }
+    CHUCHO_C_INFO("yella.agent",
+                  "Saved state: id = %s, mac_addresses = { %s }",
+                  ss->id->text,
+                  addr_text);
+    if (addr_text[0] != 0)
+        free(addr_text);
     return ss;
 }
 
@@ -124,16 +148,24 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
     char* fname;
     size_t num_written;
     int err;
+    yella_fb_mac_addr_ref_t* mac_addrs;
+    int i;
 
     flatcc_builder_init(&bld);
+    mac_addrs = malloc(ss->mac_addresses->count * sizeof(yella_fb_mac_addr_ref_t));
+    for (i = 0; i < ss->mac_addresses->count; i++)
+    {
+        mac_addrs[i] = yella_fb_mac_addr_create(&bld,
+                                                flatbuffers_uint8_vec_create(&bld, ss->mac_addresses->addrs[i].addr,
+                                                                             sizeof(ss->mac_addresses->addrs[i].addr)));
+        assert(mac_addrs[i] != 0);
+    }
     yella_fb_saved_state_start_as_root(&bld);
-    yella_fb_saved_state_boot_count_add(&bld, ss->boot_count);
     yella_fb_saved_state_uuid_create(&bld,
-                                    (uint8_t*)yella_uuid_bytes(ss->id),
-                                    yella_uuid_byte_count(ss->id));
-    yella_fb_saved_state_mac_addrs_create(&bld,
-                                          ss->mac_addresses->addrs,
-                                          ss->mac_addresses->count);
+                                    ss->id->id,
+                                    sizeof(ss->id->text));
+    yella_fb_saved_state_mac_addrs_create(&bld, mac_addrs, ss->mac_addresses->count);
+    free(mac_addrs);
     yella_fb_saved_state_end_as_root(&bld);
     raw = flatcc_builder_finalize_buffer(&bld, &size);
     flatcc_builder_clear(&bld);
@@ -142,7 +174,7 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
     if (f == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR("yella",
+        CHUCHO_C_ERROR("yella.agent",
                        "Could not open %s for writing: %s",
                        fname,
                        strerror(err));
@@ -154,7 +186,7 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
     free(raw);
     if (num_written != size)
     {
-        CHUCHO_C_ERROR("yella",
+        CHUCHO_C_ERROR("yella.agent",
                        "The was a problem writing to %s. The boot state cannot be saved. Subsequent boots will be considered first boot.",
                        fname);
         remove(fname);
@@ -164,17 +196,3 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
     return YELLA_NO_ERROR;
 }
 
-uint32_t yella_saved_state_boot_count(const yella_saved_state* ss)
-{
-    return ss->boot_count;
-}
-
-const yella_mac_addresses* yella_saved_state_mac_addresses(const yella_saved_state* ss)
-{
-    return ss->mac_addresses;
-}
-
-const yella_uuid* yella_saved_state_uuid(const yella_saved_state* ss)
-{
-    return ss->id;
-}

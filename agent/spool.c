@@ -14,7 +14,7 @@
  *    limitations under the License.
  */
 
-#include "agent/spool.h"
+#include "spool.h"
 #include "common/file.h"
 #include "common/settings.h"
 #include "common/ptr_vector.h"
@@ -46,18 +46,12 @@ struct yella_spool
     FILE* writef;
     spool_pos read_pos;
     FILE* readf;
-    /* You don't own the router */
-    yella_router* rtr;
-    yella_thread* reader_thread;
     yella_mutex* guard;
-    bool is_stopped;
     yella_condition_variable* was_written_cond;
     char* read_file_name;
     char* write_file_name;
-    uintmax_t size;
-    yella_spool_size_notification size_notification;
-    void* size_notification_data;
-    yella_mutex* size_guard;
+    yella_spool_stats stats;
+    size_t total_event_bytes_written;
 };
 
 static bool is_spool_file(const char* const name)
@@ -89,37 +83,8 @@ static char* spool_file_name(uint32_t major_seq, uint32_t minor_seq)
                          (unsigned long)minor_seq);
 }
 
-static void add_to_spool_size(yella_spool* sp, intmax_t val)
-{
-    static double last_reported_pct = 0.0;
-    double pct;
-    const uint64_t* max_total;
-
-    if (val != 0)
-    {
-        yella_lock_mutex(sp->size_guard);
-        assert(val > 0 || -val >= sp->size);
-        sp->size += val;
-        max_total = yella_settings_get_uint("max-total-spool");
-        assert(max_total != NULL);
-        pct = sp->size * 100.0 / (double)*max_total;
-        if (fabs(pct - last_reported_pct) >= 10.0)
-        {
-            last_reported_pct = trunc(pct / 10.0);
-            CHUCHO_C_INFO("yella.spool",
-                          "The spool is at %0f%% of capacity (%ju bytes)",
-                          last_reported_pct,
-                          sp->size);
-        }
-        if (sp->size_notification != NULL)
-            sp->size_notification(pct, sp->size_notification_data);
-        yella_unlock_mutex(sp->size_guard);
-    }
-}
-
 static bool increment_write_spool_partition(yella_spool* sp)
 {
-    char* fname;
     int err;
     size_t num_written;
     int rc;
@@ -131,7 +96,6 @@ static bool increment_write_spool_partition(yella_spool* sp)
                        "Error closing write stream: %s",
                        strerror(err));
     }
-    add_to_spool_size(sp, yella_file_size(sp->write_file_name));
     free(sp->write_file_name);
     sp->write_file_name = spool_file_name(sp->write_pos.major_seq, ++sp->write_pos.minor_seq);
     sp->writef = fopen(sp->write_file_name, "wb");
@@ -146,65 +110,169 @@ static bool increment_write_spool_partition(yella_spool* sp)
         sp->write_file_name = NULL;
         return false;
     }
-    yella_lock_mutex(sp->guard);
     num_written = fwrite(&YELLA_SPOOL_ID, 1, sizeof(YELLA_SPOOL_ID), sp->writef);
-    yella_unlock_mutex(sp->guard);
     if (num_written != sizeof(YELLA_SPOOL_ID))
     {
         err = errno;
         CHUCHO_C_ERROR("yella.spool",
                        "Unable to write to spool file %s",
-                       fname);
+                       sp->write_file_name);
         fclose(sp->writef);
         sp->writef = NULL;
         free(sp->write_file_name);
         sp->write_file_name = NULL;
         return false;
     }
-    yella_lock_mutex(sp->guard);
     rc = fflush(sp->writef);
-    yella_unlock_mutex(sp->guard);
     if (rc != 0)
     {
         err = errno;
         CHUCHO_C_ERROR("yella.spool",
                        "Unable to flush spool file %s",
-                       fname);
+                       sp->write_file_name);
         fclose(sp->writef);
         sp->writef = NULL;
         free(sp->write_file_name);
         sp->write_file_name = NULL;
         return false;
     }
+    sp->stats.current_size += num_written;
+    ++sp->stats.files_created;
     CHUCHO_C_TRACE("yella.spool",
                    "Opened %s for writing",
                    sp->write_file_name);
     return true;
 }
 
-static bool init_writer(yella_spool* sp, const yella_saved_state* state)
+static char* find_file(yella_spool* sp, spool_pos* pos, bool (*cmp_func)(yella_spool* sp, const spool_pos* found_pos, const spool_pos* prev_pos))
 {
+    yella_directory_iterator* itor;
+    yella_ptr_vector* to_remove;
+    char* candidate;
+    spool_pos found_pos;
+    const char* cur;
+    char* base;
+    int rc;
+    int i;
+
+    candidate = NULL;
+    to_remove = yella_create_ptr_vector();
+    itor = yella_create_directory_iterator(yella_settings_get_text("spool-dir"));
+    cur = yella_directory_iterator_next(itor);
+    while (cur != NULL)
+    {
+        base = yella_base_name(cur);
+        rc = sscanf(base, "%u-%u", &found_pos.major_seq, &found_pos.minor_seq);
+        free(base);
+        if (rc == 2 && is_spool_file(cur))
+        {
+            if (cmp_func(sp, &found_pos, pos))
+            {
+                *pos = found_pos;
+                free(candidate);
+                candidate = yella_text_dup(cur);
+            }
+        }
+        else
+        {
+            CHUCHO_C_WARN("yella.spool",
+                          "Found unexpected spool file %s. It is being removed.",
+                          cur);
+            yella_push_back_ptr_vector(to_remove, yella_text_dup(cur));
+        }
+        cur = yella_directory_iterator_next(itor);
+    }
+    for (i = 0; i < yella_ptr_vector_size(to_remove); i++)
+        remove(yella_ptr_vector_at(to_remove, i));
+    yella_destroy_ptr_vector(to_remove);
+    return candidate;
+
+}
+
+static bool cmp_newest(yella_spool* sp, const spool_pos* found_pos, const spool_pos* prev_pos)
+{
+    return (found_pos->major_seq > prev_pos->major_seq ||
+            (found_pos->major_seq == prev_pos->major_seq && found_pos->minor_seq > prev_pos->minor_seq));
+
+}
+
+char* find_newest_file(yella_spool* sp, spool_pos* pos)
+{
+    pos->major_seq = 0;
+    pos->minor_seq = 0;
+    return find_file(sp, pos, cmp_newest);
+}
+
+static bool init_writer(yella_spool* sp)
+{
+    char* newest;
+    spool_pos pos;
+
     sp->writef = NULL;
-    sp->write_pos.major_seq = yella_saved_state_boot_count(state);
+    newest = find_newest_file(sp, &pos);
+    if (newest == NULL)
+    {
+        sp->write_pos.major_seq = 1;
+    }
+    else
+    {
+        sp->write_pos.major_seq = pos.major_seq + 1;
+        free(newest);
+    }
     sp->write_pos.minor_seq = 0;
     sp->write_file_name = NULL;
     return increment_write_spool_partition(sp);
 }
 
+static bool cmp_oldest(yella_spool* sp, const spool_pos* found_pos, const spool_pos* prev_pos)
+{
+    return ((found_pos->major_seq < prev_pos->major_seq ||
+            (found_pos->major_seq == prev_pos->major_seq && found_pos->minor_seq < prev_pos->minor_seq)) &&
+           (found_pos->major_seq > sp->read_pos.major_seq ||
+            (found_pos->major_seq == sp->read_pos.major_seq && found_pos->minor_seq > sp->read_pos.minor_seq)));
+}
+
+char* find_oldest_file(yella_spool* sp, spool_pos* pos)
+{
+    pos->major_seq = UINT32_MAX;
+    pos->minor_seq = UINT32_MAX;
+    return find_file(sp, pos, cmp_oldest);
+}
+
+static void cull(yella_spool* sp)
+{
+    spool_pos pos;
+    char* oldest = find_oldest_file(sp, &pos);
+    size_t sz = 0;
+
+    yella_file_size(oldest, &sz);
+    if (remove(oldest) == 0)
+    {
+        sp->stats.current_size -= sz;
+        sp->stats.bytes_culled += sz;
+        ++sp->stats.files_destroyed;
+        ++sp->stats.cull_events;
+        CHUCHO_C_WARN("yella.spool",
+                      "The spool filled, so the oldest bytes were culled. File %s: %zu bytes",
+                      oldest,
+                      sz);
+    }
+    else
+    {
+        CHUCHO_C_ERROR("yella.spool",
+                       "Could not remove %s: %s",
+                       sp->read_file_name,
+                       strerror(errno));
+    }
+    free(oldest);
+}
+
 static bool increment_read_spool_partition(yella_spool* sp)
 {
     int err;
-    yella_directory_iterator* itor;
-    yella_ptr_vector* to_remove;
-    char* candidate;
-    uint32_t found_major_seq;
-    uint32_t found_minor_seq;
-    uint32_t min_major_seq;
-    uint32_t min_minor_seq;
-    const char* cur;
-    char* base;
     int rc;
-    size_t i;
+    char* found;
+    spool_pos found_pos;
 
     if (sp->read_file_name != NULL)
     {
@@ -222,61 +290,24 @@ static bool increment_read_spool_partition(yella_spool* sp)
                       strerror(err));
     }
     sp->readf = NULL;
-    min_major_seq = UINT32_MAX;
-    min_minor_seq = UINT32_MAX;
-    candidate = NULL;
-    to_remove = yella_create_ptr_vector();
-    itor = yella_create_directory_iterator(yella_settings_get_text("spool-dir"));
-    cur = yella_directory_iterator_next(itor);
-    while (cur != NULL)
-    {
-        base = yella_base_name(cur);
-        rc = sscanf(base, "%u-%u", &found_major_seq, &found_minor_seq);
-        free(base);
-        if (rc == 2 && is_spool_file(cur))
-        {
-            if ((found_major_seq < min_major_seq ||
-                (found_major_seq == min_major_seq && found_minor_seq < min_minor_seq)) &&
-                (found_major_seq > sp->read_pos.major_seq ||
-                (found_major_seq == sp->read_pos.major_seq && found_minor_seq > sp->read_pos.minor_seq)))
-            {
-                min_major_seq = found_major_seq;
-                min_minor_seq = found_minor_seq;
-                if (candidate != NULL)
-                    free(candidate);
-                candidate = yella_text_dup(cur);
-            }
-        }
-        else
-        {
-            CHUCHO_C_WARN("yella.spool",
-                          "Found unexpected spool file %s. It is being removed.",
-                          cur);
-            yella_push_back_ptr_vector(to_remove, yella_text_dup(cur));
-        }
-        cur = yella_directory_iterator_next(itor);
-    }
-    for (i = 0; i < yella_ptr_vector_size(to_remove); i++)
-        remove(yella_ptr_vector_at(to_remove, i));
-    yella_destroy_ptr_vector(to_remove);
-    sp->readf = fopen(candidate, "r+b");
+    found = find_oldest_file(sp, &found_pos);
+    sp->readf = fopen(found, "r+b");
     if (sp->readf == NULL)
     {
         err = errno;
         CHUCHO_C_ERROR("yella.spool",
                        "Unable to open spool file %s for reading: %s",
-                       candidate,
+                       found,
                        strerror(err));
-        free(candidate);
+        free(found);
         return false;
     }
-    sp->read_file_name = candidate;
+    sp->read_file_name = found;
     CHUCHO_C_TRACE("yella.spool",
                    "Opened %s for reading",
                    sp->read_file_name);
     fseek(sp->readf, sizeof(YELLA_SPOOL_ID), SEEK_SET);
-    sp->read_pos.major_seq = min_major_seq;
-    sp->read_pos.minor_seq = min_minor_seq;
+    sp->read_pos = found_pos;
     return true;
 }
 
@@ -287,6 +318,8 @@ static bool increment_read_spool_partition(yella_spool* sp)
  *
  * On error returns zero. If end-of-file, then feof(readf) will
  * indicate.
+ *
+ * Guard is locked on entry
  */
 static uint16_t advance_to_next_unvisited(yella_spool* sp)
 {
@@ -295,10 +328,10 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
     uint32_t part_size;
     uint16_t i;
     int err;
-    size_t visited_count;
+    size_t visited_count = 0;
     long cur_write_pos;
+    size_t sz;
 
-    visited_count = 0;
     do
     {
         num_read = fread(&msg_count, 1, sizeof(msg_count), sp->readf);
@@ -306,36 +339,18 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
         {
             if (feof(sp->readf) != 0)
             {
-                yella_lock_mutex(sp->guard);
                 if (sp->read_pos.major_seq == sp->write_pos.major_seq &&
                     sp->read_pos.minor_seq == sp->write_pos.minor_seq)
                 {
-                    cur_write_pos = ftell(sp->writef);
-                    CHUCHO_C_TRACE("yella.spool",
-                                   "Waiting for more data on file %s",
-                                   sp->read_file_name);
-                    while (!sp->is_stopped &&
-                           sp->read_pos.minor_seq == sp->write_pos.minor_seq &&
-                           ftell(sp->writef) == cur_write_pos)
-                    {
-                        yella_wait_milliseconds_for_condition_variable(sp->was_written_cond, sp->guard, 250);
-                    }
-                    if (sp->is_stopped)
-                    {
-                        yella_unlock_mutex(sp->guard);
-                        return 0;
-                    }
-                    clearerr(sp->readf);
-                    CHUCHO_C_TRACE("yella.spool",
-                                   "Ready to read more data from file %s",
-                                   sp->read_file_name);
+                    CHUCHO_C_ERROR("yella.spool",
+                                   "The spool is in an inconsistent state. Cannot continue.");
+                    return 0;
                 }
                 else if (sp->read_pos.major_seq < sp->write_pos.major_seq ||
                          (sp->read_pos.major_seq == sp->write_pos.major_seq &&
                           sp->read_pos.minor_seq < sp->write_pos.minor_seq))
                 {
                     /* advance to next */
-                    yella_unlock_mutex(sp->guard);
                     CHUCHO_C_TRACE("yella.spool",
                                    "Done reading from %s. It is being removed.",
                                    sp->read_file_name);
@@ -348,9 +363,15 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                                       strerror(err));
                     }
                     sp->readf = NULL;
+                    sz = 0;
+                    yella_file_size(sp->read_file_name, &sz);
                     if (remove(sp->read_file_name) == 0)
                     {
-                        add_to_spool_size(sp, -yella_file_size(sp->read_file_name));
+                        sp->stats.current_size -= sz;
+                        ++sp->stats.files_destroyed;
+                        CHUCHO_C_TRACE("yella.spool",
+                                       "Removed read stream %s",
+                                       sp->read_file_name);
                     }
                     else
                     {
@@ -362,11 +383,9 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                     }
                     if (!increment_read_spool_partition(sp))
                         return 0;
-                    yella_lock_mutex(sp->guard);
                 }
                 else
                 {
-                    yella_unlock_mutex(sp->guard);
                     CHUCHO_C_ERROR("yella.spool",
                                    "The spool reader at (%lu, %lu) has read beyond the spool writer at (%lu, %lu)",
                                    (unsigned long)sp->read_pos.major_seq,
@@ -375,7 +394,6 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                                    (unsigned long)sp->write_pos.minor_seq);
                     return 0;
                 }
-                yella_unlock_mutex(sp->guard);
             }
             else
             {
@@ -407,7 +425,9 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                     num_read = fread(&part_size, 1, sizeof(part_size), sp->readf);
                     if (num_read < sizeof(part_size))
                     {
-                        /* error */
+                        CHUCHO_C_ERROR("yella.spool",
+                                       "Unable to fast forward.");
+                        return 0;
                     }
                     fseek(sp->readf, part_size, SEEK_CUR);
                 }
@@ -422,135 +442,21 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
     return msg_count;
 }
 
-typedef struct state_change_data
-{
-    yella_mutex* guard;
-    yella_condition_variable* cond;
-    yella_router_state st;
-} state_change_data;
-
-static void router_state_changed(yella_router_state st, void* data)
-{
-    state_change_data* ch_data;
-
-    ch_data = (state_change_data*)data;
-    yella_lock_mutex(ch_data->guard);
-    ch_data->st = st;
-    if (st == YELLA_ROUTER_CONNECTED)
-        yella_signal_condition_variable(ch_data->cond);
-    yella_unlock_mutex(ch_data->guard);
-}
-
-static void reader_thread_main(void* arg)
-{
-    yella_spool* sp;
-    state_change_data ch_data;
-    bool stopped;
-    uint16_t msg_count;
-    uint16_t i;
-    yella_msg_part* msgs;
-    size_t msgs_capacity;
-    uint32_t msg_size;
-    long start_pos;
-    long end_pos;
-    yella_sender* sndr;
-
-    sp = (yella_spool*)arg;
-    ch_data.guard = yella_create_mutex();
-    ch_data.cond = yella_create_condition_variable();
-    ch_data.st = yella_router_get_state(sp->rtr);
-    yella_set_router_state_callback(sp->rtr, router_state_changed, &ch_data);
-    sndr = yella_create_sender(sp->rtr);
-    msgs_capacity = 0;
-    msgs = NULL;
-    while (true)
-    {
-        yella_lock_mutex(sp->guard);
-        stopped = sp->is_stopped;
-        yella_unlock_mutex(sp->guard);
-        if (stopped)
-            break;
-        yella_lock_mutex(ch_data.guard);
-        while (ch_data.st != YELLA_ROUTER_CONNECTED)
-        {
-            yella_wait_milliseconds_for_condition_variable(ch_data.cond, ch_data.guard, 250);
-            yella_lock_mutex(sp->guard);
-            stopped = sp->is_stopped;
-            yella_unlock_mutex(sp->guard);
-            if (stopped)
-                break;
-        }
-        yella_unlock_mutex(ch_data.guard);
-        yella_lock_mutex(sp->guard);
-        stopped = sp->is_stopped;
-        yella_unlock_mutex(sp->guard);
-        if (stopped)
-            break;
-        msg_count = advance_to_next_unvisited(sp);
-        if (msg_count == 0)
-            break;
-        if (msg_count > msgs_capacity)
-        {
-            msgs_capacity = msg_count;
-            msgs = malloc(sizeof(yella_msg_part) * msgs_capacity);
-        }
-        start_pos = ftell(sp->readf) - sizeof(uint16_t);
-        for (i = 0; i < msg_count; i++)
-        {
-            if (fread(&msg_size, 1, sizeof(msg_size), sp->readf) != sizeof(msg_size))
-            {
-                /* error */
-            }
-            msgs[i].size = msg_size;
-            msgs[i].data = malloc(msg_size);
-            if (fread(msgs[i].data, 1, msg_size, sp->readf) != msg_size)
-            {
-                /* error */
-            }
-        }
-        if (yella_send(sndr, msgs, msg_count))
-        {
-            msg_count |= YELLA_VISITED_BIT;
-            end_pos = ftell(sp->readf);
-            fseek(sp->readf, start_pos, SEEK_SET);
-            if (fwrite(&msg_count, 1, sizeof(msg_count), sp->readf) != sizeof(msg_count))
-            {
-                /* error */
-            }
-            fseek(sp->readf, end_pos, SEEK_SET);
-        }
-        else
-        {
-            /* error */
-        }
-    }
-    free(msgs);
-    yella_destroy_condition_variable(ch_data.cond);
-    yella_destroy_mutex(ch_data.guard);
-    yella_destroy_sender(sndr);
-    CHUCHO_C_INFO("yella.spool",
-                  "The spool reader thread is exiting");
-}
-
 static bool init_reader(yella_spool* sp)
 {
-    bool result;
-
     sp->readf = NULL;
     sp->read_pos.major_seq = 0;
     sp->read_pos.minor_seq = 0;
     sp->read_file_name = NULL;
-    result = increment_read_spool_partition(sp);
-    if (result == true)
-        sp->reader_thread = yella_create_thread(reader_thread_main, sp);
-    return result;
+    return increment_read_spool_partition(sp);
 }
 
-static uintmax_t current_spool_size()
+static size_t current_spool_size()
 {
     yella_directory_iterator* itor;
-    uintmax_t result;
+    size_t result;
     const char* cur;
+    size_t cur_size;
 
     result = 0;
     itor = yella_create_directory_iterator(yella_settings_get_text("spool-dir"));
@@ -558,30 +464,52 @@ static uintmax_t current_spool_size()
     while (cur != NULL)
     {
         if (is_spool_file(cur))
-            result += yella_file_size(cur);
+        {
+            cur_size = 0;
+            yella_file_size(cur, &cur_size);
+            result += cur_size;
+        }
         cur = yella_directory_iterator_next(itor);
     }
     yella_destroy_directory_iterator(itor);
     return result;
 }
 
-yella_spool* yella_create_spool(const yella_saved_state* state, yella_router* rtr)
+static bool write_pos_greater_than_read_pos(yella_spool* sp)
+{
+    return (sp->write_pos.major_seq > sp->read_pos.major_seq) ||
+           (sp->write_pos.major_seq == sp->read_pos.major_seq &&
+            sp->write_pos.minor_seq > sp->read_pos.minor_seq) ||
+           (sp->write_pos.major_seq == sp->read_pos.major_seq &&
+            sp->write_pos.minor_seq == sp->read_pos.minor_seq &&
+            ftell(sp->writef) > ftell(sp->readf));
+}
+
+yella_spool* yella_create_spool(void)
 {
     yella_spool* sp;
+    yella_rc yrc;
 
+    yrc = yella_ensure_dir_exists(yella_settings_get_text("spool-dir"));
+    if (yrc != YELLA_NO_ERROR)
+    {
+        CHUCHO_C_FATAL("yella.spool",
+                       "Unable to create the directory %s: %s",
+                       yella_settings_get_text("spool-dir"),
+                       yella_strerror(yrc));
+        return NULL;
+    }
     sp = malloc(sizeof(yella_spool));
-    /* You don't own the router */
-    sp->rtr = rtr;
     sp->guard = yella_create_mutex();
     sp->was_written_cond = yella_create_condition_variable();
-    sp->is_stopped = false;
-    sp->size = current_spool_size();
-    sp->size_notification = NULL;
-    sp->size_notification_data = NULL;
-    sp->size_guard = yella_create_mutex();
-    if (!init_writer(sp, state) || !init_reader(sp))
+    memset(&sp->stats, 0, sizeof(yella_spool_stats));
+    sp->stats.current_size = current_spool_size();
+    sp->stats.max_partition_size = *yella_settings_get_uint("max-spool-partition-size");
+    sp->stats.max_partitions = *yella_settings_get_uint("max-spool-partitions");
+    sp->stats.smallest_event_size = (size_t)-1;
+    sp->total_event_bytes_written = 0;
+    if (!init_writer(sp) || !init_reader(sp))
     {
-        yella_destroy_mutex(sp->size_guard);
         yella_destroy_condition_variable(sp->was_written_cond);
         yella_destroy_mutex(sp->guard);
         free(sp->read_file_name);
@@ -595,49 +523,158 @@ yella_spool* yella_create_spool(const yella_saved_state* state, yella_router* rt
 void yella_destroy_spool(yella_spool* sp)
 {
     yella_lock_mutex(sp->guard);
-    sp->is_stopped = true;
-    yella_unlock_mutex(sp->guard);
-    yella_join_thread(sp->reader_thread);
-    yella_destroy_thread(sp->reader_thread);
     fclose(sp->readf);
     fclose(sp->writef);
-    yella_destroy_mutex(sp->guard);
-    yella_destroy_condition_variable(sp->was_written_cond);
     free(sp->write_file_name);
     free(sp->read_file_name);
-    yella_destroy_mutex(sp->size_guard);
+    yella_unlock_mutex(sp->guard);
+    yella_destroy_mutex(sp->guard);
+    yella_destroy_condition_variable(sp->was_written_cond);
     free(sp);
 }
 
-void yella_set_spool_size_notification(yella_spool* sp, yella_spool_size_notification sn, void* data)
+yella_spool_stats yella_spool_get_stats(yella_spool * sp)
 {
-    sp->size_notification = sn;
-    sp->size_notification_data = data;
+    yella_spool_stats stats;
+
+    yella_lock_mutex(sp->guard);
+    sp->stats.average_event_size = sp->stats.events_written == 0 ?
+        0 : (sp->total_event_bytes_written / sp->stats.events_written);
+    stats = sp->stats;
+    yella_unlock_mutex(sp->guard);
+    return stats;
 }
 
-bool yella_write_spool(yella_spool* sp, yella_msg_part* msgs, size_t count)
+yella_rc yella_spool_pop(yella_spool* sp,
+                         size_t milliseconds_to_wait,
+                         yella_msg_part** parts,
+                         size_t* count)
+{
+    uint16_t msg_count;
+    uint16_t i;
+    uint32_t msg_size;
+    size_t num_read = 0;
+    size_t event_size = 0;
+    yella_rc yrc = YELLA_NO_ERROR;
+    long msg_off;
+    long cur_off;
+
+    *parts = NULL;
+    *count = 0;
+    yella_lock_mutex(sp->guard);
+    if (write_pos_greater_than_read_pos(sp) ||
+        yella_wait_milliseconds_for_condition_variable(sp->was_written_cond, sp->guard, milliseconds_to_wait))
+    {
+        if (!write_pos_greater_than_read_pos(sp))
+        {
+            yella_unlock_mutex(sp->guard);
+            return YELLA_TIMED_OUT;
+        }
+        msg_count = advance_to_next_unvisited(sp);
+        *count = msg_count;
+        if (msg_count > 0)
+        {
+            msg_off = ftell(sp->readf) - sizeof(msg_count);
+            *parts = calloc(msg_count, sizeof(yella_msg_part));
+            for (i = 0; i < msg_count; i++)
+            {
+                if (fread(&msg_size, 1, sizeof(msg_size), sp->readf) != sizeof(msg_size))
+                {
+                    CHUCHO_C_ERROR("yella.spool",
+                                   "Unable to read the message size from %s",
+                                   sp->read_file_name);
+                    free(*parts);
+                    *parts = NULL;
+                    yella_unlock_mutex(sp->guard);
+                    return YELLA_READ_ERROR;
+                }
+                (*parts)[i].size = msg_size;
+                (*parts)[i].data = malloc(msg_size);
+                if (fread((*parts)[i].data, 1, msg_size, sp->readf) != msg_size)
+                {
+                    CHUCHO_C_ERROR("yella.spool",
+                                   "Unable to read the message from %s",
+                                   sp->read_file_name);
+                    free((*parts)[i].data);
+                    free(*parts);
+                    *parts = NULL;
+                    yella_unlock_mutex(sp->guard);
+                    return YELLA_READ_ERROR;
+                }
+            }
+            msg_count |= YELLA_VISITED_BIT;
+            cur_off = ftell(sp->readf);
+            fseek(sp->readf, msg_off, SEEK_SET);
+            if (fwrite(&msg_count, 1, sizeof(msg_count), sp->readf) != sizeof(msg_count))
+            {
+                CHUCHO_C_ERROR("yella.spool",
+                               "Could not set the current event as visited (%s): %s",
+                               sp->read_file_name,
+                               strerror(errno));
+            }
+            fseek(sp->readf, cur_off, SEEK_SET);
+        }
+        else
+        {
+            /*
+             * The reader has caught up with the writer, which hasn't yet written
+             * anything to a new file.
+             */
+            if (sp->read_pos.major_seq == sp->write_pos.major_seq &&
+                sp->read_pos.minor_seq == sp->write_pos.minor_seq &&
+                ftell(sp->readf) == ftell(sp->writef))
+            {
+                yella_unlock_mutex(sp->guard);
+                return YELLA_TIMED_OUT;
+            }
+            else
+            {
+                CHUCHO_C_ERROR("yella.spool",
+                               "Expected an event to read");
+                yella_unlock_mutex(sp->guard);
+                return YELLA_LOGIC_ERROR;
+            }
+        }
+    }
+    else
+    {
+        yella_unlock_mutex(sp->guard);
+        return YELLA_TIMED_OUT;
+    }
+    ++sp->stats.events_read;
+    yella_unlock_mutex(sp->guard);
+    return yrc;
+}
+
+yella_rc yella_spool_push(yella_spool* sp, const yella_msg_part* msgs, size_t count)
 {
     uint16_t num;
     uint32_t len;
     size_t i;
     size_t num_written;
+    size_t event_size = 0;
 
-    if (ftell(sp->writef) >= *yella_settings_get_uint("max-spool-partition"))
+    yella_lock_mutex(sp->guard);
+    if (ftell(sp->writef) >= sp->stats.max_partition_size)
     {
         if (!increment_write_spool_partition(sp))
-            return false;
+        {
+            yella_unlock_mutex(sp->guard);
+            return YELLA_FILE_SYSTEM_ERROR;
+        }
     }
-    num = count;
+    num = (uint16_t)count;
     assert(num <= YELLA_MAX_MSG_COUNT);
-    yella_lock_mutex(sp->guard);
     num_written = fwrite(&num, 1, sizeof(num), sp->writef);
     if (num_written != sizeof(num))
     {
         CHUCHO_C_ERROR("yella.spool",
                        "Error writing message count to spool file. The spooler cannot continue.");
         yella_unlock_mutex(sp->guard);
-        return false;
+        return YELLA_WRITE_ERROR;
     }
+    event_size += num_written;
+    sp->stats.current_size += num_written;
     for (i = 0; i < count; i++)
     {
         len = msgs[i].size;
@@ -648,20 +685,34 @@ bool yella_write_spool(yella_spool* sp, yella_msg_part* msgs, size_t count)
                            "Error writing message length (%zu) to spool file. The spooler cannot continue.",
                            i);
             yella_unlock_mutex(sp->guard);
-            return false;
+            return YELLA_WRITE_ERROR;
         }
-        fwrite(msgs[i].data, 1, len, sp->writef);
+        event_size += num_written;
+        sp->stats.current_size += num_written;
+        num_written = fwrite(msgs[i].data, 1, len, sp->writef);
         if (num_written != len)
         {
             CHUCHO_C_ERROR("yella.spool",
                            "Error writing message data (%zu) to spool file. The spooler cannot continue.",
                            i);
             yella_unlock_mutex(sp->guard);
-            return false;
+            return YELLA_WRITE_ERROR;
         }
+        event_size += num_written;
+        sp->stats.current_size += num_written;
     }
     fflush(sp->writef);
+    ++sp->stats.events_written;
+    if (sp->stats.current_size > sp->stats.largest_size)
+        sp->stats.largest_size = sp->stats.current_size;
+    if (sp->stats.largest_event_size < event_size)
+        sp->stats.largest_event_size = event_size;
+    if (sp->stats.smallest_event_size > event_size)
+        sp->stats.smallest_event_size = event_size;
+    sp->total_event_bytes_written += event_size;
+    if (sp->stats.current_size >= sp->stats.max_partitions * sp->stats.max_partition_size)
+        cull(sp);
     yella_signal_condition_variable(sp->was_written_cond);
     yella_unlock_mutex(sp->guard);
-    return true;
+    return YELLA_NO_ERROR;
 }

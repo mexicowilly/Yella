@@ -20,9 +20,15 @@
 #if !defined(MAC_ADDRESSES_H__)
 #define MAC_ADDRESSES_H__
 
+typedef struct yella_mac_address
+{
+    uint8_t addr[6];
+    char text[18];
+} yella_mac_address;
+
 typedef struct yella_mac_addresses
 {
-    uint64_t* addrs;
+    yella_mac_address* addrs;
     size_t count;
 } yella_mac_addresses;
 

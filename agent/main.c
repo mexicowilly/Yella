@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
     yella_initialize_settings();
     process_command_line(argc, argv);
     chucho_cnf_set_file_name(yella_settings_get_text("config-file"));
-    CHUCHO_C_INFO("yella",
+    CHUCHO_C_INFO("yella.agent",
                   "Yella version " YELLA_VALUE_STR(YELLA_VERSION) " is starting");
     /* run the app */
     yella_destroy_settings();

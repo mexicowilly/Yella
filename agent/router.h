@@ -18,6 +18,7 @@
 #define ROUTER_H__
 
 #include "yella_uuid.h"
+#include "msg_part.h"
 #include "common/return_code.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -33,12 +34,6 @@ typedef enum
 
 typedef struct yella_router yella_router;
 typedef struct yella_sender yella_sender;
-
-typedef struct yella_msg_part
-{
-    uint8_t* data;
-    size_t size;
-} yella_msg_part;
 
 typedef void (*yella_router_state_callback)(yella_router_state, void*);
 typedef void (*yella_router_message_received_callback)(const yella_msg_part* header,

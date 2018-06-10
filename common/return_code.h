@@ -30,7 +30,8 @@ typedef enum
     YELLA_FILE_SYSTEM_ERROR,
     YELLA_NO_PERMISSION,
     YELLA_ALREADY_EXISTS,
-    YELLA_WRITE_ERROR
+    YELLA_WRITE_ERROR,
+    YELLA_TIMED_OUT
 } yella_rc;
 
 YELLA_EXPORT const char* yella_strerror(yella_rc rc);

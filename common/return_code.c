@@ -38,5 +38,7 @@ const char* yella_strerror(yella_rc rc)
         return "Already exists";
     else if (rc == YELLA_WRITE_ERROR)
         return "Write error";
+    else if (rc == YELLA_TIMED_OUT)
+        return "Timed out";
     return "";
 }

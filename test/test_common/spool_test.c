@@ -17,8 +17,8 @@
 #include "spool_test.h"
 #include "common/ptr_vector.h"
 #include "common/thread.h"
-#include "common/log.h"
 #include "spool_test_builder.h"
+#include <chucho/log.h>
 #include <yaml.h>
 #include <assert.h>
 #include <errno.h>
@@ -202,7 +202,7 @@ bool read_yaml_spool_test(const char* const file_name, yella_ptr_vector** read_s
     if (f == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR(yella_logger("yella.spool_test"),
+        CHUCHO_C_ERROR("yella.spool_test",
                        "Unable to open the test file %s for reading: %s",
                        file_name,
                        strerror(err));
@@ -212,7 +212,7 @@ bool read_yaml_spool_test(const char* const file_name, yella_ptr_vector** read_s
     yaml_parser_set_input_file(&parser, f);
     if (!yaml_parser_load(&parser, &doc))
     {
-        CHUCHO_C_ERROR(yella_logger("yella.spool_test"),
+        CHUCHO_C_ERROR("yella.spool_test",
                        "YAML error [%u, %u]: %s",
                        parser.mark.line,
                        parser.mark.column,
@@ -239,7 +239,7 @@ void set_read_burst_messages_per_second(read_burst* burst, double messages_per_s
     *burst->messages_per_second = messages_per_second;
 }
 
-yella_ptr_vector* unpack_spool_test(const uint8_t const* msg)
+yella_ptr_vector* unpack_spool_test(const uint8_t* const msg)
 {
     yella_ptr_vector* vec;
     yella_fb_read_step_vec_t steps;

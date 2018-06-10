@@ -17,16 +17,37 @@
 #if !defined(SPOOL_H__)
 #define SPOOL_H__
 
-#include "agent/router.h"
-#include "agent/saved_state.h"
+#include "msg_part.h"
+#include "common/return_code.h"
+#include <stddef.h>
+#include <stdbool.h>
 
 typedef struct yella_spool yella_spool;
 
-typedef void (*yella_spool_size_notification)(double percent_full, void* data);
+typedef struct yella_spool_stats
+{
+    size_t max_partition_size;
+    size_t max_partitions;
+    size_t current_size;
+    size_t largest_size;
+    size_t files_created;
+    size_t files_destroyed;
+    size_t bytes_culled;
+    size_t events_read;
+    size_t events_written;
+    size_t smallest_event_size;
+    size_t largest_event_size;
+    size_t average_event_size;
+    size_t cull_events;
+} yella_spool_stats;
 
-yella_spool* yella_create_spool(const yella_saved_state* state, yella_router* rtr);
+yella_spool* yella_create_spool(void);
 void yella_destroy_spool(yella_spool* sp);
-void yella_set_spool_size_notification(yella_spool* sp, yella_spool_size_notification sn, void* data);
-bool yella_write_spool(yella_spool* sp, yella_msg_part* msgs, size_t count);
+yella_spool_stats yella_spool_get_stats(yella_spool * sp);
+yella_rc yella_spool_pop(yella_spool* sp,
+                         size_t milliseconds_to_wait,
+                         yella_msg_part** parts,
+                         size_t* count);
+yella_rc yella_spool_push(yella_spool* sp, const yella_msg_part* msgs, size_t count);
 
 #endif

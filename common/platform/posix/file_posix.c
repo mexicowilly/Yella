@@ -26,6 +26,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <dirent.h>
+#include <stdio.h>
 
 const char* YELLA_DIR_SEP = "/";
 
@@ -60,6 +61,11 @@ static yella_ptr_vector* yella_get_dirs(const char* const fqpath)
 
     vec = yella_create_ptr_vector();
     cur = yella_dir_name(fqpath);
+    if (strcmp(cur, ".") == 0)
+    {
+        yella_push_back_ptr_vector(vec, cur);
+        return vec;
+    }
     while (strcmp(cur, "/") != 0)
     {
         yella_push_front_ptr_vector(vec, cur);
@@ -220,24 +226,17 @@ char* yella_dir_name(const char* const path)
 
 yella_rc yella_ensure_dir_exists(const char* const name)
 {
-    char rp[PATH_MAX + 1];
-    int err;
     yella_ptr_vector* dirs;
     size_t i;
-    yella_rc rc;
+    yella_rc rc = YELLA_NO_ERROR;
     const char* cur;
 
-    if (realpath(name, rp) == NULL)
-    {
-        err = errno;
-        CHUCHO_C_ERROR("yella.common",
-                       "Could not resolve real path of %s: %s",
-                       name,
-                       strerror(err));
-        return YELLA_FILE_SYSTEM_ERROR;
-    }
-    dirs = yella_get_dirs(rp);
-    yella_push_back_ptr_vector(dirs, yella_text_dup(rp));
+    if (name == NULL || name[0] == 0)
+        return YELLA_LOGIC_ERROR;
+    dirs = yella_get_dirs(name);
+    if (strcmp(yella_ptr_vector_at(dirs, 0), ".") == 0)
+        yella_pop_front_ptr_vector(dirs);
+    yella_push_back_ptr_vector(dirs, yella_text_dup(name));
     for (i = 0; i < yella_ptr_vector_size(dirs); i++)
     {
         cur = yella_ptr_vector_at(dirs, i);
@@ -257,9 +256,130 @@ bool yella_file_exists(const char* const name)
     return access(name, F_OK) == 0;
 }
 
-uintmax_t yella_file_size(const char* const name)
+yella_rc yella_file_size(const char* const name, size_t* sz)
 {
     struct stat info;
+    int err;
+    yella_rc yrc;
 
-    return yella_do_stat(name, &info) ? info.st_size : UINTMAX_MAX;
+    if (stat(name, &info) == 0)
+    {
+        *sz = info.st_size;
+        yrc = YELLA_NO_ERROR;
+    }
+    else
+    {
+        err = errno;
+        if (err == EACCES)
+            yrc = YELLA_NO_PERMISSION;
+        else if (err == ENOENT)
+            yrc = YELLA_DOES_NOT_EXIST;
+        else
+            yrc = YELLA_FILE_SYSTEM_ERROR;
+        CHUCHO_C_ERROR("yella.common",
+                       "Could not get information about %s: %s",
+                       name,
+                       strerror(err));
+    }
+    return yrc;
 }
+
+char* yella_getcwd(void)
+{
+    long sz = PATH_MAX;
+    char* buf = NULL;
+    char* res = NULL;
+
+    while (res == NULL)
+    {
+        buf = realloc(buf, sz);
+        res = getcwd(buf, sz);
+        if (res == NULL)
+        {
+            if (errno == ERANGE)
+            {
+                sz *= 2;
+            }
+            else
+            {
+                free(buf);
+                return NULL;
+            }
+        }
+    }
+    return buf;
+}
+
+static yella_rc remove_all_impl(const char* const name)
+{
+    yella_directory_iterator* itor = yella_create_directory_iterator(name);
+    const char* cur = yella_directory_iterator_next(itor);
+    struct stat st;
+    yella_rc rc = YELLA_NO_ERROR;
+    yella_rc cur_rc;
+
+    while (cur != NULL)
+    {
+        stat(cur, &st);
+        if (S_ISDIR(st.st_mode))
+        {
+            cur_rc = remove_all_impl(cur);
+            if (cur_rc > rc)
+                rc = cur_rc;
+        }
+        else
+        {
+            if (remove(cur) != 0)
+            {
+                CHUCHO_C_ERROR("yella.common",
+                               "Unable to remove %s: %s",
+                               cur,
+                               strerror(errno));
+                if (YELLA_FILE_SYSTEM_ERROR > rc)
+                    rc = YELLA_FILE_SYSTEM_ERROR;
+            }
+        }
+        cur = yella_directory_iterator_next(itor);
+    }
+    yella_destroy_directory_iterator(itor);
+    if (remove(name) != 0)
+    {
+        CHUCHO_C_ERROR("yella.common",
+                       "Unable to remove %s: %s",
+                       name,
+                       strerror(errno));
+        if (YELLA_FILE_SYSTEM_ERROR > rc)
+            rc = YELLA_FILE_SYSTEM_ERROR;
+    }
+    return rc;
+}
+
+yella_rc yella_remove_all(const char* const name)
+{
+    struct stat st;
+
+    if (access(name, F_OK) != 0)
+        return YELLA_NO_ERROR;
+    if (stat(name, &st) != 0)
+    {
+        CHUCHO_C_ERROR("yella.common",
+                       "Unable to stat %s: %s",
+                       name,
+                       strerror(errno));
+        return YELLA_FILE_SYSTEM_ERROR;
+    }
+    if (S_ISDIR(st.st_mode))
+    {
+        return remove_all_impl(name);
+    }
+    if (remove(name) != 0)
+    {
+        CHUCHO_C_ERROR("yella.common",
+                       "Unable to remove %s: %s",
+                       name,
+                       strerror(errno));
+        return YELLA_FILE_SYSTEM_ERROR;
+    }
+    return YELLA_NO_ERROR;
+}
+

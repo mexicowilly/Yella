@@ -16,5 +16,4 @@
 
 YELLA_TEST(settings-test)
 YELLA_TEST(file-test)
-YELLA_TEST(ptr-list-test)
 YELLA_TEST(ptr-vector-test)

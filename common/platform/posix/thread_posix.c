@@ -137,7 +137,7 @@ void yella_signal_event(yella_event* evt)
     pthread_mutex_unlock(&evt->mtx);
 }
 
-void yella_sleep_this_thread(unsigned milliseconds)
+void yella_sleep_this_thread(size_t milliseconds)
 {
     struct timespec to_wait;
     struct timespec remaining;
@@ -157,21 +157,21 @@ void yella_unlock_mutex(yella_mutex* mtx)
     pthread_mutex_unlock(&mtx->mtx);
 }
 
-void yella_wait_milliseconds_for_condition_variable(yella_condition_variable* cond,
+bool yella_wait_milliseconds_for_condition_variable(yella_condition_variable* cond,
                                                     yella_mutex* mtx,
-                                                    unsigned milliseconds)
+                                                    size_t milliseconds)
 {
     struct timespec ts;
 
     clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec += milliseconds % 1000;
-    ts.tv_nsec += milliseconds / 1000 * 1000000;
+    ts.tv_sec += milliseconds / 1000;
+    ts.tv_nsec += (milliseconds % 1000) * 1000000;
     if (ts.tv_nsec >= 1000000000)
     {
         ts.tv_nsec -= 1000000000;
         ts.tv_sec++;
     }
-    pthread_cond_timedwait(&cond->cond, &mtx->mtx, &ts);
+    return pthread_cond_timedwait(&cond->cond, &mtx->mtx, &ts) == 0;
 }
 
 void yella_wait_for_event(yella_event* evt)
