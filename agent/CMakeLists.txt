@@ -40,7 +40,6 @@ ADD_EXECUTABLE(yella
                mac_addresses.c
                mac_addresses.h
                main.c
-               msg_part.h
                router.c
                router.h
                saved_state.c
@@ -51,7 +50,8 @@ ADD_EXECUTABLE(yella
                ${YELLA_PLATFORM_SOURCES})
 
 YELLA_GEN_TARGET(yella
-                 serialization/private/saved_state.fbs)
+                 serialization/private/saved_state.fbs
+                 serialization/public/heartbeat.fbs)
 
 TARGET_LINK_LIBRARIES(yella
                       common

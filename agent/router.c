@@ -304,8 +304,8 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
     zmq_msg_t delim;
     zmq_msg_t header;
     zmq_msg_t body;
-    yella_msg_part hpart;
-    yella_msg_part bpart;
+    yella_message_part hpart;
+    yella_message_part bpart;
     int rc;
     size_t overcount;
 
@@ -531,7 +531,7 @@ yella_router_state yella_router_get_state(yella_router* rtr)
     return st;
 }
 
-bool yella_send(yella_sender* sndr, yella_msg_part* msgs, size_t count)
+bool yella_send(yella_sender* sndr, yella_message_part* msgs, size_t count)
 {
     size_t i;
     zmq_msg_t msg;

@@ -31,11 +31,14 @@ IF(YELLA_POSIX)
 ENDIF()
 
 ADD_LIBRARY(common SHARED
+            compression.c
+            compression.h
             file.c
             file.h
             macro_util.h
             message_header.c
             message_header.h
+            message_part.h
             ptr_vector.c
             ptr_vector.h
             return_code.c
@@ -61,4 +64,5 @@ TARGET_LINK_LIBRARIES(common
                       "${YELLA_FLATCC_LIB}"
                       "${YELLA_CHUCHO_LIB}"
                       "${YELLA_LIBYAML_LIB}"
+                      "${YELLA_LZ4_LIB}"
                       ${CMAKE_THREAD_LIBS_INIT})

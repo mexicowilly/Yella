@@ -18,7 +18,7 @@
 #define ROUTER_H__
 
 #include "yella_uuid.h"
-#include "msg_part.h"
+#include "common/message_part.h"
 #include "common/return_code.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -36,8 +36,8 @@ typedef struct yella_router yella_router;
 typedef struct yella_sender yella_sender;
 
 typedef void (*yella_router_state_callback)(yella_router_state, void*);
-typedef void (*yella_router_message_received_callback)(const yella_msg_part* header,
-                                                       const yella_msg_part* body,
+typedef void (*yella_router_message_received_callback)(const yella_message_part* header,
+                                                       const yella_message_part* body,
                                                        void* caller_data);
 
 yella_router* yella_create_router(yella_uuid* id);
@@ -56,6 +56,6 @@ void yella_destroy_sender(yella_sender* sndr);
  * @note This function takes ownership of the data, but not of the msgs
  * array itself.
  */
-bool yella_send(yella_sender* sndr, yella_msg_part* msgs, size_t count);
+bool yella_send(yella_sender* sndr, yella_message_part* msgs, size_t count);
 
 #endif

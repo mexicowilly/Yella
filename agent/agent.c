@@ -18,7 +18,11 @@
 #include "agent/router.h"
 #include "agent/yella_uuid.h"
 #include "agent/saved_state.h"
+#include "agent/spool.h"
 #include "common/settings.h"
+#include "common/message_header.h"
+#include "common/text_util.h"
+#include <lz4.h>
 #include <stdlib.h>
 
 static const uint64_t YELLA_MEGABYTE = 1024 * 1024;
@@ -26,9 +30,23 @@ static const uint64_t YELLA_GIGABYTE = 1024 * 1024 * 1024;
 
 struct yella_agent
 {
-    yella_uuid* identity;
+    yella_saved_state* state;
     yella_router* router;
+    yella_spool* spool;
 };
+
+static void send_plugin_message(void* agent,
+                                yella_message_header* mhdr,
+                                const uint8_t* const msg,
+                                size_t sz)
+{
+    yella_agent* ag = (yella_agent*)agent;
+
+    mhdr->time = time(NULL);
+    if (mhdr->sender == NULL)
+        mhdr->sender = yella_text_dup(ag->state->id->text);
+
+}
 
 static void retrieve_agent_settings(void)
 {
@@ -55,14 +73,11 @@ static void retrieve_agent_settings(void)
 yella_agent* yella_create_agent(void)
 {
     yella_agent* result;
-    yella_saved_state* state;
 
-    result = malloc(sizeof(yella_agent));
-    memset(result, 0, sizeof(yella_agent));
+    result = calloc(1, sizeof(yella_agent));
+    result->state = yella_load_saved_state();
     yella_load_settings_doc();
     retrieve_agent_settings();
-    state = yella_load_saved_state();
-    yella_destroy_saved_state(state);
 
     /* load plugins */
 
@@ -72,5 +87,6 @@ yella_agent* yella_create_agent(void)
 
 void yella_destroy_agent(yella_agent* agent)
 {
+    yella_destroy_saved_state(agent->state);
     free(agent);
 }

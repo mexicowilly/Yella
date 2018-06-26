@@ -547,7 +547,7 @@ yella_spool_stats yella_spool_get_stats(yella_spool * sp)
 
 yella_rc yella_spool_pop(yella_spool* sp,
                          size_t milliseconds_to_wait,
-                         yella_msg_part** parts,
+                         yella_message_part** parts,
                          size_t* count)
 {
     uint16_t msg_count;
@@ -575,7 +575,7 @@ yella_rc yella_spool_pop(yella_spool* sp,
         if (msg_count > 0)
         {
             msg_off = ftell(sp->readf) - sizeof(msg_count);
-            *parts = calloc(msg_count, sizeof(yella_msg_part));
+            *parts = calloc(msg_count, sizeof(yella_message_part));
             for (i = 0; i < msg_count; i++)
             {
                 if (fread(&msg_size, 1, sizeof(msg_size), sp->readf) != sizeof(msg_size))
@@ -646,7 +646,7 @@ yella_rc yella_spool_pop(yella_spool* sp,
     return yrc;
 }
 
-yella_rc yella_spool_push(yella_spool* sp, const yella_msg_part* msgs, size_t count)
+yella_rc yella_spool_push(yella_spool* sp, const yella_message_part* msgs, size_t count)
 {
     uint16_t num;
     uint32_t len;

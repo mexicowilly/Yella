@@ -52,7 +52,7 @@ typedef struct yella_message_header
     char* recipient;
     char* type;
     yella_compression cmp;
-    yella_sequence* seq;
+    yella_sequence seq;
     yella_group* grp;
 } yella_message_header;
 

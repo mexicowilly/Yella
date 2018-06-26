@@ -156,8 +156,8 @@ static void server_thread(void* p)
     zmq_ctx_term(ctx);
 }
 
-static void message_received(const yella_msg_part* header,
-                             const yella_msg_part* body,
+static void message_received(const yella_message_part* header,
+                             const yella_message_part* body,
                              void* caller_data)
 {
     assert_int_equal(1, header->size);
@@ -171,7 +171,7 @@ static void message_received(const yella_msg_part* header,
 
 static void receive(void** arg)
 {
-    yella_msg_part msg;
+    yella_message_part msg;
     test_state* ts;
     yella_event* done_receiving;
 
@@ -185,7 +185,7 @@ static void receive(void** arg)
 
 static void send(void** arg)
 {
-    yella_msg_part msg;
+    yella_message_part msg;
     test_state* ts;
     yella_sender* sndr;
 

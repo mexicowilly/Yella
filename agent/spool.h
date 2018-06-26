@@ -17,7 +17,7 @@
 #if !defined(SPOOL_H__)
 #define SPOOL_H__
 
-#include "msg_part.h"
+#include "common/message_part.h"
 #include "common/return_code.h"
 #include <stddef.h>
 #include <stdbool.h>
@@ -46,8 +46,8 @@ void yella_destroy_spool(yella_spool* sp);
 yella_spool_stats yella_spool_get_stats(yella_spool * sp);
 yella_rc yella_spool_pop(yella_spool* sp,
                          size_t milliseconds_to_wait,
-                         yella_msg_part** parts,
+                         yella_message_part** parts,
                          size_t* count);
-yella_rc yella_spool_push(yella_spool* sp, const yella_msg_part* msgs, size_t count);
+yella_rc yella_spool_push(yella_spool* sp, const yella_message_part* msgs, size_t count);
 
 #endif
