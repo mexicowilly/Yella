@@ -1,0 +1,13 @@
+include "plugin.fbs";
+
+namespace yella.fb.hello;
+
+table set_interval
+{
+    seconds: uint;
+}
+
+table hello
+{
+    hello: string;
+}

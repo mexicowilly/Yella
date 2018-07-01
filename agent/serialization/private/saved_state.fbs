@@ -16,6 +16,8 @@
 
 namespace yella.fb;
 
+file_identifier "YLSS";
+
 table mac_addr
 {
     bytes: [ubyte];

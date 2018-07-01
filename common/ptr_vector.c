@@ -91,6 +91,11 @@ void* yella_ptr_vector_at(const yella_ptr_vector* v, unsigned off)
     return (off < v->size) ? v->data[off] : NULL;
 }
 
+void** yella_ptr_vector_data(const yella_ptr_vector* v)
+{
+    return v->data;
+}
+
 size_t yella_ptr_vector_size(const yella_ptr_vector* v)
 {
     return v->size;

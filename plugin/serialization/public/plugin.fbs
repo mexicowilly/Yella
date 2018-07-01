@@ -1,0 +1,13 @@
+namespace yella.fb.plugin;
+
+enum config_action : byte
+{
+    ADD_OR_REPLACE,
+    REPLACE_ALL
+}
+
+table config
+{
+    action: config_action;
+    name: string;
+}

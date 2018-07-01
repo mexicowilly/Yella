@@ -22,18 +22,20 @@
 #include "common/settings.h"
 #include "common/message_header.h"
 #include "common/text_util.h"
+#include "common/compression.h"
+#include "common/message_part.h"
 #include <lz4.h>
 #include <stdlib.h>
 
 static const uint64_t YELLA_MEGABYTE = 1024 * 1024;
 static const uint64_t YELLA_GIGABYTE = 1024 * 1024 * 1024;
 
-struct yella_agent
+typedef struct yella_agent
 {
     yella_saved_state* state;
     yella_router* router;
     yella_spool* spool;
-};
+} yella_agent;
 
 static void send_plugin_message(void* agent,
                                 yella_message_header* mhdr,
@@ -41,11 +43,20 @@ static void send_plugin_message(void* agent,
                                 size_t sz)
 {
     yella_agent* ag = (yella_agent*)agent;
+    yella_message_part parts[2];
+    size_t hdr_sz;
 
     mhdr->time = time(NULL);
-    if (mhdr->sender == NULL)
-        mhdr->sender = yella_text_dup(ag->state->id->text);
-
+    mhdr->sender = yella_text_dup(ag->state->id->text);
+    mhdr->cmp = YELLA_COMPRESSION_LZ4;
+    mhdr->seq.major = ag->state->boot_count;
+    parts[0].data = yella_pack_mhdr(mhdr, &hdr_sz);
+    parts[0].size = hdr_sz;
+    parts[1].data = yella_lz4_compress(msg, &sz);
+    parts[1].size = sz;
+    yella_spool_push(ag->spool, parts, 2);
+    free(parts[0].data);
+    free(parts[1].data);
 }
 
 static void retrieve_agent_settings(void)

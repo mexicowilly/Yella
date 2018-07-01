@@ -26,6 +26,7 @@ typedef struct yella_saved_state
 {
     yella_uuid* id;
     yella_mac_addresses* mac_addresses;
+    uint32_t boot_count;
 } yella_saved_state;
 
 void yella_destroy_saved_state(yella_saved_state* ss);

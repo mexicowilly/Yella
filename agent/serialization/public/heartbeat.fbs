@@ -1,0 +1,16 @@
+namespace yella.fb;
+
+table capability
+{
+    name: string;
+    version: int;
+}
+
+table heartbeat
+{
+    in_capabilities: [capability];
+    out_capabilities: [capability];
+    configurations: [string];
+}
+
+root_type heartbeat;

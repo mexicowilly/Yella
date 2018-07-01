@@ -13,10 +13,12 @@ static void load_new_and_save(void** targ)
     int i;
 
     assert_non_null(st);
+    assert_int_equal(st->boot_count, 1);
     rc = yella_save_saved_state(st);
     assert_int_equal(rc, YELLA_NO_ERROR);
     st2 = yella_load_saved_state();
     assert_non_null(st2);
+    assert_int_equal(st2->boot_count, 2);
     assert_memory_equal(st2->id->id, st->id->id, sizeof(st2->id->id));
     assert_int_equal(st2->mac_addresses->count, st->mac_addresses->count);
     for (i = 0; i < st2->mac_addresses->count; i++)
