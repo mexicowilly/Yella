@@ -10,13 +10,15 @@
 
 static yella_rc set_interval_handler(const yella_message_header * mhdr, const uint8_t * msg, size_t sz);
 
+static char* config_name;
+
 static yella_plugin_in_cap hello_in_cap =
 {
 
     "yella.fb.hello.set_interval",
     1,
     set_interval_handler,
-    NULL,
+    &config_name,
     0
 };
 static yella_plugin_out_cap hello_out_cap =
@@ -43,19 +45,30 @@ static yella_agent_api agent_api;
 static uint32_t minor_seq;
 static char* recipient;
 static void* agent;
+static time_t next;
 
 static yella_rc set_interval_handler(const yella_message_header* const mhdr, const uint8_t* const msg, size_t sz)
 {
     yella_fb_hello_set_interval_table_t tbl;
+    yella_fb_plugin_config_table_t cfg;
 
     tbl = yella_fb_hello_set_interval_as_root(msg);
+    yella_lock_mutex(guard);
+    if (yella_fb_hello_set_interval_config_is_present(tbl))
+    {
+        cfg = yella_fb_hello_set_interval_config(tbl);
+        yella_log_plugin_config("yella.hello", cfg);
+        free(config_name);
+        config_name = yella_text_dup(yella_fb_plugin_config_name(cfg));
+        hello_in_cap.config_count = 1;
+    }
     if (yella_fb_hello_set_interval_seconds_is_present(tbl))
     {
-        yella_lock_mutex(guard);
         interval_secs = yella_fb_hello_set_interval_seconds(tbl);
-        yella_unlock_mutex(guard);
+        next = time(NULL) + interval_secs;
         recipient = yella_text_dup(mhdr->sender);
     }
+    yella_unlock_mutex(guard);
     return YELLA_NO_ERROR;
 }
 
@@ -71,14 +84,16 @@ static void thr_main(void* uarg)
     yella_lock_mutex(guard);
     while (true)
     {
-        while (!should_stop && interval_secs == 0)
+        if (interval_secs != 0)
+            next = time(NULL) + interval_secs;
+        while (!should_stop && time(NULL) < next)
             yella_wait_milliseconds_for_condition_variable(work_cond, guard, 500);
         if (should_stop)
             break;
         snprintf(buf, sizeof(buf), "Hello, World! %i", i++);
         flatcc_builder_init(&bld);
         yella_fb_hello_hello_start_as_root(&bld);
-        yella_fb_hello_hello_hello_create_str(&bld, buf);
+        yella_fb_hello_hello_message_create_str(&bld, buf);
         yella_fb_hello_hello_end_as_root(&bld);
         raw = flatcc_builder_finalize_buffer(&bld, &raw_size);
         flatcc_builder_clear(&bld);
@@ -91,7 +106,6 @@ static void thr_main(void* uarg)
         free(raw);
     }
     yella_unlock_mutex(guard);
-    yella_destroy_mhdr(mhdr);
 }
 
 static void retrieve_hello_settings(void)
@@ -134,13 +148,21 @@ const yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     guard = yella_create_mutex();
     work_cond = yella_create_condition_variable();
     interval_secs = 0;
+    /* fifty years from now */
+    next = time(NULL) + (60 * 60 * 24 * 365 * 50);
+    config_name = NULL;
     thr = yella_create_thread(thr_main, NULL);
     return &hello_desc;
 }
 
 const yella_plugin* plugin_status(void)
 {
+    yella_plugin* result;
 
+    yella_lock_mutex(guard);
+    result = yella_copy_plugin(&hello_desc);
+    yella_unlock_mutex(guard);
+    return result;
 }
 
 yella_rc plugin_stop(void)
@@ -154,5 +176,6 @@ yella_rc plugin_stop(void)
     yella_destroy_condition_variable(work_cond);
     yella_destroy_mutex(guard);
     free(recipient);
+    free(config_name);
     return YELLA_NO_ERROR;
 }

@@ -1,3 +1,8 @@
+ADD_LIBRARY(plugin SHARED
+            plugin.c
+            plugin.h)
+TARGET_LINK_LIBRARIES(plugin common)
+
 YELLA_GEN_TARGET(plugin
                  serialization/public/plugin.fbs)
 
