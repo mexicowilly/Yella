@@ -30,7 +30,7 @@
 
 static char* ss_file_name(void)
 {
-    return yella_sprintf("%s%s%s", yella_settings_get_text("data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
+    return yella_sprintf("%s%s%s", yella_settings_get_text("agent", "data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
 }
 
 static void reset_ss(yella_saved_state* st)

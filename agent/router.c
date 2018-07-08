@@ -88,7 +88,7 @@ static void* create_router_socket(yella_router* rtr)
     int rc;
 
     sock = NULL;
-    endpoint = yella_settings_get_text("router");
+    endpoint = yella_settings_get_text("agent", "router");
     if (endpoint == NULL)
     {
         CHUCHO_C_ERROR("yella.router",
@@ -106,7 +106,7 @@ static void* create_router_socket(yella_router* rtr)
                    ZMQ_IDENTITY,
                    rtr->id->text,
                    strlen(rtr->id->text));
-    recon_timeout_millis = *yella_settings_get_uint("reconnect-timeout-seconds") * 1000;
+    recon_timeout_millis = *yella_settings_get_uint("agent", "reconnect-timeout-seconds") * 1000;
     zmq_setsockopt(sock,
                    ZMQ_RECONNECT_IVL,
                    &recon_timeout_millis,

@@ -74,11 +74,11 @@ static void retrieve_agent_settings(void)
         { "poll-milliseconds", YELLA_SETTING_VALUE_UINT }
     };
 
-    yella_settings_set_uint("max-spool-partitions", 1000);
-    yella_settings_set_uint("max-spool-partition-size", 2 * YELLA_MEGABYTE);
-    yella_settings_set_uint("reconnect-timeout-seconds", 5);
-    yella_settings_set_uint("poll-milliseconds", 500);
-    yella_retrieve_settings(descs, sizeof(descs) / sizeof(descs[0]));
+    yella_settings_set_uint("agent", "max-spool-partitions", 1000);
+    yella_settings_set_uint("agent", "max-spool-partition-size", 2 * YELLA_MEGABYTE);
+    yella_settings_set_uint("agent", "reconnect-timeout-seconds", 5);
+    yella_settings_set_uint("agent", "poll-milliseconds", 500);
+    yella_retrieve_settings("agent", descs, sizeof(descs) / sizeof(descs[0]));
 }
 
 yella_agent* yella_create_agent(void)

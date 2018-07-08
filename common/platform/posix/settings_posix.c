@@ -19,9 +19,9 @@
 
 void yella_initialize_platform_settings(void)
 {
-    yella_settings_set_text("config-file", "/etc/yella.yaml");
-    yella_settings_set_text("log-dir", "/var/log/yella");
-    yella_settings_set_text("data-dir", "/var/lib/yella");
-    yella_settings_set_text("spool-dir", "/var/spool/yella");
-    yella_settings_set_text("plugin-dir", YELLA_VALUE_STR(YELLA_INSTALL_PREFIX) "/lib");
+    yella_settings_set_text("agent", "config-file", "/etc/yella.yaml");
+    yella_settings_set_text("agent", "log-dir", "/var/log/yella");
+    yella_settings_set_text("agent", "data-dir", "/var/lib/yella");
+    yella_settings_set_text("agent", "spool-dir", "/var/spool/yella");
+    yella_settings_set_text("agent", "plugin-dir", YELLA_VALUE_STR(YELLA_INSTALL_PREFIX) "/lib");
 }

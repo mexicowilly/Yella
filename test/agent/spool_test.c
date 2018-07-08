@@ -101,8 +101,8 @@ static void cull(void** targ)
     yella_spool_stats stats;
     char* tstats;
 
-    yella_settings_set_uint("max-spool-partition-size", 1024 * 1024);
-    yella_settings_set_uint("max-spool-partitions", 2);
+    yella_settings_set_uint("agent", "max-spool-partition-size", 1024 * 1024);
+    yella_settings_set_uint("agent", "max-spool-partitions", 2);
     sp = yella_create_spool();
     assert_non_null(sp);
     thr_arg.milliseconds_delay = 0;
@@ -300,10 +300,10 @@ static void simple(void** targ)
 
 static int clean_spool(void** arg)
 {
-    yella_settings_set_text("spool-dir", "test-spool");
-    yella_settings_set_uint("max-spool-partition-size", 1024 * 1024);
-    yella_settings_set_uint("max-spool-partitions", 100);
-    yella_remove_all(yella_settings_get_text("spool-dir"));
+    yella_settings_set_text("agent", "spool-dir", "test-spool");
+    yella_settings_set_uint("agent", "max-spool-partition-size", 1024 * 1024);
+    yella_settings_set_uint("agent", "max-spool-partitions", 100);
+    yella_remove_all(yella_settings_get_text("agent", "spool-dir"));
     return 0;
 }
 

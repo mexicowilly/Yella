@@ -42,6 +42,7 @@ ADD_EXECUTABLE(yella
                main.c
                router.c
                router.h
+               runtime_link.h
                saved_state.c
                saved_state.h
                spool.c
@@ -54,7 +55,7 @@ YELLA_GEN_TARGET(yella
                  serialization/public/heartbeat.fbs)
 
 TARGET_LINK_LIBRARIES(yella
-                      common
+                      plugin
                       "${YELLA_ZEROMQ_LIB}"
                       m)
 IF(YELLA_MACINTOSH)

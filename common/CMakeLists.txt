@@ -45,6 +45,7 @@ ADD_LIBRARY(common SHARED
             return_code.h
             settings.c
             settings.h
+            sglib.h
             text_util.c
             text_util.h
             thread.h

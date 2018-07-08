@@ -33,14 +33,14 @@ static void load_new_and_save(void** targ)
 
 static int set_up(void** arg)
 {
-    yella_remove_all(yella_settings_get_text("data-dir"));
-    yella_ensure_dir_exists(yella_settings_get_text("data-dir"));
+    yella_remove_all(yella_settings_get_text("agent", "data-dir"));
+    yella_ensure_dir_exists(yella_settings_get_text("agent", "data-dir"));
     return 0;
 }
 
 static int tear_down(void** arg)
 {
-    yella_remove_all(yella_settings_get_text("data-dir"));
+    yella_remove_all(yella_settings_get_text("agent", "data-dir"));
     return 0;
 }
 
@@ -54,7 +54,7 @@ int main()
 #if defined(YELLA_POSIX)
     setenv("CMOCKA_TEST_ABORT", "1", 1);
 #endif
-    yella_settings_set_text("data-dir", "saved-state-data");
+    yella_settings_set_text("agent", "data-dir", "saved-state-data");
     return cmocka_run_group_tests(tests, set_up, tear_down);
 }
 

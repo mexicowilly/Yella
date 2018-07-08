@@ -8,34 +8,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-static yella_rc set_interval_handler(const yella_message_header * mhdr, const uint8_t * msg, size_t sz);
-
-static char* config_name;
-
-static yella_plugin_in_cap hello_in_cap =
-{
-
-    "yella.fb.hello.set_interval",
-    1,
-    set_interval_handler,
-    &config_name,
-    0
-};
-static yella_plugin_out_cap hello_out_cap =
-{
-
-    "yella.fb.hello.hello",
-    1
-};
-static yella_plugin hello_desc =
-{
-    "hello",
-    "1",
-    &hello_in_cap,
-    1,
-    &hello_out_cap,
-    1
-};
 static bool should_stop;
 static yella_thread* thr;
 static yella_mutex* guard;
@@ -46,11 +18,13 @@ static uint32_t minor_seq;
 static char* recipient;
 static void* agent;
 static time_t next;
+static yella_plugin* hello_desc;
 
 static yella_rc set_interval_handler(const yella_message_header* const mhdr, const uint8_t* const msg, size_t sz)
 {
     yella_fb_hello_set_interval_table_t tbl;
     yella_fb_plugin_config_table_t cfg;
+    yella_ptr_vector* cfg_v;
 
     tbl = yella_fb_hello_set_interval_as_root(msg);
     yella_lock_mutex(guard);
@@ -58,9 +32,9 @@ static yella_rc set_interval_handler(const yella_message_header* const mhdr, con
     {
         cfg = yella_fb_hello_set_interval_config(tbl);
         yella_log_plugin_config("yella.hello", cfg);
-        free(config_name);
-        config_name = yella_text_dup(yella_fb_plugin_config_name(cfg));
-        hello_in_cap.config_count = 1;
+        cfg_v = ((yella_plugin_in_cap*)yella_ptr_vector_at(hello_desc->in_caps, 0))->configs;
+        yella_clear_ptr_vector(cfg_v);
+        yella_push_back_ptr_vector(cfg_v, yella_text_dup(yella_fb_plugin_config_name(cfg)));
     }
     if (yella_fb_hello_set_interval_seconds_is_present(tbl))
     {
@@ -98,7 +72,7 @@ static void thr_main(void* uarg)
         raw = flatcc_builder_finalize_buffer(&bld, &raw_size);
         flatcc_builder_clear(&bld);
         mhdr = yella_create_mhdr();
-        mhdr->type = yella_text_dup(hello_out_cap.name);
+        mhdr->type = yella_text_dup(((yella_plugin_out_cap*)yella_ptr_vector_at(hello_desc->out_caps, 0))->name);
         mhdr->recipient = yella_text_dup(recipient);
         mhdr->seq.minor = ++minor_seq;
         agent_api.send_message(agent, mhdr, raw, raw_size);
@@ -137,7 +111,7 @@ static void retrieve_hello_settings(void)
     */
 }
 
-const yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
+YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
 {
     memcpy(&agent_api, api, sizeof(agent_api));
     should_stop = false;
@@ -150,22 +124,26 @@ const yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     interval_secs = 0;
     /* fifty years from now */
     next = time(NULL) + (60 * 60 * 24 * 365 * 50);
-    config_name = NULL;
+    hello_desc = yella_create_plugin("hello", "1");
+    yella_push_back_ptr_vector(hello_desc->in_caps,
+                               yella_create_plugin_in_cap("yella.fb.hello.set_interval", 1, set_interval_handler));
+    yella_push_back_ptr_vector(hello_desc->out_caps,
+                               yella_create_plugin_out_cap("yella.fb.hello.hello", 1));
     thr = yella_create_thread(thr_main, NULL);
-    return &hello_desc;
+    return yella_copy_plugin(hello_desc);
 }
 
-const yella_plugin* plugin_status(void)
+YELLA_EXPORT yella_plugin* plugin_status(void)
 {
     yella_plugin* result;
 
     yella_lock_mutex(guard);
-    result = yella_copy_plugin(&hello_desc);
+    result = yella_copy_plugin(hello_desc);
     yella_unlock_mutex(guard);
     return result;
 }
 
-yella_rc plugin_stop(void)
+YELLA_EXPORT yella_rc plugin_stop(void)
 {
     yella_lock_mutex(guard);
     should_stop = true;
@@ -175,7 +153,7 @@ yella_rc plugin_stop(void)
     yella_destroy_thread(thr);
     yella_destroy_condition_variable(work_cond);
     yella_destroy_mutex(guard);
+    yella_destroy_plugin(hello_desc);
     free(recipient);
-    free(config_name);
     return YELLA_NO_ERROR;
 }
