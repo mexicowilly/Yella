@@ -42,8 +42,8 @@ YELLA_EXPORT yella_plugin_out_cap* yella_create_plugin_out_cap(const char* const
 YELLA_EXPORT void yella_destroy_plugin(yella_plugin* plug);
 YELLA_EXPORT void yella_log_plugin_config(const char* const lgr, yella_fb_plugin_config_table_t cfg);
 
-typedef yella_plugin* (*plugin_start_func)(const yella_agent_api* api, void* agent);
-typedef yella_rc (*plugin_stop_func)(void);
-typedef yella_plugin* (*plugin_status_func)(void);
+typedef struct yella_plugin* (*yella_plugin_start_func)(const yella_agent_api* api, void* agent);
+typedef yella_rc (*yella_plugin_stop_func)(void);
+typedef struct yella_plugin* (*yella_plugin_status_func)(void);
 
 #endif

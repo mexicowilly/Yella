@@ -67,7 +67,7 @@ yella_plugin* yella_create_plugin(const char* const name, const char* const vers
 {
     yella_plugin* plug;
 
-    plug = malloc(sizeof(yella_plugin));
+    plug = calloc(1, sizeof(yella_plugin));
     plug->name = yella_text_dup(name);
     plug->version = yella_text_dup(version);
     plug->in_caps = yella_create_ptr_vector();

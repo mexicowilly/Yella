@@ -19,23 +19,69 @@
 #include "agent/yella_uuid.h"
 #include "agent/saved_state.h"
 #include "agent/spool.h"
+#include "agent/runtime_link.h"
 #include "common/settings.h"
 #include "common/message_header.h"
 #include "common/text_util.h"
 #include "common/compression.h"
 #include "common/message_part.h"
+#include "common/file.h"
+#include "common/thread.h"
+#include "common/macro_util.h"
+#include "plugin/plugin.h"
 #include <lz4.h>
 #include <stdlib.h>
+#include <chucho/log.h>
+#include <stdatomic.h>
 
 static const uint64_t YELLA_MEGABYTE = 1024 * 1024;
 static const uint64_t YELLA_GIGABYTE = 1024 * 1024 * 1024;
+
+typedef struct plugin_wrap
+{
+    yella_plugin* plugin;
+    struct
+    {
+        void* shared_object;
+        yella_plugin_start_func start_func;
+        yella_plugin_status_func status_func;
+        yella_plugin_stop_func stop_func;
+    } api;
+} plugin_wrap;
 
 typedef struct yella_agent
 {
     yella_saved_state* state;
     yella_router* router;
     yella_spool* spool;
+    yella_ptr_vector* plugins;
+    yella_thread* heartbeat;
+    yella_mutex* plugin_guard;
+    atomic_bool should_stop;
 } yella_agent;
+
+static void heartbeat_thr(void* udata)
+{
+    time_t next;
+    size_t to_wait = *yella_settings_get_uint("agent", "hearbeat-seconds");
+    yella_agent* ag = (yella_agent*)udata;
+
+    next = time(NULL) + to_wait;
+    do
+    {
+        while (time(NULL) < next)
+        {
+            yella_sleep_this_thread(1000);
+            if (ag->should_stop)
+                return;
+        }
+        if (ag->should_stop)
+            break;
+        yella_lock_mutex(ag->plugin_guard);
+        /* Do heartbeat */
+        yella_unlock_mutex(ag->plugin_guard);
+    } while (true);
+}
 
 static void send_plugin_message(void* agent,
                                 yella_message_header* mhdr,
@@ -59,26 +105,77 @@ static void send_plugin_message(void* agent,
     free(parts[1].data);
 }
 
+static void load_plugins(yella_agent* agent)
+{
+    yella_agent_api agent_api;
+    yella_directory_iterator* itor;
+    const char* cur;
+    void* so;
+    plugin_wrap* plugin;
+    yella_plugin_start_func start;
+
+    agent_api.send_message = send_plugin_message;
+    itor = yella_create_directory_iterator(yella_settings_get_text("agent", "plugin-dir"));
+    cur = yella_directory_iterator_next(itor);
+    while (cur != NULL)
+    {
+        so = open_shared_object(cur);
+        if (so != NULL)
+        {
+            start = shared_object_symbol(so, "plugin_start");
+            if (start != NULL)
+            {
+                plugin = malloc(sizeof(plugin_wrap));
+                plugin->plugin = start(&agent_api, agent);
+                if (plugin != NULL)
+                {
+                    plugin->api.shared_object = so;
+                    plugin->api.start_func = start;
+                    plugin->api.status_func = shared_object_symbol(so, "plugin_status");
+                    plugin->api.stop_func = shared_object_symbol(so, "plugin_stop");
+                    yella_push_back_ptr_vector(agent->plugins, plugin);
+                    CHUCHO_C_INFO("yella.agent",
+                                  "Loaded plugin %s, version %s",
+                                  plugin->plugin->name,
+                                  plugin->plugin->version);
+                }
+            }
+        }
+        cur = yella_directory_iterator_next(itor);
+    }
+}
+
+static void plugin_wrap_dtor(void* p, void* udata)
+{
+    plugin_wrap* w = (plugin_wrap*)p;
+
+    yella_destroy_plugin(w->plugin);
+    close_shared_object(w->api.shared_object);
+    free(w);
+}
+
 static void retrieve_agent_settings(void)
 {
     yella_setting_desc descs[] =
-    {
-        { "data-dir", YELLA_SETTING_VALUE_TEXT },
-        { "log-dir", YELLA_SETTING_VALUE_TEXT },
-        { "plugin-dir", YELLA_SETTING_VALUE_TEXT },
-        { "spool-dir", YELLA_SETTING_VALUE_TEXT },
-        { "router", YELLA_SETTING_VALUE_TEXT },
-        { "max-spool-partitions", YELLA_SETTING_VALUE_UINT },
-        { "max-spool-partition-size", YELLA_SETTING_VALUE_UINT },
-        { "reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
-        { "poll-milliseconds", YELLA_SETTING_VALUE_UINT }
-    };
+        {
+            { "data-dir", YELLA_SETTING_VALUE_TEXT },
+            { "log-dir", YELLA_SETTING_VALUE_TEXT },
+            { "plugin-dir", YELLA_SETTING_VALUE_TEXT },
+            { "spool-dir", YELLA_SETTING_VALUE_TEXT },
+            { "router", YELLA_SETTING_VALUE_TEXT },
+            { "max-spool-partitions", YELLA_SETTING_VALUE_UINT },
+            { "max-spool-partition-size", YELLA_SETTING_VALUE_UINT },
+            { "reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
+            { "poll-milliseconds", YELLA_SETTING_VALUE_UINT },
+            { "heartbeat-seconds", YELLA_SETTING_VALUE_UINT }
+        };
 
     yella_settings_set_uint("agent", "max-spool-partitions", 1000);
     yella_settings_set_uint("agent", "max-spool-partition-size", 2 * YELLA_MEGABYTE);
     yella_settings_set_uint("agent", "reconnect-timeout-seconds", 5);
     yella_settings_set_uint("agent", "poll-milliseconds", 500);
-    yella_retrieve_settings("agent", descs, sizeof(descs) / sizeof(descs[0]));
+    yella_settings_set_uint("agent", "heartbeat-seconds", 30);
+    yella_retrieve_settings("agent", descs, YELLA_ARRAY_SIZE(descs));
 }
 
 yella_agent* yella_create_agent(void)
@@ -87,17 +184,23 @@ yella_agent* yella_create_agent(void)
 
     result = calloc(1, sizeof(yella_agent));
     result->state = yella_load_saved_state();
+    result->plugins = yella_create_ptr_vector();
+    yella_set_ptr_vector_destructor(result->plugins, plugin_wrap_dtor, NULL);
     yella_load_settings_doc();
     retrieve_agent_settings();
-
-    /* load plugins */
-
+    load_plugins(result);
     yella_destroy_settings_doc();
+    result->plugin_guard = yella_create_mutex();
+    result->heartbeat = yella_create_thread(heartbeat_thr, result);
     return result;
 }
 
 void yella_destroy_agent(yella_agent* agent)
 {
+    yella_join_thread(agent->heartbeat);
+    yella_destroy_thread(agent->heartbeat);
+    yella_destroy_mutex(agent->plugin_guard);
+    yella_destroy_ptr_vector(agent->plugins);
     yella_destroy_saved_state(agent->state);
     free(agent);
 }
