@@ -102,8 +102,9 @@ static void server_thread(void* p)
                        zmq_strerror(zmq_errno()));
         assert_true(false);
     }
-    payload = malloc(zmq_msg_size(&payload_msg) + 1);
-    strncpy(payload, (char*)zmq_msg_data(&payload_msg), zmq_msg_size(&payload_msg) + 1);
+    CHUCHO_C_INFO("router-test", "Payload size: %zu", zmq_msg_size(&payload_msg));
+    payload = calloc(zmq_msg_size(&payload_msg) + 1, 1);
+    memcpy(payload, (char*)zmq_msg_data(&payload_msg), zmq_msg_size(&payload_msg));
     zmq_msg_close(&payload_msg);
     CHUCHO_C_INFO("router-test",
                   "Got payload: %s",
@@ -142,7 +143,7 @@ static void server_thread(void* p)
         assert_true(false);
     }
     zmq_msg_init_size(&payload_msg, strlen(payload));
-    memcpy(zmq_msg_data(&payload_msg), payload, strlen(id));
+    memcpy(zmq_msg_data(&payload_msg), payload, strlen(payload));
     free(payload);
     rc = zmq_msg_send(&payload_msg, sock, 0);
     if (rc == -1)
@@ -152,8 +153,10 @@ static void server_thread(void* p)
                        zmq_strerror(zmq_errno()));
         assert_true(false);
     }
+    CHUCHO_C_INFO("router-test", "Sent all messages back");
     zmq_close(sock);
     zmq_ctx_term(ctx);
+    CHUCHO_C_INFO("router-test", "Closed server socket");
 }
 
 static void message_received(const yella_message_part* header,

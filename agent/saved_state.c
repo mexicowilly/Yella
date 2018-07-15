@@ -130,7 +130,7 @@ yella_saved_state* yella_load_saved_state(void)
     free(fname);
     if (ss->mac_addresses->count > 0)
     {
-        addr_text_size = ss->mac_addresses->count * sizeof(ss->mac_addresses->addrs[0].text) + ss->mac_addresses->count - 1;
+        addr_text_size = ss->mac_addresses->count * sizeof(ss->mac_addresses->addrs[0].text) + ss->mac_addresses->count;
         addr_text = malloc(addr_text_size);
         addr_text[0] = 0;
         for (i = 0; i < ss->mac_addresses->count; i++)

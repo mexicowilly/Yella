@@ -262,6 +262,7 @@ static yella_rc process_outgoing_in_event(void* rtr_sock, void* out_sock)
     int rc;
     int more;
 
+    CHUCHO_C_INFO("yella.testing", "Processing outgoing in event");
     zmq_msg_init(&msg);
     rc = zmq_msg_send(&msg, rtr_sock, ZMQ_SNDMORE);
     if (rc == -1)
@@ -309,6 +310,7 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
     int rc;
     size_t overcount;
 
+    CHUCHO_C_INFO("yella.testing", "Processing router in event");
     overcount = 0;
     zmq_msg_init(&delim);
     rc = zmq_msg_recv(&delim, rtr_sock, 0);
