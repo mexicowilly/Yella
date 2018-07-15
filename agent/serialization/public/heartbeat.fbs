@@ -4,13 +4,15 @@ table capability
 {
     name: string;
     version: int;
+    configurations: [string];
 }
 
 table heartbeat
 {
+    id: string;
+    seconds_since_epoch: ulong;
     in_capabilities: [capability];
     out_capabilities: [capability];
-    configurations: [string];
 }
 
 root_type heartbeat;

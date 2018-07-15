@@ -522,15 +522,18 @@ yella_spool* yella_create_spool(void)
 
 void yella_destroy_spool(yella_spool* sp)
 {
-    yella_lock_mutex(sp->guard);
-    fclose(sp->readf);
-    fclose(sp->writef);
-    free(sp->write_file_name);
-    free(sp->read_file_name);
-    yella_unlock_mutex(sp->guard);
-    yella_destroy_mutex(sp->guard);
-    yella_destroy_condition_variable(sp->was_written_cond);
-    free(sp);
+    if (sp != NULL)
+    {
+        yella_lock_mutex(sp->guard);
+        fclose(sp->readf);
+        fclose(sp->writef);
+        free(sp->write_file_name);
+        free(sp->read_file_name);
+        yella_unlock_mutex(sp->guard);
+        yella_destroy_mutex(sp->guard);
+        yella_destroy_condition_variable(sp->was_written_cond);
+        free(sp);
+    }
 }
 
 yella_spool_stats yella_spool_get_stats(yella_spool * sp)

@@ -60,7 +60,8 @@ uint8_t* yella_pack_mhdr(const yella_message_header* const mhdr, size_t* size)
     yella_fb_header_start_as_root(&bld);
     yella_fb_header_seconds_since_epoch_add(&bld, mhdr->time);
     yella_fb_header_sender_create_str(&bld, mhdr->sender);
-    yella_fb_header_recipient_create_str(&bld, mhdr->recipient);
+    if (mhdr->recipient != NULL)
+        yella_fb_header_recipient_create_str(&bld, mhdr->recipient);
     yella_fb_header_type_create_str(&bld, mhdr->type);
     yella_fb_header_cmp_add(&bld, (mhdr->cmp == YELLA_COMPRESSION_LZ4) ? yella_fb_compression_LZ4 : yella_fb_compression_NONE);
     yella_fb_header_seq_add(&bld, seq);
