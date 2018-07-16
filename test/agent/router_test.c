@@ -74,8 +74,9 @@ static void server_thread(void* p)
                        zmq_strerror(zmq_errno()));
         assert_true(false);
     }
-    id = malloc(zmq_msg_size(&id_msg) + 1);
-    strncpy(id, (char*)zmq_msg_data(&id_msg), zmq_msg_size(&id_msg));
+    CHUCHO_C_INFO("router-test", "Identity size: %zu", zmq_msg_size(&id_msg));
+    id = calloc(zmq_msg_size(&id_msg) + 1, 1);
+    memcpy(id, (char*)zmq_msg_data(&id_msg), zmq_msg_size(&id_msg));
     zmq_msg_close(&id_msg);
     CHUCHO_C_INFO("router-test",
                   "Got identity: %s",
