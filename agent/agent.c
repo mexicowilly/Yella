@@ -20,6 +20,7 @@
 #include "agent/saved_state.h"
 #include "agent/spool.h"
 #include "agent/runtime_link.h"
+#include "agent/heartbeat.h"
 #include "common/settings.h"
 #include "common/message_header.h"
 #include "common/text_util.h"
@@ -29,7 +30,6 @@
 #include "common/thread.h"
 #include "common/macro_util.h"
 #include "plugin/plugin.h"
-#include "heartbeat_builder.h"
 #include <lz4.h>
 #include <stdlib.h>
 #include <chucho/log.h>
@@ -55,6 +55,7 @@ typedef struct yella_agent
     yella_ptr_vector* plugins;
     yella_thread* heartbeat;
     atomic_bool should_stop;
+    yella_thread* spool_consumer;
 } yella_agent;
 
 static void plugin_dtor(void* plg, void* udata)
@@ -67,16 +68,11 @@ static void heartbeat_thr(void* udata)
     time_t next;
     size_t to_wait = *yella_settings_get_uint("agent", "hearbeat-seconds");
     yella_agent* ag = (yella_agent*)udata;
-    flatcc_builder_t bld;
-    int i;
-    int j;
-    int k;
     plugin_api* api;
     yella_plugin* plg;
+    int i;
     flatbuffers_string_vec_t configs;
     yella_ptr_vector* plugins;
-    yella_plugin_in_cap* in_cap;
-    yella_plugin_out_cap* out_cap;
     yella_sender* sndr;
     yella_message_part parts[2];
     yella_message_header* mhdr;
@@ -84,7 +80,6 @@ static void heartbeat_thr(void* udata)
 
     minor_seq = 0;
     sndr = yella_create_sender(ag->router);
-    flatcc_builder_init(&bld);
     next = time(NULL) + to_wait;
     do
     {
@@ -100,56 +95,13 @@ static void heartbeat_thr(void* udata)
         {
             plugins = yella_create_ptr_vector();
             yella_set_ptr_vector_destructor(plugins, plugin_dtor, NULL);
-            yella_fb_heartbeat_start_as_root(&bld);
-            yella_fb_heartbeat_id_create_str(&bld, ag->state->id->text);
-            yella_fb_heartbeat_seconds_since_epoch_add(&bld, time(NULL));
             for (i = 0; i < yella_ptr_vector_size(ag->plugins); i++)
             {
-                api = (plugin_api *) yella_ptr_vector_at(ag->plugins, i);
+                api = (plugin_api*)yella_ptr_vector_at(ag->plugins, i);
                 yella_push_back_ptr_vector(plugins, api->status_func());
             }
-            yella_fb_heartbeat_in_capabilities_start(&bld);
-            for (i = 0; i < yella_ptr_vector_size(plugins); i++)
-            {
-                plg = (yella_plugin *) yella_ptr_vector_at(plugins, i);
-                for (j = 0; j < yella_ptr_vector_size(plg->in_caps); j++)
-                {
-                    in_cap = (yella_plugin_in_cap *) yella_ptr_vector_at(plg->in_caps, j);
-                    yella_fb_capability_start(&bld);
-                    yella_fb_capability_name_create_str(&bld, in_cap->name);
-                    yella_fb_capability_version_add(&bld, in_cap->version);
-                    yella_fb_capability_configurations_start(&bld);
-                    for (k = 0; k < yella_ptr_vector_size(in_cap->configs); k++)
-                    {
-                        yella_fb_capability_configurations_push_create_str(&bld,
-                                                                           (const char *) yella_ptr_vector_at(
-                                                                               in_cap->configs, k));
-                    }
-                    yella_fb_capability_configurations_add(&bld,
-                                                           yella_fb_capability_configurations_end(&bld));
-                    yella_fb_heartbeat_in_capabilities_push(&bld,
-                                                            yella_fb_capability_end(&bld));
-                }
-            }
-            yella_fb_heartbeat_in_capabilities_add(&bld, yella_fb_heartbeat_in_capabilities_end(&bld));
-            yella_fb_heartbeat_out_capabilities_start(&bld);
-            for (i = 0; i < yella_ptr_vector_size(plugins); i++)
-            {
-                plg = (yella_plugin *) yella_ptr_vector_at(plugins, i);
-                for (j = 0; j < yella_ptr_vector_size(plg->out_caps); j++)
-                {
-                    out_cap = (yella_plugin_out_cap *) yella_ptr_vector_at(plg->out_caps, j);
-                    yella_fb_capability_start(&bld);
-                    yella_fb_capability_name_create_str(&bld, out_cap->name);
-                    yella_fb_capability_version_add(&bld, out_cap->version);
-                    yella_fb_heartbeat_out_capabilities_push(&bld, yella_fb_capability_end(&bld));
-                }
-            }
+            parts[1].data = create_heartbeat(ag->state->id->text, plugins, &parts[1].size);
             yella_destroy_ptr_vector(plugins);
-            yella_fb_heartbeat_out_capabilities_add(&bld, yella_fb_heartbeat_out_capabilities_end(&bld));
-            yella_fb_heartbeat_end_as_root(&bld);
-            parts[1].data = flatcc_builder_finalize_buffer(&bld, &parts[1].size);
-            flatcc_builder_reset(&bld);
             mhdr = yella_create_mhdr();
             mhdr->time = time(NULL);
             mhdr->sender = yella_text_dup(ag->state->id->text);
@@ -170,7 +122,6 @@ static void heartbeat_thr(void* udata)
         }
         next = time(NULL) + to_wait;
     } while (true);
-    flatcc_builder_clear(&bld);
     yella_destroy_sender(sndr);
 }
 
@@ -305,6 +256,41 @@ static void retrieve_agent_settings(void)
     yella_retrieve_settings("agent", descs, YELLA_ARRAY_SIZE(descs));
 }
 
+static void spool_thr(void* udata)
+{
+    yella_agent* ag;
+    yella_message_part* popped;
+    size_t num_popped;
+    yella_rc rc;
+    yella_sender* sndr;
+    int i;
+
+    ag = (yella_agent*)udata;
+    sndr = yella_create_sender(ag->router);
+    while (!ag->should_stop)
+    {
+        rc = yella_spool_pop(ag->spool,
+                             500,
+                             &popped,
+                             &num_popped);
+        if (rc == YELLA_NO_ERROR)
+        {
+            if (!yella_send(sndr, popped, num_popped))
+            {
+                // error
+            }
+            for (i = 0; i < num_popped; i++)
+                free(popped[i].data);
+            free(popped);
+        }
+        else if (rc != YELLA_TIMED_OUT)
+        {
+            // error
+        }
+    }
+    yella_destroy_sender(sndr);
+}
+
 yella_agent* yella_create_agent(void)
 {
     yella_agent* result;
@@ -327,6 +313,7 @@ yella_agent* yella_create_agent(void)
     retrieve_agent_settings();
     load_plugins(result);
     yella_destroy_settings_doc();
+    result->spool_consumer = yella_create_thread(spool_thr, result);
     result->heartbeat = yella_create_thread(heartbeat_thr, result);
     return result;
 }
@@ -336,6 +323,8 @@ void yella_destroy_agent(yella_agent* agent)
     agent->should_stop = true;
     yella_join_thread(agent->heartbeat);
     yella_destroy_thread(agent->heartbeat);
+    yella_join_thread(agent->spool_consumer);
+    yella_destroy_thread(agent->spool_consumer);
     yella_destroy_ptr_vector(agent->plugins);
     yella_destroy_saved_state(agent->state);
     yella_destroy_router(agent->router);

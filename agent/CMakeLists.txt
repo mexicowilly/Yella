@@ -37,6 +37,8 @@ ENDIF()
 ADD_EXECUTABLE(yella
                agent.c
                agent.h
+               heartbeat.c
+               heartbeat.h
                mac_addresses.c
                mac_addresses.h
                main.c
