@@ -19,6 +19,8 @@
 #include "header_builder.h"
 #include "common/text_util.h"
 #include "common/macro_util.h"
+#include "common/calendar.h"
+#include <stdio.h>
 
 yella_message_header* yella_create_mhdr(void)
 {
@@ -39,6 +41,47 @@ void yella_destroy_mhdr(yella_message_header* mhdr)
         free(mhdr->grp);
     }
     free(mhdr);
+}
+
+void yella_log_mhdr(const yella_message_header* const mhdr, const char* const log)
+{
+    char* timestamp;
+    const char* cmp;
+    char* group;
+    size_t sz;
+    const char* dis;
+    const char* group_fmt;
+
+    timestamp = yella_format_time("%Y%m%dT%H%M%S", mhdr->time);
+    cmp = (mhdr->cmp == YELLA_COMPRESSION_NONE) ? "NONE" : "LZ4";
+    if (mhdr->grp == NULL)
+    {
+        group = yella_text_dup("");
+    }
+    else
+    {
+        group_fmt = ", \"group\": { \"identifier\": \"%s\", \"disposition\": \"%s\" }";
+        dis = (mhdr->grp->disposition == YELLA_GROUP_DISPOSITION_END) ? "END" : "MORE";
+        sz = strlen(group_fmt) - 2 + strlen(mhdr->grp->identifier) - 2 + strlen(dis) + 1;
+        group = malloc(sz);
+        snprintf(group,
+                 sz,
+                 group_fmt,
+                 group,
+                 dis);
+    }
+    CHUCHO_C_INFO(log,
+                  "{ \"time\": \"%s\", \"sender\": \"%s\", \"recipient\": \"%s\", \"type\": \"%s\", \"compression\": \"%s\", \"sequence\": { \"major\": %u, \"minor\": %u }%s",
+                  timestamp,
+                  mhdr->sender,
+                  mhdr->recipient,
+                  mhdr->type,
+                  cmp,
+                  mhdr->seq.major,
+                  mhdr->seq.minor,
+                  group);
+    free(timestamp);
+    free(group);
 }
 
 uint8_t* yella_pack_mhdr(const yella_message_header* const mhdr, size_t* size)

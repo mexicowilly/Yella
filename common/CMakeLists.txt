@@ -21,6 +21,7 @@ INCLUDE_DIRECTORIES("${YELLA_LIBYAML_INCLUDE_DIR}"
 
 IF(YELLA_POSIX)
     SET(COMMON_PLATFORM_SOURCES
+        platform/posix/calendar_posix.c
         platform/posix/file_posix.c
         platform/posix/settings_posix.c
         platform/posix/thread_posix.c
@@ -31,6 +32,7 @@ IF(YELLA_POSIX)
 ENDIF()
 
 ADD_LIBRARY(common SHARED
+            calendar.h
             compression.c
             compression.h
             file.c

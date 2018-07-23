@@ -30,6 +30,7 @@
 #include "common/thread.h"
 #include "common/macro_util.h"
 #include "plugin/plugin.h"
+#include "common/sglib.h"
 #include <lz4.h>
 #include <stdlib.h>
 #include <chucho/log.h>
@@ -37,6 +38,15 @@
 
 static const uint64_t YELLA_MEGABYTE = 1024 * 1024;
 static const uint64_t YELLA_GIGABYTE = 1024 * 1024 * 1024;
+
+typedef struct in_handler
+{
+    char* key;
+    yella_in_cap_handler func;
+    char color;
+    struct in_handler* left;
+    struct in_handler* right;
+} in_handler;
 
 typedef struct plugin_api
 {
@@ -56,7 +66,13 @@ typedef struct yella_agent
     yella_thread* heartbeat;
     atomic_bool should_stop;
     yella_thread* spool_consumer;
+    in_handler* in_handlers;
 } yella_agent;
+
+#define YELLA_KEY_COMPARE(x, y) strcmp((x->key), (y->key))
+
+SGLIB_DEFINE_RBTREE_PROTOTYPES(in_handler, left, right, color, YELLA_KEY_COMPARE);
+SGLIB_DEFINE_RBTREE_FUNCTIONS(in_handler, left, right, color, YELLA_KEY_COMPARE);
 
 static void plugin_dtor(void* plg, void* udata)
 {
@@ -156,6 +172,10 @@ static void load_plugins(yella_agent* agent)
     plugin_api* api;
     yella_plugin_start_func start;
     yella_plugin* plugin;
+    in_handler hndlr_to_find;
+    in_handler* hndlr_found;
+    int i;
+    yella_plugin_in_cap* in_cap;
 
     agent_api.send_message = send_plugin_message;
     itor = yella_create_directory_iterator(yella_settings_get_text("agent", "api-dir"));
@@ -180,6 +200,19 @@ static void load_plugins(yella_agent* agent)
                     if (api->status_func && api->stop_func)
                     {
                         yella_push_back_ptr_vector(agent->plugins, api);
+                        for (i = 0; i < yella_ptr_vector_size(plugin->in_caps); i++)
+                        {
+                            in_cap = (yella_plugin_in_cap*)yella_ptr_vector_at(plugin->in_caps, i);
+                            hndlr_to_find.key = in_cap->name;
+                            hndlr_found = sglib_in_handler_find_member(agent->in_handlers, &hndlr_to_find);
+                            if (hndlr_found == NULL)
+                            {
+                                hndlr_found = malloc(sizeof(in_handler));
+                                hndlr_found->key = yella_text_dup(in_cap->name);
+                                sglib_in_handler_add(&agent->in_handlers, hndlr_found);
+                            }
+                            hndlr_found->func = in_cap->handler;
+                        }
                         CHUCHO_C_INFO("yella.agent",
                                       "Loaded plugin %s, version %s",
                                       plugin->name,
@@ -219,6 +252,18 @@ static void load_plugins(yella_agent* agent)
         cur = yella_directory_iterator_next(itor);
     }
     yella_destroy_directory_iterator(itor);
+}
+
+static void message_received(const yella_message_part* hdr, const yella_message_part* body, void* udata)
+{
+    in_handler to_find;
+    in_handler* found;
+    yella_message_header* mhdr;
+
+    mhdr = yella_unpack_mhdr(hdr->data);
+
+
+
 }
 
 static void plugin_api_dtor(void* p, void* udata)
@@ -307,6 +352,7 @@ yella_agent* yella_create_agent(void)
         return NULL;
     }
     result->router = yella_create_router(result->state->id);
+    yella_set_router_message_received_callback(result->router, message_received, result);
     result->plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(result->plugins, plugin_api_dtor, NULL);
     yella_load_settings_doc();
@@ -320,11 +366,21 @@ yella_agent* yella_create_agent(void)
 
 void yella_destroy_agent(yella_agent* agent)
 {
+    in_handler* hndlr;
+    struct sglib_in_handler_iterator itor;
+
     agent->should_stop = true;
     yella_join_thread(agent->heartbeat);
     yella_destroy_thread(agent->heartbeat);
     yella_join_thread(agent->spool_consumer);
     yella_destroy_thread(agent->spool_consumer);
+    for (hndlr = sglib_in_handler_it_init(&itor, agent->in_handlers);
+         hndlr != NULL;
+         hndlr = sglib_in_handler_it_next(&itor))
+    {
+        free(hndlr->key);
+        free(hndlr);
+    }
     yella_destroy_ptr_vector(agent->plugins);
     yella_destroy_saved_state(agent->state);
     yella_destroy_router(agent->router);

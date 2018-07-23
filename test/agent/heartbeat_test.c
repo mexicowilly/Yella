@@ -22,7 +22,7 @@ static void simple(void** targ)
     yella_fb_heartbeat_table_t hb;
     yella_fb_capability_vec_t caps;
     yella_fb_capability_table_t cap;
-    int i;
+    flatbuffers_string_vec_t configs;
 
     plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(plugins, plugin_dtor, NULL);
@@ -44,8 +44,6 @@ static void simple(void** targ)
     yella_push_back_ptr_vector(plugins, plg);
     plg = yella_create_plugin("chucho", "4.3.2");
     in = yella_create_plugin_in_cap("you_wish", 1, NULL);
-    yella_push_back_ptr_vector(in->configs, yella_text_dup("config 15"));
-    yella_push_back_ptr_vector(in->configs, yella_text_dup("config 16"));
     yella_push_back_ptr_vector(plg->in_caps, in);
     in = yella_create_plugin_in_cap("sour", 2, NULL);
     yella_push_back_ptr_vector(in->configs, yella_text_dup("config 17"));
@@ -62,18 +60,75 @@ static void simple(void** targ)
     assert_true(yella_fb_heartbeat_seconds_since_epoch_is_present(hb));
     caps = yella_fb_heartbeat_in_capabilities(hb);
     assert_int_equal(yella_fb_capability_vec_len(caps), 5);
-    for (i = 0; i < yella_fb_capability_vec_len(caps); i++)
-    {
-        cap = yella_fb_capability_vec_at(caps, i);
-        assert_true(yella_fb_capability_name_is_present(cap));
-        assert_true(yella_fb_capability_version_is_present(cap));
-    }
+    cap = yella_fb_capability_vec_at(caps, 0);
+    assert_true(yella_fb_capability_name_is_present(cap));
+    assert_string_equal(yella_fb_capability_name(cap), "bite_me");
+    assert_true(yella_fb_capability_version_is_present(cap));
+    assert_int_equal(yella_fb_capability_version(cap), 3);
+    assert_true(yella_fb_capability_configurations_is_present(cap));
+    configs = yella_fb_capability_configurations(cap);
+    assert_int_equal(flatbuffers_string_vec_len(configs), 3);
+    assert_string_equal(flatbuffers_string_vec_at(configs, 0), "config 9");
+    assert_string_equal(flatbuffers_string_vec_at(configs, 1), "config 10");
+    assert_string_equal(flatbuffers_string_vec_at(configs, 2), "config 11");
+    cap = yella_fb_capability_vec_at(caps, 1);
+    assert_true(yella_fb_capability_name_is_present(cap));
+    assert_string_equal(yella_fb_capability_name(cap), "sweet");
+    assert_true(yella_fb_capability_version_is_present(cap));
+    assert_int_equal(yella_fb_capability_version(cap), 4);
+    assert_true(yella_fb_capability_configurations_is_present(cap));
+    configs = yella_fb_capability_configurations(cap);
+    assert_int_equal(flatbuffers_string_vec_len(configs), 2);
+    assert_string_equal(flatbuffers_string_vec_at(configs, 0), "config 12");
+    assert_string_equal(flatbuffers_string_vec_at(configs, 1), "config 13");
+    cap = yella_fb_capability_vec_at(caps, 2);
+    assert_true(yella_fb_capability_name_is_present(cap));
+    assert_string_equal(yella_fb_capability_name(cap), "grumpy");
+    assert_true(yella_fb_capability_version_is_present(cap));
+    assert_int_equal(yella_fb_capability_version(cap), 5);
+    assert_true(yella_fb_capability_configurations_is_present(cap));
+    configs = yella_fb_capability_configurations(cap);
+    assert_int_equal(flatbuffers_string_vec_len(configs), 1);
+    assert_string_equal(flatbuffers_string_vec_at(configs, 0), "config 14");
+    cap = yella_fb_capability_vec_at(caps, 3);
+    assert_true(yella_fb_capability_name_is_present(cap));
+    assert_string_equal(yella_fb_capability_name(cap), "you_wish");
+    assert_true(yella_fb_capability_version_is_present(cap));
+    assert_int_equal(yella_fb_capability_version(cap), 1);
+    assert_false(yella_fb_capability_configurations_is_present(cap));
+    cap = yella_fb_capability_vec_at(caps, 4);
+    assert_true(yella_fb_capability_name_is_present(cap));
+    assert_string_equal(yella_fb_capability_name(cap), "sour");
+    assert_true(yella_fb_capability_version_is_present(cap));
+    assert_int_equal(yella_fb_capability_version(cap), 2);
+    assert_true(yella_fb_capability_configurations_is_present(cap));
+    configs = yella_fb_capability_configurations(cap);
+    assert_int_equal(flatbuffers_string_vec_len(configs), 3);
+    assert_string_equal(flatbuffers_string_vec_at(configs, 0), "config 17");
+    assert_string_equal(flatbuffers_string_vec_at(configs, 1), "config 18");
+    assert_string_equal(flatbuffers_string_vec_at(configs, 2), "config 19");
     caps = yella_fb_heartbeat_out_capabilities(hb);
     assert_int_equal(yella_fb_capability_vec_len(caps), 4);
-    for (i = 0; i < yella_fb_capability_vec_len(caps); i++)
-    {
-
-    }
+    cap = yella_fb_capability_vec_at(caps, 0);
+    assert_true(yella_fb_capability_name_is_present(cap));
+    assert_string_equal(yella_fb_capability_name(cap), "what?");
+    assert_true(yella_fb_capability_version_is_present(cap));
+    assert_int_equal(yella_fb_capability_version(cap), 6);
+    cap = yella_fb_capability_vec_at(caps, 1);
+    assert_true(yella_fb_capability_name_is_present(cap));
+    assert_string_equal(yella_fb_capability_name(cap), "summmmm");
+    assert_true(yella_fb_capability_version_is_present(cap));
+    assert_int_equal(yella_fb_capability_version(cap), 7);
+    cap = yella_fb_capability_vec_at(caps, 2);
+    assert_true(yella_fb_capability_name_is_present(cap));
+    assert_string_equal(yella_fb_capability_name(cap), "scrumpy");
+    assert_true(yella_fb_capability_version_is_present(cap));
+    assert_int_equal(yella_fb_capability_version(cap), 3);
+    cap = yella_fb_capability_vec_at(caps, 3);
+    assert_true(yella_fb_capability_name_is_present(cap));
+    assert_string_equal(yella_fb_capability_name(cap), "humpy");
+    assert_true(yella_fb_capability_version_is_present(cap));
+    assert_int_equal(yella_fb_capability_version(cap), 8);
     free(raw);
     yella_destroy_ptr_vector(plugins);
 }
