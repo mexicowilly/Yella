@@ -71,7 +71,7 @@ void yella_log_mhdr(const yella_message_header* const mhdr, const char* const lo
                  dis);
     }
     CHUCHO_C_INFO(log,
-                  "{ \"time\": \"%s\", \"sender\": \"%s\", \"recipient\": \"%s\", \"type\": \"%s\", \"compression\": \"%s\", \"sequence\": { \"major\": %u, \"minor\": %u }%s",
+                  "Message header: { \"time\": \"%s\", \"sender\": \"%s\", \"recipient\": \"%s\", \"type\": \"%s\", \"compression\": \"%s\", \"sequence\": { \"major\": %u, \"minor\": %u }%s",
                   timestamp,
                   mhdr->sender,
                   mhdr->recipient,

@@ -254,16 +254,44 @@ static void load_plugins(yella_agent* agent)
     yella_destroy_directory_iterator(itor);
 }
 
-static void message_received(const yella_message_part* hdr, const yella_message_part* body, void* udata)
+static void message_received(const yella_message_part* const hdr, const yella_message_part* const body, void* udata)
 {
     in_handler to_find;
     in_handler* found;
     yella_message_header* mhdr;
+    yella_agent* ag;
+    uint8_t* decmp;
+    size_t decmp_sz;
+    in_handler* hndlr;
+    in_handler hndlr_to_find;
+    yella_rc rc;
 
     mhdr = yella_unpack_mhdr(hdr->data);
-
-
-
+    yella_log_mhdr(mhdr, "yella.agent");
+    ag = (yella_agent*)udata;
+    hndlr_to_find.key = mhdr->type;
+    hndlr = sglib_in_handler_find_member(ag->in_handlers, &hndlr_to_find);
+    if (hndlr == NULL)
+    {
+        CHUCHO_C_ERROR("yella.agent", "This message type is not registered: %s", mhdr->type);
+    }
+    else
+    {
+        if (mhdr->cmp == YELLA_COMPRESSION_LZ4)
+        {
+            decmp_sz = body->size;
+            decmp = yella_lz4_decompress(body->data, &decmp_sz);
+            rc = hndlr->func(mhdr, decmp, decmp_sz);
+            free(decmp);
+        }
+        else
+        {
+            rc = hndlr->func(mhdr, body->data, body->size);
+        }
+        if (rc != YELLA_NO_ERROR)
+            CHUCHO_C_ERROR("yella.agent", "Error handling message %s: %s", mhdr->type, yella_strerror(rc));
+    }
+    yella_destroy_mhdr(mhdr);
 }
 
 static void plugin_api_dtor(void* p, void* udata)
@@ -314,6 +342,12 @@ static void spool_thr(void* udata)
     sndr = yella_create_sender(ag->router);
     while (!ag->should_stop)
     {
+        while (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED)
+        {
+            yella_sleep_this_thread(250);
+            if (ag->should_stop)
+                goto get_out;
+        }
         rc = yella_spool_pop(ag->spool,
                              500,
                              &popped,
@@ -322,7 +356,7 @@ static void spool_thr(void* udata)
         {
             if (!yella_send(sndr, popped, num_popped))
             {
-                // error
+                // TODO: error
             }
             for (i = 0; i < num_popped; i++)
                 free(popped[i].data);
@@ -330,9 +364,10 @@ static void spool_thr(void* udata)
         }
         else if (rc != YELLA_TIMED_OUT)
         {
-            // error
+            // TODO: error
         }
     }
+get_out:
     yella_destroy_sender(sndr);
 }
 
@@ -352,7 +387,6 @@ yella_agent* yella_create_agent(void)
         return NULL;
     }
     result->router = yella_create_router(result->state->id);
-    yella_set_router_message_received_callback(result->router, message_received, result);
     result->plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(result->plugins, plugin_api_dtor, NULL);
     yella_load_settings_doc();
@@ -361,6 +395,7 @@ yella_agent* yella_create_agent(void)
     yella_destroy_settings_doc();
     result->spool_consumer = yella_create_thread(spool_thr, result);
     result->heartbeat = yella_create_thread(heartbeat_thr, result);
+    yella_set_router_message_received_callback(result->router, message_received, result);
     return result;
 }
 
