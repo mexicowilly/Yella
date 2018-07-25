@@ -36,7 +36,5 @@ typedef struct yella_agent yella_agent;
 
 yella_agent* yella_create_agent(void);
 void yella_destroy_agent(yella_agent* agent);
-void yella_agent_run(yella_agent* agent);
-void yella_agent_send(yella_agent* agent, const uint8_t* msg, size_t size);
 
 #endif
