@@ -25,7 +25,7 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-static void destroy_parts(yella_msg_part* parts, size_t count)
+static void destroy_parts(yella_message_part* parts, size_t count)
 {
     size_t i;
 
@@ -34,9 +34,9 @@ static void destroy_parts(yella_msg_part* parts, size_t count)
     free(parts);
 }
 
-static yella_msg_part make_part(const char* const text)
+static yella_message_part make_part(const char* const text)
 {
-    yella_msg_part p = { (uint8_t*)text, strlen(text) + 1 };
+    yella_message_part p = { (uint8_t*)text, strlen(text) + 1 };
     return p;
 }
 
@@ -51,7 +51,7 @@ static void full_speed_main(void* data)
 {
     thread_arg* targ = (thread_arg*)data;
     size_t i;
-    yella_msg_part parts[2];
+    yella_message_part parts[2];
 
     parts[0].data = malloc(sizeof(size_t));
     parts[0].size = sizeof(size_t);
@@ -96,13 +96,13 @@ static void cull(void** targ)
     yella_thread* thr;
     int total_popped_events;
     yella_rc rc;
-    yella_msg_part* popped;
+    yella_message_part* popped;
     size_t count_popped;
     yella_spool_stats stats;
     char* tstats;
 
-    yella_settings_set_uint("max-spool-partition-size", 1024 * 1024);
-    yella_settings_set_uint("max-spool-partitions", 2);
+    yella_settings_set_uint("agent", "max-spool-partition-size", 1024 * 1024);
+    yella_settings_set_uint("agent", "max-spool-partitions", 2);
     sp = yella_create_spool();
     assert_non_null(sp);
     thr_arg.milliseconds_delay = 0;
@@ -140,7 +140,7 @@ static void full_speed(void** targ)
     yella_thread* thr;
     size_t i;
     yella_rc rc;
-    yella_msg_part* popped;
+    yella_message_part* popped;
     size_t count_popped;
     size_t found;
     yella_spool_stats stats;
@@ -180,10 +180,10 @@ static void pick_up(void** targ)
     yella_spool* sp;
     thread_arg thr_arg;
     yella_thread* thr;
-    yella_msg_part part;
+    yella_message_part part;
     yella_rc rc;
     size_t i;
-    yella_msg_part* popped;
+    yella_message_part* popped;
     size_t count_popped;
     size_t found;
     yella_spool_stats stats;
@@ -246,11 +246,11 @@ static void pick_up(void** targ)
 static void simple(void** targ)
 {
     yella_spool* sp;
-    yella_msg_part one[] = { make_part("This is one") };
-    yella_msg_part two[] = { make_part("One of two"), make_part("Two of two") };
-    yella_msg_part three[] = { make_part("One of three"), make_part("Two of three"), make_part("Three of three") };
+    yella_message_part one[] = { make_part("This is one") };
+    yella_message_part two[] = { make_part("One of two"), make_part("Two of two") };
+    yella_message_part three[] = { make_part("One of three"), make_part("Two of three"), make_part("Three of three") };
     yella_rc rc;
-    yella_msg_part* popped;
+    yella_message_part* popped;
     size_t count_popped;
     yella_spool_stats stats;
     char* tstats;
@@ -300,10 +300,10 @@ static void simple(void** targ)
 
 static int clean_spool(void** arg)
 {
-    yella_settings_set_text("spool-dir", "test-spool");
-    yella_settings_set_uint("max-spool-partition-size", 1024 * 1024);
-    yella_settings_set_uint("max-spool-partitions", 100);
-    yella_remove_all(yella_settings_get_text("spool-dir"));
+    yella_settings_set_text("agent", "spool-dir", "test-spool");
+    yella_settings_set_uint("agent", "max-spool-partition-size", 1024 * 1024);
+    yella_settings_set_uint("agent", "max-spool-partitions", 100);
+    yella_remove_all(yella_settings_get_text("agent", "spool-dir"));
     return 0;
 }
 

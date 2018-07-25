@@ -41,17 +41,28 @@ typedef struct setting
     struct setting* right;
 } setting;
 
-#define YELLA_SETTING_COMPARE(x, y) strcmp((x->key), (y->key))
+typedef struct section
+{
+    char* key;
+    setting* settings;
+    char color;
+    struct section* left;
+    struct section* right;
+} section;
 
-SGLIB_DEFINE_RBTREE_PROTOTYPES(setting, left, right, color, YELLA_SETTING_COMPARE);
+#define YELLA_KEY_COMPARE(x, y) strcmp((x->key), (y->key))
 
-SGLIB_DEFINE_RBTREE_FUNCTIONS(setting, left, right, color, YELLA_SETTING_COMPARE);
+SGLIB_DEFINE_RBTREE_PROTOTYPES(setting, left, right, color, YELLA_KEY_COMPARE);
+SGLIB_DEFINE_RBTREE_FUNCTIONS(setting, left, right, color, YELLA_KEY_COMPARE);
+SGLIB_DEFINE_RBTREE_PROTOTYPES(section, left, right, color, YELLA_KEY_COMPARE);
+SGLIB_DEFINE_RBTREE_FUNCTIONS(section, left, right, color, YELLA_KEY_COMPARE);
 
-static setting* settings = NULL;
+static section* sections = NULL;
 static yaml_document_t* yaml_doc = NULL;
 static yella_mutex* guard = NULL;
 
 static void handle_yaml_node(const yaml_node_t* node,
+                             const char* const section,
                              const yella_setting_desc* key_desc,
                              const yella_setting_desc* all_desc,
                              size_t all_desc_count)
@@ -69,11 +80,11 @@ static void handle_yaml_node(const yaml_node_t* node,
         {
             if (key_desc->type == YELLA_SETTING_VALUE_TEXT)
             {
-                yella_settings_set_text(key_desc->key, (const char*)node->data.scalar.value);
+                yella_settings_set_text(section, key_desc->key, (const char*)node->data.scalar.value);
             }
             else if (key_desc->type == YELLA_SETTING_VALUE_UINT)
             {
-                yella_settings_set_uint(key_desc->key, yella_text_to_int((const char*)node->data.scalar.value));
+                yella_settings_set_uint(section, key_desc->key, yella_text_to_int((const char*)node->data.scalar.value));
             }
         }
     }
@@ -86,24 +97,32 @@ static void handle_yaml_node(const yaml_node_t* node,
             key_node = yaml_document_get_node(yaml_doc, pr->key);
             if (key_node->type == YAML_SCALAR_NODE)
             {
-                found = false;
-                for (index = 0; index < all_desc_count; index++)
+                if (strcmp((const char*)key_node->data.scalar.value, section) == 0)
                 {
-                    if (strcmp(all_desc[index].key, (const char*)key_node->data.scalar.value) == 0)
-                    {
-                        found = true;
-                        break;
-                    }
+                    handle_yaml_node(yaml_document_get_node(yaml_doc, pr->value), section, NULL, all_desc, all_desc_count);
                 }
-                if (found)
+                else
                 {
-                    val_node = yaml_document_get_node(yaml_doc, pr->value);
-                    if (val_node->type == YAML_SCALAR_NODE)
+                    found = false;
+                    for (index = 0; index < all_desc_count; index++)
                     {
-                        handle_yaml_node(val_node,
-                                         &all_desc[index],
-                                         all_desc,
-                                         all_desc_count);
+                        if (strcmp(all_desc[index].key, (const char*)key_node->data.scalar.value) == 0)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found)
+                    {
+                        val_node = yaml_document_get_node(yaml_doc, pr->value);
+                        if (val_node->type == YAML_SCALAR_NODE)
+                        {
+                            handle_yaml_node(val_node,
+                                             section,
+                                             &all_desc[index],
+                                             all_desc,
+                                             all_desc_count);
+                        }
                     }
                 }
             }
@@ -116,6 +135,7 @@ static void handle_yaml_node(const yaml_node_t* node,
              seq_item++)
         {
             handle_yaml_node(yaml_document_get_node(yaml_doc, *seq_item),
+                             section,
                              NULL,
                              all_desc,
                              all_desc_count);
@@ -123,19 +143,70 @@ static void handle_yaml_node(const yaml_node_t* node,
     }
 }
 
+static const void* get_value(const char* const sct, const char* const key, yella_setting_value_type type)
+{
+    setting set_to_find;
+    setting* set_found;
+    section sct_to_find;
+    section* sct_found;
+
+    sct_to_find.key = (char*)sct;
+    sct_found = sglib_section_find_member(sections, &sct_to_find);
+    if (sct_found == NULL)
+    {
+        CHUCHO_C_ERROR("yella.common",
+                       "The section %s was not found",
+                       sct);
+        return NULL;
+    }
+    else
+    {
+        set_to_find.key = (char*)key;
+        set_found = sglib_setting_find_member(sct_found->settings, &set_to_find);
+        if (set_found == NULL)
+        {
+            CHUCHO_C_ERROR("yella.common",
+                           "The setting %s was not found",
+                           key);
+            return NULL;
+        }
+        else if (set_found->type != type)
+        {
+            CHUCHO_C_ERROR("yella.common",
+                           "The setting %s is not of type %s",
+                           key,
+                           (type == YELLA_SETTING_VALUE_TEXT ? "text" : "uint"));
+            return NULL;
+        }
+    }
+    if (type == YELLA_SETTING_VALUE_TEXT)
+        return set_found->value.text;
+    else
+        return &set_found->value.uint;
+}
+
 void yella_destroy_settings(void)
 {
-    setting* elem;
-    struct sglib_setting_iterator itor;
+    section* sct_elem;
+    setting* set_elem;
+    struct sglib_setting_iterator set_itor;
+    struct sglib_section_iterator sct_itor;
 
-    for (elem = sglib_setting_it_init(&itor, settings);
-         elem != NULL;
-         elem = sglib_setting_it_next(&itor))
+    for (sct_elem = sglib_section_it_init(&sct_itor, sections);
+         sct_elem != NULL;
+         sct_elem = sglib_section_it_next(&sct_itor))
     {
-        free(elem->key);
-        if (elem->type == YELLA_SETTING_VALUE_TEXT)
-            free(elem->value.text);
-        free(elem);
+        for (set_elem = sglib_setting_it_init(&set_itor, sct_elem->settings);
+             set_elem != NULL;
+             set_elem = sglib_setting_it_next(&set_itor))
+        {
+            free(set_elem->key);
+            if (set_elem->type == YELLA_SETTING_VALUE_TEXT)
+                free(set_elem->value.text);
+            free(set_elem);
+        }
+        free(sct_elem->key);
+        free(sct_elem);
     }
     yella_destroy_mutex(guard);
 }
@@ -164,7 +235,7 @@ yella_rc yella_load_settings_doc(void)
     size_t sz = 0;
     const char* file_name;
 
-    file_name = yella_settings_get_text("config-file");
+    file_name = yella_settings_get_text("agent", "config-file");
     if (file_name == NULL)
     {
         CHUCHO_C_ERROR("yella.common",
@@ -216,7 +287,7 @@ yella_rc yella_load_settings_doc(void)
     return YELLA_NO_ERROR;
 }
 
-void yella_retrieve_settings(const yella_setting_desc* desc, size_t count)
+void yella_retrieve_settings(const char* const section, const yella_setting_desc* desc, size_t count)
 {
     yaml_node_t* node;
     yella_setting_desc* desc_copy;
@@ -227,99 +298,83 @@ void yella_retrieve_settings(const yella_setting_desc* desc, size_t count)
         if (node != NULL)
         {
             yella_lock_mutex(guard);
-            handle_yaml_node(node, NULL, desc, count);
+            handle_yaml_node(node, section, NULL, desc, count);
             yella_unlock_mutex(guard);
         }
     }
 }
 
-const uint64_t* yella_settings_get_uint(const char* const key)
+const uint64_t* yella_settings_get_uint(const char* const sct, const char* const key)
 {
-    setting to_find;
-    setting* found;
-
-    to_find.key = (char*)key;
-    found = sglib_setting_find_member(settings, &to_find);
-    if (found == NULL)
-    {
-        CHUCHO_C_ERROR("yella.common",
-                       "The setting %s was not found",
-                       key);
-        return NULL;
-    }
-    else if(found->type != YELLA_SETTING_VALUE_UINT)
-    {
-        CHUCHO_C_ERROR("yella.common",
-                       "The setting %s is not of type uint",
-                       key);
-        return NULL;
-    }
-    return &found->value.uint;
+    return get_value(sct, key, YELLA_SETTING_VALUE_UINT);
 }
 
-const char* yella_settings_get_text(const char* const key)
+const char* yella_settings_get_text(const char* const sct, const char* const key)
 {
-    setting to_find;
-    setting* found;
-
-    to_find.key = (char*)key;
-    found = sglib_setting_find_member(settings, &to_find);
-    if (found == NULL)
-    {
-        CHUCHO_C_ERROR("yella.common",
-                       "The setting %s was not found",
-                       key);
-        return NULL;
-    }
-    else if(found->type != YELLA_SETTING_VALUE_TEXT)
-    {
-        CHUCHO_C_ERROR("yella.common",
-                       "The setting %s is not of type text",
-                       key);
-        return NULL;
-    }
-    return found->value.text;
+    return get_value(sct, key, YELLA_SETTING_VALUE_TEXT);
 }
 
-void yella_settings_set_uint(const char* const key, uint64_t val)
+void yella_settings_set_uint(const char* const sct, const char* const key, uint64_t val)
 {
-    setting to_find;
-    setting* found;
+    setting set_to_find;
+    setting* set_found;
+    section sct_to_find;
+    section* sct_found;
 
-    to_find.key = (char*)key;
-    found = sglib_setting_find_member(settings, &to_find);
-    if (found == NULL)
+    sct_to_find.key = (char*)sct;
+    sct_found = sglib_section_find_member(sections, &sct_to_find);
+    if (sct_found == NULL)
     {
-        found = malloc(sizeof(setting));
-        found->key = yella_text_dup(key);
-        found->value.uint = val;
-        found->type = YELLA_SETTING_VALUE_UINT;
-        sglib_setting_add(&settings, found);
+        sct_found = malloc(sizeof(section));
+        sct_found->key = yella_text_dup(sct);
+        sct_found->settings = NULL;
+        sglib_section_add(&sections, sct_found);
+    }
+    set_to_find.key = (char*)key;
+    set_found = sglib_setting_find_member(sct_found->settings, &set_to_find);
+    if (set_found == NULL)
+    {
+        set_found = malloc(sizeof(setting));
+        set_found->key = yella_text_dup(key);
+        set_found->value.uint = val;
+        set_found->type = YELLA_SETTING_VALUE_UINT;
+        sglib_setting_add(&sct_found->settings, set_found);
     }
     else
     {
-        found->value.uint = val;
+        set_found->value.uint = val;
     }
 }
 
-void yella_settings_set_text(const char* const key, const char* const val)
+void yella_settings_set_text(const char* const sct, const char* const key, const char* const val)
 {
-    setting to_find;
-    setting* found;
+    setting set_to_find;
+    setting* set_found;
+    section sct_to_find;
+    section* sct_found;
 
-    to_find.key = (char*)key;
-    found = sglib_setting_find_member(settings, &to_find);
-    if (found == NULL)
+    sct_to_find.key = (char*)sct;
+    sct_found = sglib_section_find_member(sections, &sct_to_find);
+    if (sct_found == NULL)
     {
-        found = malloc(sizeof(setting));
-        found->key = yella_text_dup(key);
-        found->value.text = yella_text_dup(val);
-        found->type = YELLA_SETTING_VALUE_TEXT;
-        sglib_setting_add(&settings, found);
+        sct_found = malloc(sizeof(section));
+        sct_found->key = yella_text_dup(sct);
+        sct_found->settings = NULL;
+        sglib_section_add(&sections, sct_found);
+    }
+    set_to_find.key = (char*)key;
+    set_found = sglib_setting_find_member(sct_found->settings, &set_to_find);
+    if (set_found == NULL)
+    {
+        set_found = malloc(sizeof(setting));
+        set_found->key = yella_text_dup(key);
+        set_found->value.text = yella_text_dup(val);
+        set_found->type = YELLA_SETTING_VALUE_TEXT;
+        sglib_setting_add(&sct_found->settings, set_found);
     }
     else
     {
-        free(found->value.text);
-        found->value.text = yella_text_dup(val);
+        free(set_found->value.text);
+        set_found->value.text = yella_text_dup(val);
     }
 }

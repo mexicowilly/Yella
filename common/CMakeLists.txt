@@ -21,6 +21,7 @@ INCLUDE_DIRECTORIES("${YELLA_LIBYAML_INCLUDE_DIR}"
 
 IF(YELLA_POSIX)
     SET(COMMON_PLATFORM_SOURCES
+        platform/posix/calendar_posix.c
         platform/posix/file_posix.c
         platform/posix/settings_posix.c
         platform/posix/thread_posix.c
@@ -31,17 +32,22 @@ IF(YELLA_POSIX)
 ENDIF()
 
 ADD_LIBRARY(common SHARED
+            calendar.h
+            compression.c
+            compression.h
             file.c
             file.h
             macro_util.h
             message_header.c
             message_header.h
+            message_part.h
             ptr_vector.c
             ptr_vector.h
             return_code.c
             return_code.h
             settings.c
             settings.h
+            sglib.h
             text_util.c
             text_util.h
             thread.h
@@ -61,4 +67,5 @@ TARGET_LINK_LIBRARIES(common
                       "${YELLA_FLATCC_LIB}"
                       "${YELLA_CHUCHO_LIB}"
                       "${YELLA_LIBYAML_LIB}"
+                      "${YELLA_LZ4_LIB}"
                       ${CMAKE_THREAD_LIBS_INIT})

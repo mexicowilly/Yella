@@ -1,12 +1,12 @@
 /*
  * Copyright 2016 Will Mason
- * 
+ *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,19 +14,16 @@
  *    limitations under the License.
  */
 
-#if !defined(YELLA_TEST_COMMON_SPOOL_TEST_RESULT_H__)
-#define YELLA_TEST_COMMON_SPOOL_TEST_RESULT_H__
+#if !defined(MSG_PART_H__)
+#define MSG_PART_H__
 
 #include <stdint.h>
 #include <stddef.h>
 
-typedef struct spool_test_result
+typedef struct yella_message_part
 {
-    uint32_t message_count;
-    uint32_t elapsed_milliseconds;
-} spool_test_result;
-
-uint8_t* pack_spool_test_result(const spool_test_result* const str, size_t* size);
-spool_test_result* unpack_spool_test_result(const uint8_t* const bytes);
+    uint8_t* data;
+    size_t size;
+} yella_message_part;
 
 #endif

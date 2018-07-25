@@ -23,6 +23,11 @@ static void default_ptr_destructor(void* elem, void* udata)
     free(elem);
 }
 
+static void* default_ptr_copier(void* elem, void* udata)
+{
+    return elem;
+}
+
 struct yella_ptr_vector
 {
     void** data;
@@ -30,7 +35,24 @@ struct yella_ptr_vector
     size_t capacity;
     yella_ptr_destructor destructor;
     void* destructor_udata;
+    yella_ptr_copier copier;
+    void* copier_udata;
 };
+
+yella_ptr_vector* yella_copy_ptr_vector(const yella_ptr_vector* const v)
+{
+    yella_ptr_vector* result;
+    unsigned i;
+
+    result = yella_create_ptr_vector();
+    for (i = 0; i < yella_ptr_vector_size(v); i++)
+        yella_push_back_ptr_vector(result, yella_ptr_vector_at_copy(v, i));
+    result->destructor = v->destructor;
+    result->destructor_udata = v->destructor_udata;
+    result->copier = v->copier;
+    result->copier_udata = v->copier_udata;
+    return result;
+}
 
 yella_ptr_vector* yella_create_ptr_vector(void)
 {
@@ -86,12 +108,22 @@ void yella_pop_front_ptr_vector(yella_ptr_vector* v)
         yella_erase_ptr_vector_at(v, 0);
 }
 
-void* yella_ptr_vector_at(const yella_ptr_vector* v, unsigned off)
+void* yella_ptr_vector_at(const yella_ptr_vector* const v, unsigned off)
 {
     return (off < v->size) ? v->data[off] : NULL;
 }
 
-size_t yella_ptr_vector_size(const yella_ptr_vector* v)
+void* yella_ptr_vector_at_copy(const yella_ptr_vector* const v, unsigned off)
+{
+    return v->copier(yella_ptr_vector_at(v, off), v->copier_udata);
+}
+
+void** yella_ptr_vector_data(const yella_ptr_vector* const v)
+{
+    return v->data;
+}
+
+size_t yella_ptr_vector_size(const yella_ptr_vector* const v)
 {
     return v->size;
 }
@@ -116,6 +148,12 @@ void yella_push_front_ptr_vector(yella_ptr_vector* v, void* p)
     memmove(v->data + 1, v->data, v->size * sizeof(void*));
     v->data[0] = p;
     v->size++;
+}
+
+void yella_set_ptr_vector_copier(yella_ptr_vector* v, yella_ptr_copier cp, void* udata)
+{
+    v->copier = cp;
+    v->copier_udata = udata;
 }
 
 void yella_set_ptr_vector_destructor(yella_ptr_vector* v, yella_ptr_destructor pd, void* udata)

@@ -30,13 +30,14 @@
 
 static char* ss_file_name(void)
 {
-    return yella_sprintf("%s%s%s", yella_settings_get_text("data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
+    return yella_sprintf("%s%s%s", yella_settings_get_text("agent", "data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
 }
 
 static void reset_ss(yella_saved_state* st)
 {
     st->id = yella_create_uuid();
     st->mac_addresses = yella_get_mac_addresses();
+    st->boot_count = 0;
 }
 
 void yella_destroy_saved_state(yella_saved_state* ss)
@@ -66,35 +67,44 @@ yella_saved_state* yella_load_saved_state(void)
     rc = yella_file_contents(fname, &raw);
     if (rc == YELLA_NO_ERROR)
     {
-        tbl = yella_fb_saved_state_as_root(raw);
-        if (yella_fb_saved_state_uuid_is_present(tbl) &&
-            yella_fb_saved_state_mac_addrs_is_present(tbl))
+        if (!flatbuffers_has_identifier(raw, flatbuffers_identifier))
         {
-            id_vec = yella_fb_saved_state_uuid(tbl);
-            ss->id = yella_create_uuid_from_bytes(id_vec);
-            mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
-            ss->mac_addresses = malloc(sizeof(yella_mac_addresses));
-            ss->mac_addresses->count = yella_fb_mac_addr_vec_len(mac_addrs_vec);
-            ss->mac_addresses->addrs = malloc(ss->mac_addresses->count * sizeof(yella_mac_address));
-            for (i = 0; i < ss->mac_addresses->count; i++)
-            {
-                flatbuffers_uint8_vec_t bytes = yella_fb_mac_addr_bytes(yella_fb_mac_addr_vec_at(mac_addrs_vec, i));
-                assert(flatbuffers_uint8_vec_len(bytes) == sizeof(ss->mac_addresses->addrs[i].addr));
-                memcpy(&ss->mac_addresses->addrs[i], bytes, sizeof(ss->mac_addresses->addrs[i].addr));
-                snprintf(ss->mac_addresses->addrs[i].text,
-                         sizeof(ss->mac_addresses->addrs[i].text),
-                         "%02x:%02x:%02x:%02x:%02x:%02x",
-                         ss->mac_addresses->addrs[i].addr[0],
-                         ss->mac_addresses->addrs[i].addr[1],
-                         ss->mac_addresses->addrs[i].addr[2],
-                         ss->mac_addresses->addrs[i].addr[3],
-                         ss->mac_addresses->addrs[i].addr[4],
-                         ss->mac_addresses->addrs[i].addr[5]);
-            }
+            is_corrupt = true;
         }
         else
         {
-            is_corrupt = true;
+            tbl = yella_fb_saved_state_as_root(raw);
+            if (yella_fb_saved_state_uuid_is_present(tbl) &&
+                yella_fb_saved_state_mac_addrs_is_present(tbl) &&
+                yella_fb_saved_state_boot_count_is_present(tbl))
+            {
+                ss->boot_count = yella_fb_saved_state_boot_count(tbl);
+                id_vec = yella_fb_saved_state_uuid(tbl);
+                ss->id = yella_create_uuid_from_bytes(id_vec);
+                mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
+                ss->mac_addresses = malloc(sizeof(yella_mac_addresses));
+                ss->mac_addresses->count = yella_fb_mac_addr_vec_len(mac_addrs_vec);
+                ss->mac_addresses->addrs = malloc(ss->mac_addresses->count * sizeof(yella_mac_address));
+                for (i = 0; i < ss->mac_addresses->count; i++)
+                {
+                    flatbuffers_uint8_vec_t bytes = yella_fb_mac_addr_bytes(yella_fb_mac_addr_vec_at(mac_addrs_vec, i));
+                    assert(flatbuffers_uint8_vec_len(bytes) == sizeof(ss->mac_addresses->addrs[i].addr));
+                    memcpy(&ss->mac_addresses->addrs[i], bytes, sizeof(ss->mac_addresses->addrs[i].addr));
+                    snprintf(ss->mac_addresses->addrs[i].text,
+                             sizeof(ss->mac_addresses->addrs[i].text),
+                             "%02x:%02x:%02x:%02x:%02x:%02x",
+                             ss->mac_addresses->addrs[i].addr[0],
+                             ss->mac_addresses->addrs[i].addr[1],
+                             ss->mac_addresses->addrs[i].addr[2],
+                             ss->mac_addresses->addrs[i].addr[3],
+                             ss->mac_addresses->addrs[i].addr[4],
+                             ss->mac_addresses->addrs[i].addr[5]);
+                }
+            }
+            else
+            {
+                is_corrupt = true;
+            }
         }
         free(raw);
     }
@@ -120,7 +130,7 @@ yella_saved_state* yella_load_saved_state(void)
     free(fname);
     if (ss->mac_addresses->count > 0)
     {
-        addr_text_size = ss->mac_addresses->count * sizeof(ss->mac_addresses->addrs[0].text) + ss->mac_addresses->count - 1;
+        addr_text_size = ss->mac_addresses->count * sizeof(ss->mac_addresses->addrs[0].text) + ss->mac_addresses->count;
         addr_text = malloc(addr_text_size);
         addr_text[0] = 0;
         for (i = 0; i < ss->mac_addresses->count; i++)
@@ -130,8 +140,10 @@ yella_saved_state* yella_load_saved_state(void)
         }
         addr_text[strlen(addr_text) - 1] = 0;
     }
+    ++ss->boot_count;
     CHUCHO_C_INFO("yella.agent",
-                  "Saved state: id = %s, mac_addresses = { %s }",
+                  "Saved state: boot_count = %u, id = %s, mac_addresses = { %s }",
+                  ss->boot_count,
                   ss->id->text,
                   addr_text);
     if (addr_text[0] != 0)
@@ -161,6 +173,7 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
         assert(mac_addrs[i] != 0);
     }
     yella_fb_saved_state_start_as_root(&bld);
+    yella_fb_saved_state_boot_count_add(&bld, ss->boot_count);
     yella_fb_saved_state_uuid_create(&bld,
                                     ss->id->id,
                                     sizeof(ss->id->text));

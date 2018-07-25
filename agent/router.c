@@ -88,7 +88,7 @@ static void* create_router_socket(yella_router* rtr)
     int rc;
 
     sock = NULL;
-    endpoint = yella_settings_get_text("router");
+    endpoint = yella_settings_get_text("agent", "router");
     if (endpoint == NULL)
     {
         CHUCHO_C_ERROR("yella.router",
@@ -106,7 +106,7 @@ static void* create_router_socket(yella_router* rtr)
                    ZMQ_IDENTITY,
                    rtr->id->text,
                    strlen(rtr->id->text));
-    recon_timeout_millis = *yella_settings_get_uint("reconnect-timeout-seconds") * 1000;
+    recon_timeout_millis = *yella_settings_get_uint("agent", "reconnect-timeout-seconds") * 1000;
     zmq_setsockopt(sock,
                    ZMQ_RECONNECT_IVL,
                    &recon_timeout_millis,
@@ -304,8 +304,8 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
     zmq_msg_t delim;
     zmq_msg_t header;
     zmq_msg_t body;
-    yella_msg_part hpart;
-    yella_msg_part bpart;
+    yella_message_part hpart;
+    yella_message_part bpart;
     int rc;
     size_t overcount;
 
@@ -421,7 +421,7 @@ static void socket_worker_main(void* arg)
     pis[2].events = ZMQ_POLLIN;
     while (true)
     {
-        poll_count = zmq_poll(pis, 3, POLL_TIMEOUT_MILLIS);
+        poll_count = zmq_poll(pis, 3, POLL_TIMEOUT_MILLIS * 1000);
         yella_lock_mutex(rtr->mtx);
         stopped = rtr->stopped;
         yella_unlock_mutex(rtr->mtx);
@@ -531,7 +531,7 @@ yella_router_state yella_router_get_state(yella_router* rtr)
     return st;
 }
 
-bool yella_send(yella_sender* sndr, yella_msg_part* msgs, size_t count)
+bool yella_send(yella_sender* sndr, yella_message_part* msgs, size_t count)
 {
     size_t i;
     zmq_msg_t msg;

@@ -74,8 +74,9 @@ static void server_thread(void* p)
                        zmq_strerror(zmq_errno()));
         assert_true(false);
     }
-    id = malloc(zmq_msg_size(&id_msg) + 1);
-    strncpy(id, (char*)zmq_msg_data(&id_msg), zmq_msg_size(&id_msg));
+    CHUCHO_C_INFO("router-test", "Identity size: %zu", zmq_msg_size(&id_msg));
+    id = calloc(zmq_msg_size(&id_msg) + 1, 1);
+    memcpy(id, (char*)zmq_msg_data(&id_msg), zmq_msg_size(&id_msg));
     zmq_msg_close(&id_msg);
     CHUCHO_C_INFO("router-test",
                   "Got identity: %s",
@@ -102,8 +103,9 @@ static void server_thread(void* p)
                        zmq_strerror(zmq_errno()));
         assert_true(false);
     }
-    payload = malloc(zmq_msg_size(&payload_msg) + 1);
-    strncpy(payload, (char*)zmq_msg_data(&payload_msg), zmq_msg_size(&payload_msg) + 1);
+    CHUCHO_C_INFO("router-test", "Payload size: %zu", zmq_msg_size(&payload_msg));
+    payload = calloc(zmq_msg_size(&payload_msg) + 1, 1);
+    memcpy(payload, (char*)zmq_msg_data(&payload_msg), zmq_msg_size(&payload_msg));
     zmq_msg_close(&payload_msg);
     CHUCHO_C_INFO("router-test",
                   "Got payload: %s",
@@ -142,7 +144,7 @@ static void server_thread(void* p)
         assert_true(false);
     }
     zmq_msg_init_size(&payload_msg, strlen(payload));
-    memcpy(zmq_msg_data(&payload_msg), payload, strlen(id));
+    memcpy(zmq_msg_data(&payload_msg), payload, strlen(payload));
     free(payload);
     rc = zmq_msg_send(&payload_msg, sock, 0);
     if (rc == -1)
@@ -152,12 +154,14 @@ static void server_thread(void* p)
                        zmq_strerror(zmq_errno()));
         assert_true(false);
     }
+    CHUCHO_C_INFO("router-test", "Sent all messages back");
     zmq_close(sock);
     zmq_ctx_term(ctx);
+    CHUCHO_C_INFO("router-test", "Closed server socket");
 }
 
-static void message_received(const yella_msg_part* header,
-                             const yella_msg_part* body,
+static void message_received(const yella_message_part* header,
+                             const yella_message_part* body,
                              void* caller_data)
 {
     assert_int_equal(1, header->size);
@@ -171,7 +175,7 @@ static void message_received(const yella_msg_part* header,
 
 static void receive(void** arg)
 {
-    yella_msg_part msg;
+    yella_message_part msg;
     test_state* ts;
     yella_event* done_receiving;
 
@@ -185,7 +189,7 @@ static void receive(void** arg)
 
 static void send(void** arg)
 {
-    yella_msg_part msg;
+    yella_message_part msg;
     test_state* ts;
     yella_sender* sndr;
 
@@ -216,9 +220,9 @@ static int set_up(void** arg)
     targ->server_is_ready = yella_create_event();
     targ->receiver_is_ready = yella_create_event();
     targ->thr = yella_create_thread(server_thread, targ);
-    yella_settings_set_text("router", "tcp://127.0.0.1:19567");
-    yella_settings_set_uint("reconnect-timeout-seconds", 5);
-    yella_settings_set_uint("poll-milliseconds", 500);
+    yella_settings_set_text("agent", "router", "tcp://127.0.0.1:19567");
+    yella_settings_set_uint("agent", "reconnect-timeout-seconds", 5);
+    yella_settings_set_uint("agent", "poll-milliseconds", 500);
     targ->id = yella_create_uuid();
     targ->rtr = yella_create_router(targ->id);
     state_event = yella_create_event();

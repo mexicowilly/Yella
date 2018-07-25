@@ -52,12 +52,13 @@ typedef struct yella_message_header
     char* recipient;
     char* type;
     yella_compression cmp;
-    yella_sequence* seq;
+    yella_sequence seq;
     yella_group* grp;
 } yella_message_header;
 
 YELLA_EXPORT yella_message_header* yella_create_mhdr(void);
 YELLA_EXPORT void yella_destroy_mhdr(yella_message_header* mhdr);
+YELLA_EXPORT void yella_log_mhdr(const yella_message_header* const mhdr, const char* const log);
 YELLA_EXPORT uint8_t* yella_pack_mhdr(const yella_message_header* const mhdr, size_t* size);
 YELLA_EXPORT yella_message_header* yella_unpack_mhdr(const uint8_t* const bytes);
 

@@ -45,3 +45,6 @@ IF(YELLA_MACINTOSH)
     TARGET_LINK_LIBRARIES(saved-state-test ${YELLA_IO_KIT} ${YELLA_CORE_FOUNDATION})
 ENDIF()
 ADD_DEPENDENCIES(saved-state-test yella-gen)
+YELLA_TEST(heartbeat-test
+           ${CMAKE_SOURCE_DIR}/agent/heartbeat.c)
+TARGET_LINK_LIBRARIES(heartbeat-test plugin)

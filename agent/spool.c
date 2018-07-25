@@ -77,7 +77,7 @@ static bool is_spool_file(const char* const name)
 static char* spool_file_name(uint32_t major_seq, uint32_t minor_seq)
 {
     return yella_sprintf("%s%s%lu-%lu.yella.spool",
-                         yella_settings_get_text("spool-dir"),
+                         yella_settings_get_text("agent", "spool-dir"),
                          YELLA_DIR_SEP,
                          (unsigned long)major_seq,
                          (unsigned long)minor_seq);
@@ -157,7 +157,7 @@ static char* find_file(yella_spool* sp, spool_pos* pos, bool (*cmp_func)(yella_s
 
     candidate = NULL;
     to_remove = yella_create_ptr_vector();
-    itor = yella_create_directory_iterator(yella_settings_get_text("spool-dir"));
+    itor = yella_create_directory_iterator(yella_settings_get_text("agent", "spool-dir"));
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
     {
@@ -459,7 +459,7 @@ static size_t current_spool_size()
     size_t cur_size;
 
     result = 0;
-    itor = yella_create_directory_iterator(yella_settings_get_text("spool-dir"));
+    itor = yella_create_directory_iterator(yella_settings_get_text("agent", "spool-dir"));
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
     {
@@ -490,12 +490,12 @@ yella_spool* yella_create_spool(void)
     yella_spool* sp;
     yella_rc yrc;
 
-    yrc = yella_ensure_dir_exists(yella_settings_get_text("spool-dir"));
+    yrc = yella_ensure_dir_exists(yella_settings_get_text("agent", "spool-dir"));
     if (yrc != YELLA_NO_ERROR)
     {
         CHUCHO_C_FATAL("yella.spool",
                        "Unable to create the directory %s: %s",
-                       yella_settings_get_text("spool-dir"),
+                       yella_settings_get_text("agent", "spool-dir"),
                        yella_strerror(yrc));
         return NULL;
     }
@@ -504,8 +504,8 @@ yella_spool* yella_create_spool(void)
     sp->was_written_cond = yella_create_condition_variable();
     memset(&sp->stats, 0, sizeof(yella_spool_stats));
     sp->stats.current_size = current_spool_size();
-    sp->stats.max_partition_size = *yella_settings_get_uint("max-spool-partition-size");
-    sp->stats.max_partitions = *yella_settings_get_uint("max-spool-partitions");
+    sp->stats.max_partition_size = *yella_settings_get_uint("agent", "max-spool-partition-size");
+    sp->stats.max_partitions = *yella_settings_get_uint("agent", "max-spool-partitions");
     sp->stats.smallest_event_size = (size_t)-1;
     sp->total_event_bytes_written = 0;
     if (!init_writer(sp) || !init_reader(sp))
@@ -522,15 +522,18 @@ yella_spool* yella_create_spool(void)
 
 void yella_destroy_spool(yella_spool* sp)
 {
-    yella_lock_mutex(sp->guard);
-    fclose(sp->readf);
-    fclose(sp->writef);
-    free(sp->write_file_name);
-    free(sp->read_file_name);
-    yella_unlock_mutex(sp->guard);
-    yella_destroy_mutex(sp->guard);
-    yella_destroy_condition_variable(sp->was_written_cond);
-    free(sp);
+    if (sp != NULL)
+    {
+        yella_lock_mutex(sp->guard);
+        fclose(sp->readf);
+        fclose(sp->writef);
+        free(sp->write_file_name);
+        free(sp->read_file_name);
+        yella_unlock_mutex(sp->guard);
+        yella_destroy_mutex(sp->guard);
+        yella_destroy_condition_variable(sp->was_written_cond);
+        free(sp);
+    }
 }
 
 yella_spool_stats yella_spool_get_stats(yella_spool * sp)
@@ -547,7 +550,7 @@ yella_spool_stats yella_spool_get_stats(yella_spool * sp)
 
 yella_rc yella_spool_pop(yella_spool* sp,
                          size_t milliseconds_to_wait,
-                         yella_msg_part** parts,
+                         yella_message_part** parts,
                          size_t* count)
 {
     uint16_t msg_count;
@@ -575,7 +578,7 @@ yella_rc yella_spool_pop(yella_spool* sp,
         if (msg_count > 0)
         {
             msg_off = ftell(sp->readf) - sizeof(msg_count);
-            *parts = calloc(msg_count, sizeof(yella_msg_part));
+            *parts = calloc(msg_count, sizeof(yella_message_part));
             for (i = 0; i < msg_count; i++)
             {
                 if (fread(&msg_size, 1, sizeof(msg_size), sp->readf) != sizeof(msg_size))
@@ -646,7 +649,7 @@ yella_rc yella_spool_pop(yella_spool* sp,
     return yrc;
 }
 
-yella_rc yella_spool_push(yella_spool* sp, const yella_msg_part* msgs, size_t count)
+yella_rc yella_spool_push(yella_spool* sp, const yella_message_part* msgs, size_t count)
 {
     uint16_t num;
     uint32_t len;

@@ -129,16 +129,47 @@ static void big(void** arg)
     yella_destroy_ptr_vector(vec);
 }
 
-struct test_destructor_data
+struct test_data
 {
     int val;
 };
 
+static void* test_copier(void* p, void* udata)
+{
+    struct test_data* d;
+
+    d = (struct test_data*)udata;
+    d->val = -1;
+    return yella_text_dup((char*)p);
+}
+
+static void copier(void** arg)
+{
+    yella_ptr_vector* vec;
+    yella_ptr_vector* vec2;
+    struct test_data tdd;
+    char* p;
+
+    tdd.val = 1;
+    vec = yella_create_ptr_vector();
+    yella_set_ptr_vector_copier(vec, test_copier, &tdd);
+    p = yella_text_dup("my dog has fleas");
+    yella_push_back_ptr_vector(vec, p);
+    vec2 = yella_copy_ptr_vector(vec);
+    assert_int_equal(yella_ptr_vector_size(vec2), 1);
+    assert_ptr_not_equal(p, yella_ptr_vector_at(vec2, 0));
+    assert_ptr_not_equal(yella_ptr_vector_at(vec, 0), yella_ptr_vector_at(vec2, 0));
+    assert_string_equal((char*)yella_ptr_vector_at(vec2, 0), p);
+    yella_destroy_ptr_vector(vec);
+    yella_destroy_ptr_vector(vec2);
+    assert_int_equal(tdd.val, -1);
+}
+
 static void test_destructor(void* p, void* udata)
 {
-    struct test_destructor_data* d;
+    struct test_data* d;
 
-    d = (struct test_destructor_data*)udata;
+    d = (struct test_data*)udata;
     d->val = -1;
     free(p);
 }
@@ -146,7 +177,7 @@ static void test_destructor(void* p, void* udata)
 static void destructor(void** arg)
 {
     yella_ptr_vector* vec;
-    struct test_destructor_data tdd;
+    struct test_data tdd;
     int* p;
 
     tdd.val = 1;
@@ -165,7 +196,8 @@ int main()
         cmocka_unit_test(simple),
         cmocka_unit_test(erase),
         cmocka_unit_test(big),
-        cmocka_unit_test(destructor)
+        cmocka_unit_test(destructor),
+        cmocka_unit_test(copier)
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

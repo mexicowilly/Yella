@@ -29,7 +29,7 @@ static void process_command_line(int argc, char* argv[])
     {
         if (strcmp(argv[1], "--config-file") == 0)
         {
-            yella_settings_set_text("config-file", argv[2]);
+            yella_settings_set_text("agent", "config-file", argv[2]);
         }
         else
         {
@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
 {
     yella_initialize_settings();
     process_command_line(argc, argv);
-    chucho_cnf_set_file_name(yella_settings_get_text("config-file"));
+    chucho_cnf_set_file_name(yella_settings_get_text("agent", "config-file"));
     CHUCHO_C_INFO("yella.agent",
                   "Yella version " YELLA_VALUE_STR(YELLA_VERSION) " is starting");
     /* run the app */
