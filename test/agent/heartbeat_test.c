@@ -1,11 +1,11 @@
 #include "agent/heartbeat.h"
 #include "plugin/plugin.h"
 #include "common/text_util.h"
+#include "heartbeat_reader.h"
 #include <stdlib.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <cmocka.h>
-#include <cmake-build-debug/gen/heartbeat_reader.h>
 
 static void plugin_dtor(void* p, void* udata)
 {
@@ -23,6 +23,7 @@ static void simple(void** targ)
     yella_fb_capability_vec_t caps;
     yella_fb_capability_table_t cap;
     flatbuffers_string_vec_t configs;
+    yella_fb_operating_system_table_t os;
 
     plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(plugins, plugin_dtor, NULL);
@@ -57,6 +58,12 @@ static void simple(void** targ)
     hb = yella_fb_heartbeat_as_root(raw);
     assert_true(yella_fb_heartbeat_id_is_present(hb));
     assert_string_equal(yella_fb_heartbeat_id(hb), "eye dee");
+    assert_true(yella_fb_heartbeat_host_is_present(hb));
+    os = yella_fb_heartbeat_host(hb);
+    assert_true(yella_fb_operating_system_machine_is_present(os));
+    assert_true(yella_fb_operating_system_system_is_present(os));
+    assert_true(yella_fb_operating_system_version_is_present(os));
+    assert_true(yella_fb_operating_system_release_is_present(os));
     assert_true(yella_fb_heartbeat_seconds_since_epoch_is_present(hb));
     caps = yella_fb_heartbeat_in_capabilities(hb);
     assert_int_equal(yella_fb_capability_vec_len(caps), 5);

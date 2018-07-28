@@ -17,60 +17,65 @@
 INCLUDE_DIRECTORIES("${YELLA_ZEROMQ_INCLUDE_DIR}"
                     "${YELLA_FLATCC_INCLUDE_DIR}")
 
+SET(YELLA_SOURCES
+    agent.c
+    agent.h
+    heartbeat.c
+    heartbeat.h
+    mac_addresses.c
+    mac_addresses.h
+    router.c
+    router.h
+    runtime_link.h
+    saved_state.c
+    saved_state.h
+    signal_handler.h
+    spool.c
+    spool.h
+    yella_uuid.h)
+
 IF(YELLA_POSIX)
     INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
-    SET(YELLA_PLATFORM_SOURCES
-        platform/posix/runtime_link_posix.c
-        platform/posix/signal_handler_posix.c
-        platform/posix/yella_uuid_posix.c)
+    LIST(APPEND YELLA_SOURCES
+         platform/posix/heartbeat_posix.c
+         platform/posix/runtime_link_posix.c
+         platform/posix/signal_handler_posix.c
+         platform/posix/yella_uuid_posix.c)
 ENDIF()
 
 IF(YELLA_LINUX)
-    LIST(APPEND YELLA_PLATFORM_SOURCES
+    LIST(APPEND YELLA_SOURCES
          platform/linux/mac_addresses_linux.c)
 ENDIF()
 
 IF(YELLA_MACINTOSH)
-    LIST(APPEND YELLA_PLATFORM_SOURCES
+    LIST(APPEND YELLA_SOURCES
          platform/macintosh/mac_addresses_macintosh.c)
 ENDIF()
 
-ADD_EXECUTABLE(yella
-               agent.c
-               agent.h
-               heartbeat.c
-               heartbeat.h
-               mac_addresses.c
-               mac_addresses.h
-               main.c
-               router.c
-               router.h
-               runtime_link.h
-               saved_state.c
-               saved_state.h
-               signal_handler.h
-               spool.c
-               spool.h
-               yella_uuid.h
-               ${YELLA_PLATFORM_SOURCES})
+ADD_LIBRARY(agent SHARED ${YELLA_SOURCES})
 
-YELLA_GEN_TARGET(yella
+YELLA_GEN_TARGET(agent
                  serialization/private/saved_state.fbs
                  serialization/public/heartbeat.fbs)
 
-TARGET_LINK_LIBRARIES(yella
+TARGET_LINK_LIBRARIES(agent
                       plugin
                       "${YELLA_ZEROMQ_LIB}"
                       m)
 IF(YELLA_MACINTOSH)
-    TARGET_LINK_LIBRARIES(yella "-framework IOKit" "-framework CoreFoundation")
+    TARGET_LINK_LIBRARIES(agent "-framework IOKit" "-framework CoreFoundation")
 ENDIF()
 IF(YELLA_POSIX)
-    TARGET_LINK_LIBRARIES(yella "${YELLA_UUID_LIB}")
+    TARGET_LINK_LIBRARIES(agent "${YELLA_UUID_LIB}")
 ENDIF()
 IF(YELLA_LINUX)
-    TARGET_LINK_LIBRARIES(yella dl)
+    TARGET_LINK_LIBRARIES(agent dl)
 ENDIF()
+
+ADD_EXECUTABLE(yellad main.c)
+
+TARGET_LINK_LIBRARIES(yellad agent)
 
 SET_SOURCE_FILES_PROPERTIES(main.c PROPERTIES
                             COMPILE_DEFINITIONS YELLA_VERSION=${YELLA_VERSION})

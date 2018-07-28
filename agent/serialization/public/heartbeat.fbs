@@ -7,9 +7,18 @@ table capability
     configurations: [string];
 }
 
+table operating_system
+{
+    machine: string;
+    system: string;
+    version: string;
+    release: string;
+}
+
 table heartbeat
 {
     id: string;
+    host: operating_system;
     seconds_since_epoch: ulong;
     in_capabilities: [capability];
     out_capabilities: [capability];

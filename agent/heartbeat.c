@@ -4,6 +4,8 @@
 #include <time.h>
 #include <stdbool.h>
 
+extern void set_host(flatcc_builder_t* bld);
+
 uint8_t* create_heartbeat(const char* id, const yella_ptr_vector* plugins, size_t* sz)
 {
     flatcc_builder_t bld;
@@ -20,6 +22,7 @@ uint8_t* create_heartbeat(const char* id, const yella_ptr_vector* plugins, size_
     flatcc_builder_init(&bld);
     yella_fb_heartbeat_start_as_root(&bld);
     yella_fb_heartbeat_id_create_str(&bld, id);
+    set_host(&bld);
     yella_fb_heartbeat_seconds_since_epoch_add(&bld, time(NULL));
     has_caps = false;
     for (i = 0; i < yella_ptr_vector_size(plugins); i++)

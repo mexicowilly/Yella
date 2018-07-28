@@ -119,12 +119,13 @@ static void abort_handler(int signal)
     raise(signal);
 }
 
-static void default_term_handler(void)
+static void default_term_handler(void* udata)
 {
     exit(EXIT_FAILURE);
 };
 
-static void (*term_handler)(void) = default_term_handler;
+static void (*term_handler)(void*) = default_term_handler;
+static void* term_handler_udata = NULL;
 
 static void* sigwait_thr(void* arg)
 {
@@ -144,7 +145,7 @@ static void* sigwait_thr(void* arg)
         while (term_signals[i] != -1 && term_signals[i] != recv_signal)
             ++i;
         if (term_signals[i] == recv_signal)
-            term_handler();
+            term_handler(term_handler_udata);
         sigaddset(&signals, recv_signal);
     }
 }
@@ -183,8 +184,9 @@ void install_signal_handler(void)
     }
 }
 
-void set_signal_termination_handler(void (*hndlr)(void))
+void set_signal_termination_handler(void (*hndlr)(void*), void* udata)
 {
     term_handler = hndlr;
+    term_handler_udata = udata;
 }
 

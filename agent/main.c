@@ -16,6 +16,9 @@
 
 #include "common/settings.h"
 #include "common/macro_util.h"
+#include "common/thread.h"
+#include "agent/signal_handler.h"
+#include "agent/agent.h"
 #include <chucho/configuration.h>
 #include <chucho/finalize.h>
 #include <chucho/log.h>
@@ -39,14 +42,28 @@ static void process_command_line(int argc, char* argv[])
     }
 }
 
+static void term_handler(void* udata)
+{
+    yella_signal_event((yella_event*)udata);
+}
+
 int main(int argc, char* argv[])
 {
+    yella_event* term_evt;
+    yella_agent* agent;
+
+    install_signal_handler();
     yella_initialize_settings();
     process_command_line(argc, argv);
     chucho_cnf_set_file_name(yella_settings_get_text("agent", "config-file"));
     CHUCHO_C_INFO("yella.agent",
                   "Yella version " YELLA_VALUE_STR(YELLA_VERSION) " is starting");
-    /* run the app */
+    term_evt = yella_create_event();
+    set_signal_termination_handler(term_handler, term_evt);
+    agent = yella_create_agent();
+    yella_wait_for_event(term_evt);
+    yella_destroy_agent(agent);
+    yella_destroy_event(term_evt);
     yella_destroy_settings();
     chucho_finalize();
     return EXIT_SUCCESS;

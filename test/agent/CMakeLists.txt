@@ -14,37 +14,8 @@
 #    limitations under the License.
 #
 
-IF(YELLA_POSIX)
-    INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
-ENDIF()
-
-IF(YELLA_POSIX)
-    SET(YELLA_PLATFORM_PART posix)
-ENDIF()
-IF(YELLA_MACINTOSH)
-    SET(YELLA_MAC_ADDR_PLATFORM macintosh)
-ENDIF()
-
-YELLA_TEST(router-test
-           ${CMAKE_SOURCE_DIR}/agent/platform/${YELLA_PLATFORM_PART}/yella_uuid_${YELLA_PLATFORM_PART}.c
-           ${CMAKE_SOURCE_DIR}/agent/router.c)
-YELLA_TEST(spool-test ${CMAKE_SOURCE_DIR}/agent/spool.c)
-YELLA_TEST(mac-addresses-test
-           ${CMAKE_SOURCE_DIR}/agent/mac_addresses.c
-           ${CMAKE_SOURCE_DIR}/agent/platform/${YELLA_MAC_ADDR_PLATFORM}/mac_addresses_${YELLA_MAC_ADDR_PLATFORM}.c)
-IF(YELLA_MACINTOSH)
-    TARGET_LINK_LIBRARIES(mac-addresses-test ${YELLA_IO_KIT} ${YELLA_CORE_FOUNDATION})
-ENDIF()
-YELLA_TEST(saved-state-test
-           ${CMAKE_SOURCE_DIR}/agent/saved_state.c
-           ${CMAKE_SOURCE_DIR}/agent/platform/${YELLA_PLATFORM_PART}/yella_uuid_${YELLA_PLATFORM_PART}.c
-           ${CMAKE_SOURCE_DIR}/agent/mac_addresses.c
-           ${CMAKE_SOURCE_DIR}/agent/platform/${YELLA_MAC_ADDR_PLATFORM}/mac_addresses_${YELLA_MAC_ADDR_PLATFORM}.c)
-TARGET_LINK_LIBRARIES(saved-state-test ${YELLA_FLATCC_LIB})
-IF(YELLA_MACINTOSH)
-    TARGET_LINK_LIBRARIES(saved-state-test ${YELLA_IO_KIT} ${YELLA_CORE_FOUNDATION})
-ENDIF()
-ADD_DEPENDENCIES(saved-state-test yella-gen)
-YELLA_TEST(heartbeat-test
-           ${CMAKE_SOURCE_DIR}/agent/heartbeat.c)
-TARGET_LINK_LIBRARIES(heartbeat-test plugin)
+YELLA_TEST(router-test)
+YELLA_TEST(spool-test)
+YELLA_TEST(mac-addresses-test)
+YELLA_TEST(saved-state-test)
+YELLA_TEST(heartbeat-test)

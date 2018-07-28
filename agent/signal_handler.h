@@ -9,6 +9,6 @@ typedef struct sig_info
 } sig_info;
 
 void install_signal_handler(void);
-void set_signal_termination_handler(void (*hndlr)(void));
+void set_signal_termination_handler(void (*hndlr)(void*), void* udata);
 
 #endif
