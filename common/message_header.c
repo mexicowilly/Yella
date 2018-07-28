@@ -88,18 +88,8 @@ uint8_t* yella_pack_mhdr(const yella_message_header* const mhdr, size_t* size)
 {
     flatcc_builder_t bld;
     uint8_t* result;
-    yella_fb_sequence_ref_t seq;
-    yella_fb_group_ref_t grp;
-    flatbuffers_string_ref_t id_str;
 
     flatcc_builder_init(&bld);
-    seq = yella_fb_sequence_create(&bld, mhdr->seq.major, mhdr->seq.minor);
-    if (mhdr->grp != NULL)
-    {
-        id_str = flatbuffers_string_create_str(&bld, mhdr->grp->identifier);
-        grp = yella_fb_group_create(&bld, id_str, (mhdr->grp->disposition == YELLA_GROUP_DISPOSITION_MORE)
-            ? yella_fb_group_disposition_MORE : yella_fb_group_disposition_END);
-    }
     yella_fb_header_start_as_root(&bld);
     yella_fb_header_seconds_since_epoch_add(&bld, mhdr->time);
     yella_fb_header_sender_create_str(&bld, mhdr->sender);
@@ -107,9 +97,19 @@ uint8_t* yella_pack_mhdr(const yella_message_header* const mhdr, size_t* size)
         yella_fb_header_recipient_create_str(&bld, mhdr->recipient);
     yella_fb_header_type_create_str(&bld, mhdr->type);
     yella_fb_header_cmp_add(&bld, (mhdr->cmp == YELLA_COMPRESSION_LZ4) ? yella_fb_compression_LZ4 : yella_fb_compression_NONE);
-    yella_fb_header_seq_add(&bld, seq);
+    yella_fb_sequence_start(&bld);
+    yella_fb_sequence_major_add(&bld, mhdr->seq.major);
+    yella_fb_sequence_minor_add(&bld, mhdr->seq.minor);
+    yella_fb_header_seq_add(&bld, yella_fb_sequence_end(&bld));
     if (mhdr->grp != NULL)
-        yella_fb_header_grp_add(&bld, grp);
+    {
+        yella_fb_group_start(&bld);
+        yella_fb_group_id_create_str(&bld, mhdr->grp->identifier);
+        yella_fb_group_disposition_add(&bld,
+                                       (mhdr->grp->disposition == YELLA_GROUP_DISPOSITION_MORE)
+                                       ? yella_fb_group_disposition_MORE : yella_fb_group_disposition_END);
+        yella_fb_header_grp_add(&bld, yella_fb_group_end(&bld));
+    }
     yella_fb_header_end_as_root(&bld);
     result = flatcc_builder_finalize_buffer(&bld, size);
     flatcc_builder_clear(&bld);
