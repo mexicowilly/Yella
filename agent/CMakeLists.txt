@@ -21,6 +21,7 @@ IF(YELLA_POSIX)
     INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
     SET(YELLA_PLATFORM_SOURCES
         platform/posix/runtime_link_posix.c
+        platform/posix/signal_handler_posix.c
         platform/posix/yella_uuid_posix.c)
 ENDIF()
 
@@ -47,6 +48,7 @@ ADD_EXECUTABLE(yella
                runtime_link.h
                saved_state.c
                saved_state.h
+               signal_handler.h
                spool.c
                spool.h
                yella_uuid.h
