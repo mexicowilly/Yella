@@ -178,7 +178,7 @@ static void load_plugins(yella_agent* agent)
     yella_plugin_in_cap* in_cap;
 
     agent_api.send_message = send_plugin_message;
-    itor = yella_create_directory_iterator(yella_settings_get_text("agent", "api-dir"));
+    itor = yella_create_directory_iterator(yella_settings_get_text("agent", "plugin-dir"));
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
     {
@@ -375,6 +375,8 @@ yella_agent* yella_create_agent(void)
 {
     yella_agent* result;
 
+    yella_load_settings_doc();
+    retrieve_agent_settings();
     result = calloc(1, sizeof(yella_agent));
     result->should_stop = false;
     result->state = yella_load_saved_state();
@@ -386,11 +388,15 @@ yella_agent* yella_create_agent(void)
         free(result);
         return NULL;
     }
+    if (yella_settings_get_text("agent", "router") == NULL)
+    {
+        yella_destroy_saved_state(result->state);
+        free(result);
+        return NULL;
+    }
     result->router = yella_create_router(result->state->id);
     result->plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(result->plugins, plugin_api_dtor, NULL);
-    yella_load_settings_doc();
-    retrieve_agent_settings();
     load_plugins(result);
     yella_destroy_settings_doc();
     result->spool_consumer = yella_create_thread(spool_thr, result);

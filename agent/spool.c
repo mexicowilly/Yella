@@ -499,7 +499,7 @@ yella_spool* yella_create_spool(void)
                        yella_strerror(yrc));
         return NULL;
     }
-    sp = malloc(sizeof(yella_spool));
+    sp = calloc(1, sizeof(yella_spool));
     sp->guard = yella_create_mutex();
     sp->was_written_cond = yella_create_condition_variable();
     memset(&sp->stats, 0, sizeof(yella_spool_stats));

@@ -51,6 +51,7 @@ int main(int argc, char* argv[])
 {
     yella_event* term_evt;
     yella_agent* agent;
+    int rc;
 
     install_signal_handler();
     yella_initialize_settings();
@@ -61,10 +62,19 @@ int main(int argc, char* argv[])
     term_evt = yella_create_event();
     set_signal_termination_handler(term_handler, term_evt);
     agent = yella_create_agent();
-    yella_wait_for_event(term_evt);
-    yella_destroy_agent(agent);
+    if (agent == NULL)
+    {
+        CHUCHO_C_ERROR("yella.agent", "Unable to create the agent");
+        rc = EXIT_FAILURE;
+    }
+    else
+    {
+        yella_wait_for_event(term_evt);
+        yella_destroy_agent(agent);
+        rc = EXIT_SUCCESS;
+    }
     yella_destroy_event(term_evt);
     yella_destroy_settings();
     chucho_finalize();
-    return EXIT_SUCCESS;
+    return rc;
 }

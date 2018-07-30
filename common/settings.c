@@ -166,14 +166,14 @@ static const void* get_value(const char* const sct, const char* const key, yella
         if (set_found == NULL)
         {
             CHUCHO_C_ERROR("yella.common",
-                           "The setting %s was not found",
+                           "The setting, \"%s\", was not found",
                            key);
             return NULL;
         }
         else if (set_found->type != type)
         {
             CHUCHO_C_ERROR("yella.common",
-                           "The setting %s is not of type %s",
+                           "The setting, \"%s\", is not of type, \"%s\"",
                            key,
                            (type == YELLA_SETTING_VALUE_TEXT ? "text" : "uint"));
             return NULL;
