@@ -43,6 +43,11 @@ IF(YELLA_POSIX)
          platform/posix/yella_uuid_posix.c)
 ENDIF()
 
+IF(YELLA_FREEBSD)
+    LIST(APPEND YELLA_SOURCES
+         platform/freebsd/mac_addresses_freebsd.c)
+ENDIF()
+
 IF(YELLA_LINUX)
     LIST(APPEND YELLA_SOURCES
          platform/linux/mac_addresses_linux.c)

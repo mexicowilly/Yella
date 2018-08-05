@@ -87,7 +87,6 @@ static void heartbeat_thr(void* udata)
     plugin_api* api;
     yella_plugin* plg;
     int i;
-    flatbuffers_string_vec_t configs;
     yella_ptr_vector* plugins;
     yella_sender* sndr;
     yella_message_part parts[2];
@@ -96,7 +95,7 @@ static void heartbeat_thr(void* udata)
 
     minor_seq = 0;
     sndr = yella_create_sender(ag->router);
-    next = time(NULL) + to_wait;
+    next = 0;
     do
     {
         while (time(NULL) < next)
@@ -354,10 +353,7 @@ static void spool_thr(void* udata)
                              &num_popped);
         if (rc == YELLA_NO_ERROR)
         {
-            if (!yella_send(sndr, popped, num_popped))
-            {
-                // TODO: error
-            }
+            yella_send(sndr, popped, num_popped);
             for (i = 0; i < num_popped; i++)
                 free(popped[i].data);
             free(popped);

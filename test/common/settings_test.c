@@ -70,7 +70,7 @@ static void initial_settings(void** arg)
     assert_string_equal(yella_settings_get_text("agent", "log-dir"), "/var/log/yella");
     assert_string_equal(yella_settings_get_text("agent", "data-dir"), "/var/lib/yella");
     assert_string_equal(yella_settings_get_text("agent", "spool-dir"), "/var/spool/yella");
-    assert_string_equal(yella_settings_get_text("agent", "plugin-dir"), "/usr/local/lib");
+    assert_string_equal(yella_settings_get_text("agent", "plugin-dir"), "/usr/local/plugin");
 #endif
 }
 
