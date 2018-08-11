@@ -376,6 +376,7 @@ yella_agent* yella_create_agent(void)
     result = calloc(1, sizeof(yella_agent));
     result->should_stop = false;
     result->state = yella_load_saved_state();
+    yella_save_saved_state(result->state);
     result->spool = yella_create_spool();
     if (result->spool == NULL)
     {
