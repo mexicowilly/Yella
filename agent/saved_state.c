@@ -28,6 +28,33 @@
 #include <errno.h>
 #include <assert.h>
 
+static bool mac_addresses_changed(yella_fb_mac_addr_vec_t old_addrs)
+{
+    yella_mac_addresses* new_addrs;
+    flatbuffers_uint8_vec_t bytes;
+    int i;
+    int j;
+    bool result;
+
+    result = true;
+    new_addrs = yella_get_mac_addresses();
+    for (i = 0; result == true && i < new_addrs->count; i++)
+    {
+        for (j = 0; i < yella_fb_mac_addr_vec_len(old_addrs); j++)
+        {
+            bytes = yella_fb_mac_addr_bytes(yella_fb_mac_addr_vec_at(old_addrs, i));
+            assert(flatbuffers_uint8_vec_len(bytes) == sizeof(new_addrs->addrs[i].addr));
+            if (memcmp(bytes, new_addrs->addrs[i].addr, sizeof(new_addrs->addrs[i].addr)) == 0)
+            {
+                result = false;
+                break;
+            }
+        }
+    }
+    yella_destroy_mac_addresses(new_addrs);
+    return result;
+}
+
 static char* ss_file_name(void)
 {
     return yella_sprintf("%s%s%s", yella_settings_get_text("agent", "data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
@@ -57,6 +84,7 @@ yella_saved_state* yella_load_saved_state(void)
     yella_rc rc;
     flatbuffers_uint8_vec_t id_vec;
     yella_fb_mac_addr_vec_t mac_addrs_vec;
+    flatbuffers_uint8_vec_t addr_bytes;
     int i;
     size_t addr_text_size;
     char* addr_text = "";
@@ -78,27 +106,35 @@ yella_saved_state* yella_load_saved_state(void)
                 yella_fb_saved_state_mac_addrs_is_present(tbl) &&
                 yella_fb_saved_state_boot_count_is_present(tbl))
             {
-                ss->boot_count = yella_fb_saved_state_boot_count(tbl);
-                id_vec = yella_fb_saved_state_uuid(tbl);
-                ss->id = yella_create_uuid_from_bytes(id_vec);
                 mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
-                ss->mac_addresses = malloc(sizeof(yella_mac_addresses));
-                ss->mac_addresses->count = yella_fb_mac_addr_vec_len(mac_addrs_vec);
-                ss->mac_addresses->addrs = malloc(ss->mac_addresses->count * sizeof(yella_mac_address));
-                for (i = 0; i < ss->mac_addresses->count; i++)
+                if (mac_addresses_changed(mac_addrs_vec))
                 {
-                    flatbuffers_uint8_vec_t bytes = yella_fb_mac_addr_bytes(yella_fb_mac_addr_vec_at(mac_addrs_vec, i));
-                    assert(flatbuffers_uint8_vec_len(bytes) == sizeof(ss->mac_addresses->addrs[i].addr));
-                    memcpy(&ss->mac_addresses->addrs[i], bytes, sizeof(ss->mac_addresses->addrs[i].addr));
-                    snprintf(ss->mac_addresses->addrs[i].text,
-                             sizeof(ss->mac_addresses->addrs[i].text),
-                             "%02x:%02x:%02x:%02x:%02x:%02x",
-                             ss->mac_addresses->addrs[i].addr[0],
-                             ss->mac_addresses->addrs[i].addr[1],
-                             ss->mac_addresses->addrs[i].addr[2],
-                             ss->mac_addresses->addrs[i].addr[3],
-                             ss->mac_addresses->addrs[i].addr[4],
-                             ss->mac_addresses->addrs[i].addr[5]);
+                    reset_ss(ss);
+                    CHUCHO_C_INFO("yella.agent", "All MAC addresses have changed, so resetting the agent ID");
+                }
+                else
+                {
+                    ss->boot_count = yella_fb_saved_state_boot_count(tbl);
+                    id_vec = yella_fb_saved_state_uuid(tbl);
+                    ss->id = yella_create_uuid_from_bytes(id_vec);
+                    ss->mac_addresses = malloc(sizeof(yella_mac_addresses));
+                    ss->mac_addresses->count = yella_fb_mac_addr_vec_len(mac_addrs_vec);
+                    ss->mac_addresses->addrs = malloc(ss->mac_addresses->count * sizeof(yella_mac_address));
+                    for (i = 0; i < ss->mac_addresses->count; i++)
+                    {
+                        addr_bytes = yella_fb_mac_addr_bytes(yella_fb_mac_addr_vec_at(mac_addrs_vec, i));
+                        assert(flatbuffers_uint8_vec_len(addr_bytes) == sizeof(ss->mac_addresses->addrs[i].addr));
+                        memcpy(&ss->mac_addresses->addrs[i], addr_bytes, sizeof(ss->mac_addresses->addrs[i].addr));
+                        snprintf(ss->mac_addresses->addrs[i].text,
+                                 sizeof(ss->mac_addresses->addrs[i].text),
+                                 "%02x:%02x:%02x:%02x:%02x:%02x",
+                                 ss->mac_addresses->addrs[i].addr[0],
+                                 ss->mac_addresses->addrs[i].addr[1],
+                                 ss->mac_addresses->addrs[i].addr[2],
+                                 ss->mac_addresses->addrs[i].addr[3],
+                                 ss->mac_addresses->addrs[i].addr[4],
+                                 ss->mac_addresses->addrs[i].addr[5]);
+                    }
                 }
             }
             else
