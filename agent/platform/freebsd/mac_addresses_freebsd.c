@@ -29,7 +29,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
             }
         }
         result->addrs = malloc(result->count * sizeof(yella_mac_address));
-        for(cur = ifap, i = 0; cur != NULL; cur = cur->ifa_next, i++)
+        for(cur = ifap, i = 0; cur != NULL; cur = cur->ifa_next)
         {
             if (cur->ifa_addr->sa_family == AF_LINK &&
                 strncmp(cur->ifa_name, "lo", 2) != 0)
@@ -40,6 +40,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
                          sizeof(result->addrs[i].text),
                          "%02x:%02x:%02x:%02x:%02x:%02x",
                          addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+                ++i;
             }
         }
         freeifaddrs(ifap);
