@@ -50,9 +50,11 @@ MACRO(YELLA_GEN_TARGET YELLA_TARGET)
         GET_FILENAME_COMPONENT(YELLA_FBS_BASE "${YELLA_FBS_REAL}" NAME_WE)
         SET(YELLA_LOCAL_GEN
             "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_builder.h"
-            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_reader.h")
+            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_reader.h"
+            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_json_parser.h"
+            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_json_printer.h")
         ADD_CUSTOM_COMMAND(OUTPUT ${YELLA_LOCAL_GEN}
-                           COMMAND "${YELLA_FLATCC}" ${YELLA_FLATCC_I_FLAGS} -w -o "${YELLA_GEN_DIR}" "${YELLA_FBS_REAL}"
+                           COMMAND "${YELLA_FLATCC}" ${YELLA_FLATCC_I_FLAGS} --json -w -o "${YELLA_GEN_DIR}" "${YELLA_FBS_REAL}"
                            DEPENDS "${YELLA_FBS_REAL}")
         LIST(APPEND YELLA_TARGET_GEN ${YELLA_LOCAL_GEN})
     ENDFOREACH()
