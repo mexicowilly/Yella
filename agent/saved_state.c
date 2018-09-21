@@ -28,7 +28,7 @@
 #include <errno.h>
 #include <assert.h>
 
-static bool mac_addresses_changed(yella_fb_mac_addr_vec_t old_addrs)
+static bool mac_addresses_changed(yella_fb_mac_addr_vec_t old_addrs, chucho_logger_t* lgr)
 {
     yella_mac_addresses* new_addrs;
     flatbuffers_uint8_vec_t bytes;
@@ -37,7 +37,7 @@ static bool mac_addresses_changed(yella_fb_mac_addr_vec_t old_addrs)
     bool result;
 
     result = true;
-    new_addrs = yella_get_mac_addresses();
+    new_addrs = yella_get_mac_addresses(lgr);
     for (i = 0; result == true && i < new_addrs->count; i++)
     {
         for (j = 0; i < yella_fb_mac_addr_vec_len(old_addrs); j++)
@@ -60,10 +60,10 @@ static char* ss_file_name(void)
     return yella_sprintf("%s%s%s", yella_settings_get_text("agent", "data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
 }
 
-static void reset_ss(yella_saved_state* st)
+static void reset_ss(yella_saved_state* st, chucho_logger_t* lgr)
 {
     st->id = yella_create_uuid();
-    st->mac_addresses = yella_get_mac_addresses();
+    st->mac_addresses = yella_get_mac_addresses(lgr);
     st->boot_count = 0;
 }
 
@@ -74,7 +74,7 @@ void yella_destroy_saved_state(yella_saved_state* ss)
     free(ss);
 }
 
-yella_saved_state* yella_load_saved_state(void)
+yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
 {
     char* fname;
     uint8_t* raw;
@@ -107,10 +107,10 @@ yella_saved_state* yella_load_saved_state(void)
                 yella_fb_saved_state_boot_count_is_present(tbl))
             {
                 mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
-                if (mac_addresses_changed(mac_addrs_vec))
+                if (mac_addresses_changed(mac_addrs_vec, lgr))
                 {
-                    reset_ss(ss);
-                    CHUCHO_C_INFO("yella.agent", "All MAC addresses have changed, so resetting the agent ID");
+                    reset_ss(ss, lgr);
+                    CHUCHO_C_INFO_L(lgr, "All MAC addresses have changed, so resetting the agent ID");
                 }
                 else
                 {
@@ -146,10 +146,10 @@ yella_saved_state* yella_load_saved_state(void)
     }
     else if (rc == YELLA_DOES_NOT_EXIST)
     {
-        CHUCHO_C_INFO("yella.agent",
-                      "The file %s does not exist. This is first boot.",
-                      fname);
-        reset_ss(ss);
+        CHUCHO_C_INFO_L(lgr,
+                        "The file %s does not exist. This is first boot.",
+                        fname);
+        reset_ss(ss, lgr);
     }
     else
     {
@@ -157,37 +157,41 @@ yella_saved_state* yella_load_saved_state(void)
     }
     if (is_corrupt)
     {
-        CHUCHO_C_INFO("yella.agent",
-                      "The file %s is corrupt. It is being recreated.",
-                      fname);
+        CHUCHO_C_INFO_L(lgr,
+                        "The file %s is corrupt. It is being recreated.",
+                        fname);
         remove(fname);
-        reset_ss(ss);
+        reset_ss(ss, lgr);
     }
     free(fname);
-    if (ss->mac_addresses->count > 0)
+    if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
-        addr_text_size = ss->mac_addresses->count * sizeof(ss->mac_addresses->addrs[0].text) + ss->mac_addresses->count;
-        addr_text = malloc(addr_text_size);
-        addr_text[0] = 0;
-        for (i = 0; i < ss->mac_addresses->count; i++)
+        if (ss->mac_addresses->count > 0)
         {
-            strcat(addr_text, ss->mac_addresses->addrs[i].text);
-            strcat(addr_text, ",");
+            addr_text_size =
+            ss->mac_addresses->count * sizeof(ss->mac_addresses->addrs[0].text) + ss->mac_addresses->count;
+            addr_text = malloc(addr_text_size);
+            addr_text[0] = 0;
+            for (i = 0; i < ss->mac_addresses->count; i++)
+            {
+                strcat(addr_text, ss->mac_addresses->addrs[i].text);
+                strcat(addr_text, ",");
+            }
+            addr_text[strlen(addr_text) - 1] = 0;
         }
-        addr_text[strlen(addr_text) - 1] = 0;
+        ++ss->boot_count;
+        CHUCHO_C_INFO_L(lgr,
+                        "Saved state: boot_count = %u, id = %s, mac_addresses = { %s }",
+                        ss->boot_count,
+                        ss->id->text,
+                        addr_text);
+        if (addr_text[0] != 0)
+            free(addr_text);
     }
-    ++ss->boot_count;
-    CHUCHO_C_INFO("yella.agent",
-                  "Saved state: boot_count = %u, id = %s, mac_addresses = { %s }",
-                  ss->boot_count,
-                  ss->id->text,
-                  addr_text);
-    if (addr_text[0] != 0)
-        free(addr_text);
     return ss;
 }
 
-yella_rc yella_save_saved_state(yella_saved_state* ss)
+yella_rc yella_save_saved_state(yella_saved_state* ss, chucho_logger_t* lgr)
 {
     FILE* f;
     flatcc_builder_t bld;
@@ -226,10 +230,10 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
     if (f == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR("yella.agent",
-                       "Could not open %s for writing: %s",
-                       fname,
-                       strerror(err));
+        CHUCHO_C_ERROR_L(lgr,
+                         "Could not open %s for writing: %s",
+                         fname,
+                         strerror(err));
         free(raw);
         return YELLA_WRITE_ERROR;
     }
@@ -238,9 +242,9 @@ yella_rc yella_save_saved_state(yella_saved_state* ss)
     free(raw);
     if (num_written != size)
     {
-        CHUCHO_C_ERROR("yella.agent",
-                       "The was a problem writing to %s. The boot state cannot be saved. Subsequent boots will be considered first boot.",
-                       fname);
+        CHUCHO_C_ERROR_L(lgr,
+                         "The was a problem writing to %s. The boot state cannot be saved. Subsequent boots will be considered first boot.",
+                         fname);
         remove(fname);
         return YELLA_WRITE_ERROR;
     }

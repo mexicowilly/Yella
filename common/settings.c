@@ -60,6 +60,7 @@ SGLIB_DEFINE_RBTREE_FUNCTIONS(section, left, right, color, YELLA_KEY_COMPARE);
 static section* sections = NULL;
 static yaml_document_t* yaml_doc = NULL;
 static yella_mutex* guard = NULL;
+static chucho_logger_t* lgr = NULL;
 
 static void handle_yaml_node(const yaml_node_t* node,
                              const char* const section,
@@ -154,9 +155,9 @@ static const void* get_value(const char* const sct, const char* const key, yella
     sct_found = sglib_section_find_member(sections, &sct_to_find);
     if (sct_found == NULL)
     {
-        CHUCHO_C_ERROR("yella.common",
-                       "The section %s was not found",
-                       sct);
+        CHUCHO_C_ERROR_L(lgr,
+                         "The section %s was not found",
+                         sct);
         return NULL;
     }
     else
@@ -165,17 +166,17 @@ static const void* get_value(const char* const sct, const char* const key, yella
         set_found = sglib_setting_find_member(sct_found->settings, &set_to_find);
         if (set_found == NULL)
         {
-            CHUCHO_C_ERROR("yella.common",
-                           "The setting, \"%s\", was not found",
-                           key);
+            CHUCHO_C_ERROR_L(lgr,
+                             "The setting, \"%s\", was not found",
+                             key);
             return NULL;
         }
         else if (set_found->type != type)
         {
-            CHUCHO_C_ERROR("yella.common",
-                           "The setting, \"%s\", is not of type, \"%s\"",
-                           key,
-                           (type == YELLA_SETTING_VALUE_TEXT ? "text" : "uint"));
+            CHUCHO_C_ERROR_L(lgr,
+                             "The setting, \"%s\", is not of type, \"%s\"",
+                             key,
+                             (type == YELLA_SETTING_VALUE_TEXT ? "text" : "uint"));
             return NULL;
         }
     }
@@ -209,6 +210,7 @@ void yella_destroy_settings(void)
         free(sct_elem);
     }
     yella_destroy_mutex(guard);
+    chucho_release_logger(lgr);
 }
 
 void yella_destroy_settings_doc(void)
@@ -223,6 +225,7 @@ void yella_destroy_settings_doc(void)
 
 void yella_initialize_settings(void)
 {
+    lgr = chucho_get_logger("yella.settings");
     guard = yella_create_mutex();
     yella_initialize_platform_settings();
 }
@@ -238,34 +241,34 @@ yella_rc yella_load_settings_doc(void)
     file_name = yella_settings_get_text("agent", "config-file");
     if (file_name == NULL)
     {
-        CHUCHO_C_ERROR("yella.common",
-                       "You must set the config-file setting before calling yaml_load_settings_doc");
+        CHUCHO_C_ERROR_L(lgr,
+                         "You must set the config-file setting before calling yaml_load_settings_doc");
         return YELLA_LOGIC_ERROR;
     }
     if (!yella_file_exists(file_name))
     {
-        CHUCHO_C_ERROR("yella.common",
-                       "The configuration file %s does not exist",
-                       file_name);
+        CHUCHO_C_ERROR_L(lgr,
+                         "The configuration file %s does not exist",
+                         file_name);
         return YELLA_DOES_NOT_EXIST;
     }
     yella_file_size(file_name, &sz);
     if (sz > 100 * 1024)
     {
-        CHUCHO_C_ERROR("yella.common",
-                       "The configuration file %s has a size of %llu, which is greater than the maximum allowed of 100 KB",
-                       file_name,
-                       sz);
+        CHUCHO_C_ERROR_L(lgr,
+                         "The configuration file %s has a size of %llu, which is greater than the maximum allowed of 100 KB",
+                         file_name,
+                         sz);
         return YELLA_TOO_BIG;
     }
     f = fopen(file_name, "r");
     if (f == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR("yella.common",
-                       "Unable to open the config file %s for reading: %s",
-                       file_name,
-                       strerror(err));
+        CHUCHO_C_ERROR_L(lgr,
+                         "Unable to open the config file %s for reading: %s",
+                         file_name,
+                         strerror(err));
         return YELLA_READ_ERROR;
     }
     yaml_parser_initialize(&parser);
@@ -273,11 +276,11 @@ yella_rc yella_load_settings_doc(void)
     yaml_doc = malloc(sizeof(yaml_document_t));
     if (!yaml_parser_load(&parser, yaml_doc))
     {
-        CHUCHO_C_ERROR("yella.common",
-                       "YAML error [%u, %u]: %s",
-                       parser.mark.line,
-                       parser.mark.column,
-                       parser.problem);
+        CHUCHO_C_ERROR_L(lgr,
+                         "YAML error [%u, %u]: %s",
+                         parser.mark.line,
+                         parser.mark.column,
+                         parser.problem);
         free(yaml_doc);
         yaml_doc = NULL;
         return YELLA_INVALID_FORMAT;

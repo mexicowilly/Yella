@@ -23,30 +23,30 @@ void close_shared_object(void* handle)
     dlclose(handle);
 }
 
-void* open_shared_object(const char* const file_name)
+void* open_shared_object(const char* const file_name, chucho_logger_t* lgr)
 {
     void* handle;
 
     handle = dlopen(file_name, RTLD_LAZY);
     if(handle == NULL)
     {
-        CHUCHO_C_ERROR("yella.agent",
-                       "The shared object %s could not be loaded: %s",
-                       file_name,
-                       dlerror());
+        CHUCHO_C_ERROR_L(lgr,
+                         "The shared object %s could not be loaded: %s",
+                         file_name,
+                         dlerror());
     }
     return handle;
 }
 
-void* shared_object_symbol(void* handle, const char* const name)
+void* shared_object_symbol(void* handle, const char* const name, chucho_logger_t* lgr)
 {
     void* sym = dlsym(handle, name);
     if (sym == NULL)
     {
-        CHUCHO_C_ERROR("yella.agent",
-                       "The symbol %s could not be found: %s",
-                       name,
-                       dlerror());
+        CHUCHO_C_ERROR_L(lgr,
+                         "The symbol %s could not be found: %s",
+                         name,
+                         dlerror());
     }
     return sym;
 }

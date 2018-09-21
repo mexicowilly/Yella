@@ -17,8 +17,10 @@
 #if !defined(RUNTIME_LINK_H__)
 #define RUNTIME_LINK_H__
 
+#include <chucho/logger.h>
+
 void close_shared_object(void* handle);
-void* open_shared_object(const char* const file_name);
-void* shared_object_symbol(void* handle, const char* const name);
+void* open_shared_object(const char* const file_name, chucho_logger_t* lgr);
+void* shared_object_symbol(void* handle, const char* const name, chucho_logger_t* lgr);
 
 #endif
