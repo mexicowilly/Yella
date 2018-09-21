@@ -501,6 +501,7 @@ yella_spool* yella_create_spool(void)
         return NULL;
     }
     sp = calloc(1, sizeof(yella_spool));
+    sp->lgr = chucho_get_logger("yella.spool");
     sp->guard = yella_create_mutex();
     sp->was_written_cond = yella_create_condition_variable();
     memset(&sp->stats, 0, sizeof(yella_spool_stats));
@@ -515,10 +516,10 @@ yella_spool* yella_create_spool(void)
         yella_destroy_mutex(sp->guard);
         free(sp->read_file_name);
         free(sp->write_file_name);
+        chucho_release_logger(sp->lgr);
         free(sp);
         return NULL;
     }
-    sp->lgr = chucho_get_logger("yella.spool");
     return sp;
 }
 
