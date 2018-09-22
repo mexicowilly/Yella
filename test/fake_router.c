@@ -12,11 +12,12 @@
 
 static atomic_bool should_stop = false;
 
-static void handle_message(const yella_message_header* hdrr,
+static void handle_message(const yella_message_header* hdr,
                            const uint8_t* const bytes,
                            size_t sz,
                            chucho_logger_t* lgr)
 {
+    yella_log_mhdr(hdr, lgr);
 }
 
 static void retrieve_router_settings(void)
@@ -52,11 +53,11 @@ int main(int argc, char* argv[])
     yella_message_header* mhdr;
 
     mrc = EXIT_SUCCESS;
+    chucho_cnf_set_file_name("./router.yaml");
     install_signal_handler();
     set_signal_termination_handler(term_handler, NULL);
     yella_initialize_settings();
     yella_settings_set_text("router", "config-file", "./router.yaml");
-    chucho_cnf_set_file_name(yella_settings_get_text("router", "config-file"));
     lgr = chucho_get_logger("router");
     CHUCHO_C_INFO_L(lgr, "Starting");
     yella_load_settings_doc();
@@ -71,7 +72,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-        bind_addr = yella_sprintf("tcp://*:" PRIu64, *yella_settings_get_uint("router", "port"));
+        bind_addr = yella_sprintf("tcp://*:%" PRIu64, *yella_settings_get_uint("router", "port"));
         rc = zmq_bind(sock, bind_addr);
         free(bind_addr);
         if (rc == 0)
@@ -153,6 +154,7 @@ int main(int argc, char* argv[])
         zmq_close(sock);
     zmq_ctx_destroy(ctx);
     yella_destroy_settings();
+    CHUCHO_C_INFO_L(lgr, "Exiting");
     chucho_release_logger(lgr);
     chucho_finalize();
     return mrc;
