@@ -39,6 +39,7 @@ struct yella_router
     yella_mutex* mtx;
     bool stopped;
     yella_thread* worker_thread;
+    chucho_logger_t* lgr;
 };
 
 struct yella_sender
@@ -61,18 +62,18 @@ static void* create_monitor_socket(yella_router* rtr)
     sock = zmq_socket(rtr->zmctx, ZMQ_PAIR);
     if (sock == NULL)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Unable to create the monitor socket",
-                       zmq_strerror(zmq_errno()));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Unable to create the monitor socket",
+                         zmq_strerror(zmq_errno()));
         return NULL;
     }
     rc = zmq_connect(sock, MONITOR_SOCKET);
     if (rc != 0)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Unable to connect to %s: %s",
-                       MONITOR_SOCKET,
-                       zmq_strerror(zmq_errno()));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Unable to connect to %s: %s",
+                         MONITOR_SOCKET,
+                         zmq_strerror(zmq_errno()));
         zmq_close(sock);
         return NULL;
     }
@@ -91,15 +92,15 @@ static void* create_router_socket(yella_router* rtr)
     endpoint = yella_settings_get_text("agent", "router");
     if (endpoint == NULL)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "No router has been defined in settings");
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "No router has been defined in settings");
         return NULL;
     }
     sock = zmq_socket(rtr->zmctx, ZMQ_DEALER);
     if (sock == NULL)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "The router socket could not be created");
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "The router socket could not be created");
         return NULL;
     }
     zmq_setsockopt(sock,
@@ -114,20 +115,20 @@ static void* create_router_socket(yella_router* rtr)
     rc = zmq_socket_monitor(sock, MONITOR_SOCKET, ZMQ_EVENT_ALL);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Could not create socket monitor at %s: %s",
-                       MONITOR_SOCKET,
-                       zmq_strerror(zmq_errno()));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Could not create socket monitor at %s: %s",
+                         MONITOR_SOCKET,
+                         zmq_strerror(zmq_errno()));
         zmq_close(sock);
         return NULL;
     }
     rc = zmq_connect(sock, endpoint);
     if (rc != 0)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Could not initiate connection to %s: %s",
-                       endpoint,
-                       zmq_strerror(rc));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Could not initiate connection to %s: %s",
+                         endpoint,
+                         zmq_strerror(rc));
         zmq_close(sock);
         return NULL;
     }
@@ -142,18 +143,18 @@ void* create_outgoing_reader_socket(yella_router* rtr)
     sock = zmq_socket(rtr->zmctx, ZMQ_PULL);
     if (sock == NULL)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Unable to create the outgoing reader socket",
-                       zmq_strerror(zmq_errno()));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Unable to create the outgoing reader socket",
+                         zmq_strerror(zmq_errno()));
         return NULL;
     }
     rc = zmq_bind(sock, OUTGOING_SOCKET);
     if (rc != 0)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Unable to bind to %s: %s",
-                       OUTGOING_SOCKET,
-                       zmq_strerror(zmq_errno()));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Unable to bind to %s: %s",
+                         OUTGOING_SOCKET,
+                         zmq_strerror(zmq_errno()));
         zmq_close(sock);
         return NULL;
     }
@@ -205,10 +206,10 @@ static void set_state(yella_router* rtr, yella_router_state state)
     yella_lock_mutex(rtr->mtx);
     if (rtr->state != state)
     {
-        CHUCHO_C_INFO("yella.router",
-                      "The router state is changing: %s ==> %s",
-                      state_text[rtr->state],
-                      state_text[state]);
+        CHUCHO_C_INFO_L(rtr->lgr,
+                        "The router state is changing: %s ==> %s",
+                        state_text[rtr->state],
+                        state_text[state]);
         rtr->state = state;
         if (rtr->state_callback != NULL)
             rtr->state_callback(state, rtr->state_callback_data);
@@ -225,31 +226,31 @@ static yella_rc process_monitor_in_event(yella_router* rtr, void* mon_sock)
     switch (evt.id)
     {
     case ZMQ_EVENT_CONNECTED:
-        CHUCHO_C_INFO("yella.router",
-                      "Completed connection to %s",
-                      evt.endpoint);
+        CHUCHO_C_INFO_L(rtr->lgr,
+                        "Completed connection to %s",
+                        evt.endpoint);
         set_state(rtr, YELLA_ROUTER_CONNECTED);
         break;
     case ZMQ_EVENT_CONNECT_DELAYED:
-        CHUCHO_C_INFO("yella.router",
-                      "Connection to %s delayed",
-                      evt.endpoint);
+        CHUCHO_C_INFO_L(rtr->lgr,
+                        "Connection to %s delayed",
+                        evt.endpoint);
         set_state(rtr, YELLA_ROUTER_CONNECTION_PENDING);
         break;
     case ZMQ_EVENT_CONNECT_RETRIED:
-        CHUCHO_C_INFO("yella.router",
-                      "Connection to %s will be retried in %u milliseconds",
-                      evt.endpoint,
-                      evt.value);
+        CHUCHO_C_INFO_L(rtr->lgr,
+                        "Connection to %s will be retried in %u milliseconds",
+                        evt.endpoint,
+                        evt.value);
         set_state(rtr, YELLA_ROUTER_CONNECTION_PENDING);
         break;
     case ZMQ_EVENT_CLOSED:
         set_state(rtr, YELLA_ROUTER_SOCKET_CLOSED);
         break;
     case ZMQ_EVENT_DISCONNECTED:
-        CHUCHO_C_INFO("yella.router",
-                      "Disconnected from %s",
-                      evt.endpoint);
+        CHUCHO_C_INFO_L(rtr->lgr,
+                        "Disconnected from %s",
+                        evt.endpoint);
         set_state(rtr, YELLA_ROUTER_DISCONNECTED);
         break;
     }
@@ -314,17 +315,16 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
     rc = zmq_msg_recv(&delim, rtr_sock, 0);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Error receiving message delimiter: %s",
-                       zmq_strerror(zmq_errno()));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         zmq_strerror(zmq_errno()));
         zmq_msg_close(&delim);
         return YELLA_READ_ERROR;
     }
     if (!zmq_msg_more(&delim))
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "An empty delimiter message part was expected followed by the header and body, but only the delimiter was found, size %zu",
-                       zmq_msg_size(&delim));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "An empty delimiter message part was expected followed by the header and body, but only the delimiter was found, size %zu",
+                         zmq_msg_size(&delim));
         zmq_msg_close(&delim);
         return YELLA_READ_ERROR;
     }
@@ -333,9 +333,9 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
     rc = zmq_msg_recv(&header, rtr_sock, 0);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Error receiving message header: %s",
-                       zmq_strerror(zmq_errno()));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Error receiving message header: %s",
+                         zmq_strerror(zmq_errno()));
         zmq_msg_close(&header);
         return YELLA_READ_ERROR;
     }
@@ -345,9 +345,9 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
         rc = zmq_msg_recv(&body, rtr_sock, 0);
         if (rc == -1)
         {
-            CHUCHO_C_ERROR("yella.router",
-                           "Error receiving message body: %s",
-                           zmq_strerror(zmq_errno()));
+            CHUCHO_C_ERROR_L(rtr->lgr,
+                             "Error receiving message body: %s",
+                             zmq_strerror(zmq_errno()));
             zmq_msg_close(&header);
             zmq_msg_close(&body);
             return YELLA_READ_ERROR;
@@ -360,9 +360,9 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
         }
         if (overcount > 0)
         {
-            CHUCHO_C_ERROR("yella.router",
-                           "Only two message parts are expected from the router. %zu extra message parts were found. All parts are being discarded.",
-                           overcount);
+            CHUCHO_C_ERROR_L(rtr->lgr,
+                             "Only two message parts are expected from the router. %zu extra message parts were found. All parts are being discarded.",
+                             overcount);
             zmq_msg_close(&header);
             zmq_msg_close(&body);
             return YELLA_READ_ERROR;
@@ -370,8 +370,8 @@ static yella_rc process_router_in_event(yella_router* rtr, void* rtr_sock)
     }
     else
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Two message parts are required when reading messages from the router, but only one was found");
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Two message parts are required when reading messages from the router, but only one was found");
         zmq_msg_close(&header);
         return YELLA_READ_ERROR;
     }
@@ -398,9 +398,9 @@ static void socket_worker_main(void* arg)
     int poll_count;
     bool stopped;
 
-    CHUCHO_C_INFO("yella.router",
-                  "The socket worker thread is starting");
     rtr = (yella_router*)arg;
+    CHUCHO_C_INFO_L(rtr->lgr,
+                    "The socket worker thread is starting");
     rtr_sock = NULL;
     out_sock = NULL;
     mon_sock = NULL;
@@ -445,8 +445,8 @@ thread_exit:
         zmq_close(out_sock);
     if (mon_sock != NULL)
         zmq_close(mon_sock);
-    CHUCHO_C_INFO("yella.router",
-                  "The socket worker thread is ending");
+    CHUCHO_C_INFO_L(rtr->lgr,
+                    "The socket worker thread is ending");
 }
 
 yella_router* yella_create_router(yella_uuid* id)
@@ -463,6 +463,7 @@ yella_router* yella_create_router(yella_uuid* id)
     result->recv_callback_data = NULL;
     result->mtx = yella_create_mutex();
     result->stopped = false;
+    result->lgr = chucho_get_logger("yella.router");
     result->worker_thread = yella_create_thread(socket_worker_main, result);
     return result;
 }
@@ -476,18 +477,18 @@ yella_sender* yella_create_sender(yella_router* rtr)
     result->sock = zmq_socket(rtr->zmctx, ZMQ_PUSH);
     if (result->sock == NULL)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Unable to create the sender socket",
-                       zmq_strerror(zmq_errno()));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Unable to create the sender socket",
+                         zmq_strerror(zmq_errno()));
         return NULL;
     }
     rc = zmq_connect(result->sock, OUTGOING_SOCKET);
     if (rc != 0)
     {
-        CHUCHO_C_ERROR("yella.router",
-                       "Unable to connect sender to %s: %s",
-                       MONITOR_SOCKET,
-                       zmq_strerror(zmq_errno()));
+        CHUCHO_C_ERROR_L(rtr->lgr,
+                         "Unable to connect sender to %s: %s",
+                         MONITOR_SOCKET,
+                         zmq_strerror(zmq_errno()));
         zmq_close(result->sock);
         return NULL;
     }
@@ -505,6 +506,7 @@ void yella_destroy_router(yella_router* rtr)
         yella_destroy_thread(rtr->worker_thread);
         yella_destroy_mutex(rtr->mtx);
         zmq_ctx_term(rtr->zmctx);
+        chucho_release_logger(rtr->lgr);
         free(rtr);
     }
 }

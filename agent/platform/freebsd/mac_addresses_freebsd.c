@@ -8,7 +8,7 @@
 #include <net/if_dl.h>
 #include <ifaddrs.h>
 
-yella_mac_addresses* yella_get_mac_addresses(void)
+yella_mac_addresses* yella_get_mac_addresses(chucho_logger_t* lgr)
 {
     struct ifaddrs* ifap;
     struct ifaddrs* cur;
@@ -47,9 +47,9 @@ yella_mac_addresses* yella_get_mac_addresses(void)
     }
     else
     {
-        CHUCHO_C_ERROR("yella.agent",
-                       "Unable to query network addresses: %s",
-                       strerror(errno));
+        CHUCHO_C_ERROR_L(lgr,
+                         "Unable to query network addresses: %s",
+                         strerror(errno));
     }
     return result;
 }

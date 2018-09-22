@@ -16,6 +16,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <chucho/logger.h>
 
 #if !defined(MAC_ADDRESSES_H__)
 #define MAC_ADDRESSES_H__
@@ -33,6 +34,6 @@ typedef struct yella_mac_addresses
 } yella_mac_addresses;
 
 void yella_destroy_mac_addresses(yella_mac_addresses* addrs);
-yella_mac_addresses* yella_get_mac_addresses(void);
+yella_mac_addresses* yella_get_mac_addresses(chucho_logger_t* lgr);
 
 #endif

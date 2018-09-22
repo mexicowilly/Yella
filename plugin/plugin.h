@@ -5,6 +5,7 @@
 #include "common/message_header.h"
 #include "common/ptr_vector.h"
 #include "plugin_reader.h"
+#include <chucho/logger.h>
 
 typedef struct yella_agent_api
 {
@@ -40,7 +41,7 @@ YELLA_EXPORT yella_plugin* yella_create_plugin(const char* const name, const cha
 YELLA_EXPORT yella_plugin_in_cap* yella_create_plugin_in_cap(const char* const name, int version, yella_in_cap_handler handler);
 YELLA_EXPORT yella_plugin_out_cap* yella_create_plugin_out_cap(const char* const name, int version);
 YELLA_EXPORT void yella_destroy_plugin(yella_plugin* plug);
-YELLA_EXPORT void yella_log_plugin_config(const char* const lgr, yella_fb_plugin_config_table_t cfg);
+YELLA_EXPORT void yella_log_plugin_config(chucho_logger_t* lgr, yella_fb_plugin_config_table_t cfg);
 
 typedef yella_plugin* (*yella_plugin_start_func)(const yella_agent_api* api, void* agent);
 typedef yella_rc (*yella_plugin_stop_func)(void);

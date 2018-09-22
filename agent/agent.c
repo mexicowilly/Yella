@@ -67,6 +67,7 @@ typedef struct yella_agent
     atomic_bool should_stop;
     yella_thread* spool_consumer;
     in_handler* in_handlers;
+    chucho_logger_t* lgr;
 } yella_agent;
 
 #define YELLA_KEY_COMPARE(x, y) strcmp((x->key), (y->key))
@@ -126,14 +127,14 @@ static void heartbeat_thr(void* udata)
             mhdr->seq.minor = ++minor_seq;
             parts[0].data = yella_pack_mhdr(mhdr, &parts[0].size);
             if (yella_send(sndr, parts, 2))
-                CHUCHO_C_INFO("yella.agent", "Sent heartbeat");
+                CHUCHO_C_INFO_L(ag->lgr, "Sent heartbeat");
             else
-                CHUCHO_C_INFO("yella.agent", "Error sending heartbeat");
+                CHUCHO_C_INFO_L(ag->lgr, "Error sending heartbeat");
         }
         else
         {
-            CHUCHO_C_INFO("yella.agent",
-                          "Not sending heartbeat because there is no router connection");
+            CHUCHO_C_INFO_L(ag->lgr,
+                            "Not sending heartbeat because there is no router connection");
         }
         next = time(NULL) + to_wait;
     } while (true);
@@ -181,10 +182,10 @@ static void load_plugins(yella_agent* agent)
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
     {
-        so = open_shared_object(cur);
+        so = open_shared_object(cur, agent->lgr);
         if (so != NULL)
         {
-            start = shared_object_symbol(so, "plugin_start");
+            start = shared_object_symbol(so, "plugin_start", agent->lgr);
             if (start != NULL)
             {
                 api = malloc(sizeof(plugin_api));
@@ -194,8 +195,8 @@ static void load_plugins(yella_agent* agent)
                     api->name = yella_text_dup(plugin->name);
                     api->shared_object = so;
                     api->start_func = start;
-                    api->status_func = shared_object_symbol(so, "plugin_status");
-                    api->stop_func = shared_object_symbol(so, "plugin_stop");
+                    api->status_func = shared_object_symbol(so, "plugin_status", agent->lgr);
+                    api->stop_func = shared_object_symbol(so, "plugin_stop", agent->lgr);
                     if (api->status_func && api->stop_func)
                     {
                         yella_push_back_ptr_vector(agent->plugins, api);
@@ -212,18 +213,18 @@ static void load_plugins(yella_agent* agent)
                             }
                             hndlr_found->func = in_cap->handler;
                         }
-                        CHUCHO_C_INFO("yella.agent",
-                                      "Loaded plugin %s, version %s",
-                                      plugin->name,
-                                      plugin->version);
+                        CHUCHO_C_INFO_L(agent->lgr,
+                                        "Loaded plugin %s, version %s",
+                                        plugin->name,
+                                        plugin->version);
                     }
                     else
                     {
                         free(api);
                         close_shared_object(so);
-                        CHUCHO_C_WARN("yella.agent",
-                                      "plugin_status or plugin_stop is not defined in %s",
-                                      cur);
+                        CHUCHO_C_WARN_L(agent->lgr,
+                                        "plugin_status or plugin_stop is not defined in %s",
+                                        cur);
 
                     }
                     yella_destroy_plugin(plugin);
@@ -237,16 +238,16 @@ static void load_plugins(yella_agent* agent)
             else
             {
                 close_shared_object(so);
-                CHUCHO_C_WARN("yella.agent",
-                              "plugin_start is not defined in %s",
-                              cur);
+                CHUCHO_C_WARN_L(agent->lgr,
+                                "plugin_start is not defined in %s",
+                                cur);
             }
         }
         else
         {
-            CHUCHO_C_WARN("yella.agent",
-                          "The file %s could not be loaded as a shared object",
-                          cur);
+            CHUCHO_C_WARN_L(agent->lgr,
+                            "The file %s could not be loaded as a shared object",
+                            cur);
         }
         cur = yella_directory_iterator_next(itor);
     }
@@ -267,12 +268,12 @@ static void message_received(const yella_message_part* const hdr, const yella_me
 
     mhdr = yella_unpack_mhdr(hdr->data);
     ag = (yella_agent*)udata;
-    yella_log_mhdr(mhdr, ag->lg
+    yella_log_mhdr(mhdr, ag->lgr);
     hndlr_to_find.key = mhdr->type;
     hndlr = sglib_in_handler_find_member(ag->in_handlers, &hndlr_to_find);
     if (hndlr == NULL)
     {
-        CHUCHO_C_ERROR("yella.agent", "This message type is not registered: %s", mhdr->type);
+        CHUCHO_C_ERROR_L(ag->lgr, "This message type is not registered: %s", mhdr->type);
     }
     else
     {
@@ -288,7 +289,7 @@ static void message_received(const yella_message_part* const hdr, const yella_me
             rc = hndlr->func(mhdr, body->data, body->size);
         }
         if (rc != YELLA_NO_ERROR)
-            CHUCHO_C_ERROR("yella.agent", "Error handling message %s: %s", mhdr->type, yella_strerror(rc));
+            CHUCHO_C_ERROR_L(ag->lgr, "Error handling message %s: %s", mhdr->type, yella_strerror(rc));
     }
     yella_destroy_mhdr(mhdr);
 }
@@ -375,18 +376,21 @@ yella_agent* yella_create_agent(void)
     retrieve_agent_settings();
     result = calloc(1, sizeof(yella_agent));
     result->should_stop = false;
-    result->state = yella_load_saved_state();
-    yella_save_saved_state(result->state);
+    result->lgr = chucho_get_logger("yella.agent");
+    result->state = yella_load_saved_state(result->lgr);
+    yella_save_saved_state(result->state, result->lgr);
     result->spool = yella_create_spool();
     if (result->spool == NULL)
     {
-        CHUCHO_C_ERROR("yella.agent", "Unable to create spool");
+        CHUCHO_C_ERROR_L(result->lgr, "Unable to create spool");
+        chucho_release_logger(result->lgr);
         yella_destroy_saved_state(result->state);
         free(result);
         return NULL;
     }
     if (yella_settings_get_text("agent", "router") == NULL)
     {
+        chucho_release_logger(result->lgr);
         yella_destroy_saved_state(result->state);
         free(result);
         return NULL;
@@ -423,5 +427,6 @@ void yella_destroy_agent(yella_agent* agent)
     yella_destroy_saved_state(agent->state);
     yella_destroy_router(agent->router);
     yella_destroy_spool(agent->spool);
+    chucho_release_logger(agent->lgr);
     free(agent);
 }

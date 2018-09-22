@@ -18,6 +18,7 @@
 #define MESSAGE_HEADER_H__
 
 #include "export.h"
+#include <chucho/logger.h>
 #include <stdint.h>
 #include <time.h>
 #include <chucho/logger.h>

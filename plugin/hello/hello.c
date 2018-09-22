@@ -19,6 +19,7 @@ static char* recipient;
 static void* agent;
 static time_t next;
 static yella_plugin* hello_desc;
+static chucho_logger_t* lgr;
 
 static yella_rc set_interval_handler(const yella_message_header* const mhdr, const uint8_t* const msg, size_t sz)
 {
@@ -31,7 +32,7 @@ static yella_rc set_interval_handler(const yella_message_header* const mhdr, con
     if (yella_fb_hello_set_interval_config_is_present(tbl))
     {
         cfg = yella_fb_hello_set_interval_config(tbl);
-        yella_log_plugin_config("yella.hello", cfg);
+        yella_log_plugin_config(lgr, cfg);
         cfg_v = ((yella_plugin_in_cap*)yella_ptr_vector_at(hello_desc->in_caps, 0))->configs;
         yella_clear_ptr_vector(cfg_v);
         yella_push_back_ptr_vector(cfg_v, yella_text_dup(yella_fb_plugin_config_name(cfg)));
@@ -113,6 +114,7 @@ static void retrieve_hello_settings(void)
 
 YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
 {
+    lgr = chucho_get_logger("yella.hello");
     memcpy(&agent_api, api, sizeof(agent_api));
     should_stop = false;
     minor_seq = 0;
@@ -154,6 +156,7 @@ YELLA_EXPORT yella_rc plugin_stop(void)
     yella_destroy_condition_variable(work_cond);
     yella_destroy_mutex(guard);
     yella_destroy_plugin(hello_desc);
+    chucho_release_logger(lgr);
     free(recipient);
     return YELLA_NO_ERROR;
 }
