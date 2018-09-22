@@ -156,7 +156,7 @@ static void server_thread(void* p)
     }
     CHUCHO_C_INFO("router-test", "Sent all messages back");
     zmq_close(sock);
-    zmq_ctx_term(ctx);
+    zmq_ctx_destroy(ctx);
     CHUCHO_C_INFO("router-test", "Closed server socket");
 }
 

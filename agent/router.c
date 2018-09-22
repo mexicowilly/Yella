@@ -421,7 +421,7 @@ static void socket_worker_main(void* arg)
     pis[2].events = ZMQ_POLLIN;
     while (true)
     {
-        poll_count = zmq_poll(pis, 3, POLL_TIMEOUT_MILLIS * 1000);
+        poll_count = zmq_poll(pis, 3, POLL_TIMEOUT_MILLIS);
         yella_lock_mutex(rtr->mtx);
         stopped = rtr->stopped;
         yella_unlock_mutex(rtr->mtx);
