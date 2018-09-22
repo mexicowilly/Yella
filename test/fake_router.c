@@ -12,7 +12,10 @@
 
 static atomic_bool should_stop = false;
 
-static void handle_message(const yella_message_header* hdrr, const uint8_t* const bytes, size_t sz)
+static void handle_message(const yella_message_header* hdrr,
+                           const uint8_t* const bytes,
+                           size_t sz,
+                           chucho_logger_t* lgr)
 {
 }
 
@@ -134,7 +137,7 @@ int main(int argc, char* argv[])
                         mrc = EXIT_FAILURE;
                         break;
                     }
-                    handle_message(mhdr, zmq_msg_data(&payload_msg), zmq_msg_size(&payload_msg));
+                    handle_message(mhdr, zmq_msg_data(&payload_msg), zmq_msg_size(&payload_msg), lgr);
                     zmq_msg_close(&payload_msg);
                     yella_destroy_mhdr(mhdr);
                 }

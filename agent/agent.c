@@ -266,8 +266,8 @@ static void message_received(const yella_message_part* const hdr, const yella_me
     yella_rc rc;
 
     mhdr = yella_unpack_mhdr(hdr->data);
-    yella_log_mhdr(mhdr, "yella.agent");
     ag = (yella_agent*)udata;
+    yella_log_mhdr(mhdr, ag->lg
     hndlr_to_find.key = mhdr->type;
     hndlr = sglib_in_handler_find_member(ag->in_handlers, &hndlr_to_find);
     if (hndlr == NULL)
