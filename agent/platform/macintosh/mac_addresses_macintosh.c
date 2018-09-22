@@ -23,7 +23,7 @@
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/network/IOEthernetController.h>
 
-static bool find_ethernet_interfaces(io_iterator_t* matchingServices)
+static bool find_ethernet_interfaces(io_iterator_t* matchingServices, chucho_logger_t* lgr)
 {
     kern_return_t kernResult;
     CFMutableDictionaryRef matchingDict;
@@ -36,7 +36,7 @@ static bool find_ethernet_interfaces(io_iterator_t* matchingServices)
 
     if (matchingDict == NULL)
     {
-        CHUCHO_C_ERROR("yella.agent", "Could not look up ethernet addresses (IOServiceMatching)");
+        CHUCHO_C_ERROR_L(lgr, "Could not look up ethernet addresses (IOServiceMatching)");
         return false;
     }
     else
@@ -68,7 +68,7 @@ static bool find_ethernet_interfaces(io_iterator_t* matchingServices)
 
         if (propertyMatchDict == NULL)
         {
-            CHUCHO_C_ERROR("yella.agent", "Could not look up ethernet addresses (CFDictionaryCreateMutable)");
+            CHUCHO_C_ERROR_L(lgr, "Could not look up ethernet addresses (CFDictionaryCreateMutable)");
         }
         else
         {
@@ -90,14 +90,14 @@ static bool find_ethernet_interfaces(io_iterator_t* matchingServices)
     kernResult = IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict, matchingServices);
     if (kernResult != KERN_SUCCESS)
     {
-        CHUCHO_C_ERROR("yella.agent", "Could not look up ethernet addresses (IOServiceGetMatchingServices)");
+        CHUCHO_C_ERROR_L(lgr, "Could not look up ethernet addresses (IOServiceGetMatchingServices)");
         return false;
     }
 
     return true;
 }
 
-yella_mac_addresses* yella_get_mac_addresses(void)
+yella_mac_addresses* yella_get_mac_addresses(chucho_logger_t* lgr)
 {
     io_object_t service;
     io_object_t controllerService;
@@ -108,7 +108,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
     yella_mac_address* tmp;
     uint8_t* cur_addr;
 
-    if (find_ethernet_interfaces(&itor))
+    if (find_ethernet_interfaces(&itor, lgr))
     {
         result->addrs = malloc(capacity * sizeof(yella_mac_address));
         service = IOIteratorNext(itor);
@@ -128,7 +128,7 @@ yella_mac_addresses* yella_get_mac_addresses(void)
 
             if (kernResult != KERN_SUCCESS)
             {
-                CHUCHO_C_ERROR("yella.agent", "Error getting interface parent entry for service %i", service);
+                CHUCHO_C_ERROR_L(lgr, "Error getting interface parent entry for service %i", service);
             }
             else
             {

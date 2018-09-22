@@ -5,14 +5,18 @@
 
 static void print_mac_addrs(void** targ)
 {
-    yella_mac_addresses* addrs = yella_get_mac_addresses();
+    yella_mac_addresses* addrs;
     size_t i;
+    chucho_logger_t* lgr;
 
+    lgr = chucho_get_logger("mac_addrs");
+    addrs = yella_get_mac_addresses(lgr);
     assert_non_null(addrs);
     assert_true(addrs->count > 0);
     for (i = 0; i < addrs->count; i++)
         print_message("%s\n", addrs->addrs[i].text);
     yella_destroy_mac_addresses(addrs);
+    chucho_release_logger(lgr);
 }
 
 int main()
