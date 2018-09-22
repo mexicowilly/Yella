@@ -186,8 +186,8 @@ static char* find_file(yella_spool* sp, spool_pos* pos, bool (*cmp_func)(yella_s
     for (i = 0; i < yella_ptr_vector_size(to_remove); i++)
         remove(yella_ptr_vector_at(to_remove, i));
     yella_destroy_ptr_vector(to_remove);
+    yella_destroy_directory_iterator(itor);
     return candidate;
-
 }
 
 static bool cmp_newest(yella_spool* sp, const spool_pos* found_pos, const spool_pos* prev_pos)
