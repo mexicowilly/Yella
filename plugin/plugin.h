@@ -20,6 +20,7 @@ typedef struct yella_plugin_in_cap
     sds name;
     int version;
     yella_in_cap_handler handler;
+    /* The vector of configs is of type sds */
     yella_ptr_vector* configs;
 } yella_plugin_in_cap;
 

@@ -1,0 +1,1 @@
+YELLA_TEST(plugin-test)

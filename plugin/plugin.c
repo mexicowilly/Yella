@@ -4,7 +4,7 @@
 
 static void* config_copier(void* p, void* udata)
 {
-    return sdsnew((char*)p);
+    return sdsdup((sds)p);
 }
 
 static void config_destructor(void* p, void* udata)
