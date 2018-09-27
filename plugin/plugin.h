@@ -4,6 +4,7 @@
 #include "common/return_code.h"
 #include "common/message_header.h"
 #include "common/ptr_vector.h"
+#include "common/sds.h"
 #include "plugin_reader.h"
 #include <chucho/logger.h>
 
@@ -16,7 +17,7 @@ typedef yella_rc (*yella_in_cap_handler)(const yella_message_header* const mhdr,
 
 typedef struct yella_plugin_in_cap
 {
-    char* name;
+    sds name;
     int version;
     yella_in_cap_handler handler;
     yella_ptr_vector* configs;
@@ -24,14 +25,14 @@ typedef struct yella_plugin_in_cap
 
 typedef struct yella_plugin_out_cap
 {
-    char* name;
+    sds name;
     int version;
 } yella_plugin_out_cap;
 
 typedef struct yella_plugin
 {
-    char* name;
-    char* version;
+    sds name;
+    sds version;
     yella_ptr_vector* in_caps;
     yella_ptr_vector* out_caps;
 } yella_plugin;

@@ -18,7 +18,8 @@
 #define FILE_H__
 
 #include "export.h"
-#include "return_code.h"
+#include "common/return_code.h"
+#include "common/sds.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -27,9 +28,9 @@ YELLA_EXPORT extern const char* YELLA_DIR_SEP;
 
 typedef struct yella_directory_iterator yella_directory_iterator;
 
-YELLA_EXPORT char* yella_base_name(const char* const path);
+YELLA_EXPORT sds yella_base_name(const char* const path);
 YELLA_EXPORT yella_rc yella_create_directory(const char* const name);
-YELLA_EXPORT char* yella_dir_name(const char* const path);
+YELLA_EXPORT sds yella_dir_name(const char* const path);
 YELLA_EXPORT yella_rc yella_ensure_dir_exists(const char* const name);
 YELLA_EXPORT char* yella_getcwd(void);
 YELLA_EXPORT yella_rc yella_file_contents(const char* const name, uint8_t** contents);

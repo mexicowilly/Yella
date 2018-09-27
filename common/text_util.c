@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+/*
 #include "text_util.h"
 #include <string.h>
 #include <stdlib.h>
@@ -50,3 +51,4 @@ uintmax_t yella_text_to_int(const char* const t)
 {
     return strtoull(t, NULL, 10);
 }
+*/

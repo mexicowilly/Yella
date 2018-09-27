@@ -215,6 +215,7 @@ static int set_up(void** arg)
     test_state* targ;
     yella_event* state_event;
 
+    yella_initialize_settings();
     *arg = malloc(sizeof(test_state));
     targ = *arg;
     targ->server_is_ready = yella_create_event();
@@ -244,6 +245,7 @@ static int tear_down(void** arg)
     yella_destroy_event(targ->receiver_is_ready);
     yella_destroy_uuid(targ->id);
     free(targ);
+    yella_destroy_settings();
     return 0;
 }
 

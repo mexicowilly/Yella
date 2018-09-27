@@ -20,8 +20,12 @@
 #include "export.h"
 #include <stdint.h>
 
+extern const char* yella_nl;
+
+/*
 YELLA_EXPORT char* yella_sprintf(const char* const fmt, ...);
 YELLA_EXPORT char* yella_text_dup(const char* const t);
 YELLA_EXPORT uintmax_t yella_text_to_int(const char* const t);
+*/
 
 #endif

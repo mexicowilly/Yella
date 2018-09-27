@@ -298,12 +298,24 @@ static void simple(void** targ)
     yella_destroy_spool(sp);
 }
 
+static int clean_settings(void** arg)
+{
+    yella_destroy_settings();
+    return 0;
+}
+
 static int clean_spool(void** arg)
 {
+    yella_remove_all(yella_settings_get_text("agent", "spool-dir"));
+    return 0;
+}
+
+static int init_settings(void** arg)
+{
+    yella_initialize_settings();
     yella_settings_set_text("agent", "spool-dir", "test-spool");
     yella_settings_set_uint("agent", "max-spool-partition-size", 1024 * 1024);
     yella_settings_set_uint("agent", "max-spool-partitions", 100);
-    yella_remove_all(yella_settings_get_text("agent", "spool-dir"));
     return 0;
 }
 
@@ -320,5 +332,5 @@ int main()
 #if defined(YELLA_POSIX)
     setenv("CMOCKA_TEST_ABORT", "1", 1);
 #endif
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests(tests, init_settings, clean_settings);
 }

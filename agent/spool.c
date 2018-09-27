@@ -48,8 +48,8 @@ struct yella_spool
     FILE* readf;
     yella_mutex* guard;
     yella_condition_variable* was_written_cond;
-    char* read_file_name;
-    char* write_file_name;
+    sds read_file_name;
+    sds write_file_name;
     yella_spool_stats stats;
     size_t total_event_bytes_written;
     chucho_logger_t* lgr;
@@ -75,13 +75,14 @@ static bool is_spool_file(const char* const name)
     return result;
 }
 
-static char* spool_file_name(uint32_t major_seq, uint32_t minor_seq)
+static sds spool_file_name(uint32_t major_seq, uint32_t minor_seq)
 {
-    return yella_sprintf("%s%s%lu-%lu.yella.spool",
-                         yella_settings_get_text("agent", "spool-dir"),
-                         YELLA_DIR_SEP,
-                         (unsigned long)major_seq,
-                         (unsigned long)minor_seq);
+    return sdscatprintf(sdsempty(),
+                        "%s%s%lu-%lu.yella.spool",
+                        yella_settings_get_text("agent", "spool-dir"),
+                        YELLA_DIR_SEP,
+                        (unsigned long)major_seq,
+                        (unsigned long)minor_seq);
 }
 
 static bool increment_write_spool_partition(yella_spool* sp)
@@ -97,7 +98,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
                          "Error closing write stream: %s",
                          strerror(err));
     }
-    free(sp->write_file_name);
+    sdsfree(sp->write_file_name);
     sp->write_file_name = spool_file_name(sp->write_pos.major_seq, ++sp->write_pos.minor_seq);
     sp->writef = fopen(sp->write_file_name, "wb");
     if (sp->writef == NULL)
@@ -107,7 +108,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
                          "Unable to open spool file %s for writing: %s",
                          sp->write_file_name,
                          strerror(err));
-        free(sp->write_file_name);
+        sdsfree(sp->write_file_name);
         sp->write_file_name = NULL;
         return false;
     }
@@ -120,7 +121,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
                          sp->write_file_name);
         fclose(sp->writef);
         sp->writef = NULL;
-        free(sp->write_file_name);
+        sdsfree(sp->write_file_name);
         sp->write_file_name = NULL;
         return false;
     }
@@ -133,7 +134,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
                          sp->write_file_name);
         fclose(sp->writef);
         sp->writef = NULL;
-        free(sp->write_file_name);
+        sdsfree(sp->write_file_name);
         sp->write_file_name = NULL;
         return false;
     }
@@ -145,14 +146,14 @@ static bool increment_write_spool_partition(yella_spool* sp)
     return true;
 }
 
-static char* find_file(yella_spool* sp, spool_pos* pos, bool (*cmp_func)(yella_spool* sp, const spool_pos* found_pos, const spool_pos* prev_pos))
+static sds find_file(yella_spool* sp, spool_pos* pos, bool (*cmp_func)(yella_spool* sp, const spool_pos* found_pos, const spool_pos* prev_pos))
 {
     yella_directory_iterator* itor;
     yella_ptr_vector* to_remove;
-    char* candidate;
+    sds candidate;
     spool_pos found_pos;
     const char* cur;
-    char* base;
+    sds base;
     int rc;
     int i;
 
@@ -164,14 +165,14 @@ static char* find_file(yella_spool* sp, spool_pos* pos, bool (*cmp_func)(yella_s
     {
         base = yella_base_name(cur);
         rc = sscanf(base, "%u-%u", &found_pos.major_seq, &found_pos.minor_seq);
-        free(base);
+        sdsfree(base);
         if (rc == 2 && is_spool_file(cur))
         {
             if (cmp_func(sp, &found_pos, pos))
             {
                 *pos = found_pos;
-                free(candidate);
-                candidate = yella_text_dup(cur);
+                sdsfree(candidate);
+                candidate = sdsnew(cur);
             }
         }
         else
@@ -179,12 +180,15 @@ static char* find_file(yella_spool* sp, spool_pos* pos, bool (*cmp_func)(yella_s
             CHUCHO_C_WARN_L(sp->lgr,
                             "Found unexpected spool file %s. It is being removed.",
                             cur);
-            yella_push_back_ptr_vector(to_remove, yella_text_dup(cur));
+            yella_push_back_ptr_vector(to_remove, sdsnew(cur));
         }
         cur = yella_directory_iterator_next(itor);
     }
     for (i = 0; i < yella_ptr_vector_size(to_remove); i++)
+    {
         remove(yella_ptr_vector_at(to_remove, i));
+        sdsfree(yella_ptr_vector_at(to_remove, i));
+    }
     yella_destroy_ptr_vector(to_remove);
     yella_destroy_directory_iterator(itor);
     return candidate;
@@ -197,7 +201,7 @@ static bool cmp_newest(yella_spool* sp, const spool_pos* found_pos, const spool_
 
 }
 
-char* find_newest_file(yella_spool* sp, spool_pos* pos)
+sds find_newest_file(yella_spool* sp, spool_pos* pos)
 {
     pos->major_seq = 0;
     pos->minor_seq = 0;
@@ -206,7 +210,7 @@ char* find_newest_file(yella_spool* sp, spool_pos* pos)
 
 static bool init_writer(yella_spool* sp)
 {
-    char* newest;
+    sds newest;
     spool_pos pos;
 
     sp->writef = NULL;
@@ -218,7 +222,7 @@ static bool init_writer(yella_spool* sp)
     else
     {
         sp->write_pos.major_seq = pos.major_seq + 1;
-        free(newest);
+        sdsfree(newest);
     }
     sp->write_pos.minor_seq = 0;
     sp->write_file_name = NULL;
@@ -233,7 +237,7 @@ static bool cmp_oldest(yella_spool* sp, const spool_pos* found_pos, const spool_
             (found_pos->major_seq == sp->read_pos.major_seq && found_pos->minor_seq > sp->read_pos.minor_seq)));
 }
 
-char* find_oldest_file(yella_spool* sp, spool_pos* pos)
+sds find_oldest_file(yella_spool* sp, spool_pos* pos)
 {
     pos->major_seq = UINT32_MAX;
     pos->minor_seq = UINT32_MAX;
@@ -243,7 +247,7 @@ char* find_oldest_file(yella_spool* sp, spool_pos* pos)
 static void cull(yella_spool* sp)
 {
     spool_pos pos;
-    char* oldest = find_oldest_file(sp, &pos);
+    sds oldest = find_oldest_file(sp, &pos);
     size_t sz = 0;
 
     yella_file_size(oldest, &sz);
@@ -265,14 +269,14 @@ static void cull(yella_spool* sp)
                          sp->read_file_name,
                          strerror(errno));
     }
-    free(oldest);
+    sdsfree(oldest);
 }
 
 static bool increment_read_spool_partition(yella_spool* sp)
 {
     int err;
     int rc;
-    char* found;
+    sds found;
     spool_pos found_pos;
 
     if (sp->read_file_name != NULL)
@@ -280,7 +284,7 @@ static bool increment_read_spool_partition(yella_spool* sp)
         CHUCHO_C_TRACE_L(sp->lgr,
                          "Closing read stream %s",
                          sp->read_file_name);
-        free(sp->read_file_name);
+        sdsfree(sp->read_file_name);
         sp->read_file_name = NULL;
     }
     if (sp->readf != NULL && fclose(sp->readf) != 0)
@@ -300,7 +304,7 @@ static bool increment_read_spool_partition(yella_spool* sp)
                          "Unable to open spool file %s for reading: %s",
                          found,
                          strerror(err));
-        free(found);
+        sdsfree(found);
         return false;
     }
     sp->read_file_name = found;
@@ -514,8 +518,8 @@ yella_spool* yella_create_spool(void)
     {
         yella_destroy_condition_variable(sp->was_written_cond);
         yella_destroy_mutex(sp->guard);
-        free(sp->read_file_name);
-        free(sp->write_file_name);
+        sdsfree(sp->read_file_name);
+        sdsfree(sp->write_file_name);
         chucho_release_logger(sp->lgr);
         free(sp);
         return NULL;
@@ -530,8 +534,8 @@ void yella_destroy_spool(yella_spool* sp)
         yella_lock_mutex(sp->guard);
         fclose(sp->readf);
         fclose(sp->writef);
-        free(sp->write_file_name);
-        free(sp->read_file_name);
+        sdsfree(sp->write_file_name);
+        sdsfree(sp->read_file_name);
         yella_unlock_mutex(sp->guard);
         yella_destroy_mutex(sp->guard);
         yella_destroy_condition_variable(sp->was_written_cond);

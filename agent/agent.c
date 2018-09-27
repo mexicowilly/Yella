@@ -23,7 +23,6 @@
 #include "agent/heartbeat.h"
 #include "common/settings.h"
 #include "common/message_header.h"
-#include "common/text_util.h"
 #include "common/compression.h"
 #include "common/message_part.h"
 #include "common/file.h"
@@ -41,7 +40,7 @@ static const uint64_t YELLA_GIGABYTE = 1024 * 1024 * 1024;
 
 typedef struct in_handler
 {
-    char* key;
+    sds key;
     yella_in_cap_handler func;
     char color;
     struct in_handler* left;
@@ -50,7 +49,7 @@ typedef struct in_handler
 
 typedef struct plugin_api
 {
-    char* name;
+    sds name;
     void* shared_object;
     yella_plugin_start_func start_func;
     yella_plugin_status_func status_func;
@@ -120,8 +119,8 @@ static void heartbeat_thr(void* udata)
             yella_destroy_ptr_vector(plugins);
             mhdr = yella_create_mhdr();
             mhdr->time = time(NULL);
-            mhdr->sender = yella_text_dup(ag->state->id->text);
-            mhdr->type = yella_text_dup("yella.heartbeat");
+            mhdr->sender = sdsnew(ag->state->id->text);
+            mhdr->type = sdsnew("yella.heartbeat");
             mhdr->cmp = YELLA_COMPRESSION_NONE;
             mhdr->seq.major = ag->state->boot_count;
             mhdr->seq.minor = ++minor_seq;
@@ -151,7 +150,7 @@ static void send_plugin_message(void* agent,
     size_t hdr_sz;
 
     mhdr->time = time(NULL);
-    mhdr->sender = yella_text_dup(ag->state->id->text);
+    mhdr->sender = sdsnew(ag->state->id->text);
     mhdr->cmp = YELLA_COMPRESSION_LZ4;
     mhdr->seq.major = ag->state->boot_count;
     parts[0].data = yella_pack_mhdr(mhdr, &hdr_sz);
@@ -192,7 +191,7 @@ static void load_plugins(yella_agent* agent)
                 plugin = start(&agent_api, agent);
                 if (plugin != NULL)
                 {
-                    api->name = yella_text_dup(plugin->name);
+                    api->name = sdsnew(plugin->name);
                     api->shared_object = so;
                     api->start_func = start;
                     api->status_func = shared_object_symbol(so, "plugin_status", agent->lgr);
@@ -208,7 +207,7 @@ static void load_plugins(yella_agent* agent)
                             if (hndlr_found == NULL)
                             {
                                 hndlr_found = malloc(sizeof(in_handler));
-                                hndlr_found->key = yella_text_dup(in_cap->name);
+                                hndlr_found->key = sdsnew(in_cap->name);
                                 sglib_in_handler_add(&agent->in_handlers, hndlr_found);
                             }
                             hndlr_found->func = in_cap->handler;
@@ -300,7 +299,7 @@ static void plugin_api_dtor(void* p, void* udata)
 
     CHUCHO_C_INFO("yella.agent", "Closing plugin %s", w->name);
     w->stop_func();
-    free(w->name);
+    sdsfree(w->name);
     close_shared_object(w->shared_object);
     free(w);
 }
@@ -420,7 +419,7 @@ void yella_destroy_agent(yella_agent* agent)
          hndlr != NULL;
          hndlr = sglib_in_handler_it_next(&itor))
     {
-        free(hndlr->key);
+        sdsfree(hndlr->key);
         free(hndlr);
     }
     yella_destroy_ptr_vector(agent->plugins);

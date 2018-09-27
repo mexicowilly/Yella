@@ -24,6 +24,7 @@ IF(YELLA_POSIX)
         platform/posix/calendar_posix.c
         platform/posix/file_posix.c
         platform/posix/settings_posix.c
+        platform/posix/text_util_posix.c
         platform/posix/thread_posix.c
         platform/posix/time_util_posix.c)
     SET_SOURCE_FILES_PROPERTIES(platform/posix/settings_posix.c
@@ -45,10 +46,13 @@ ADD_LIBRARY(common SHARED
             ptr_vector.h
             return_code.c
             return_code.h
+            sds.c
+            sds.h
+            sdsalloc.h
             settings.c
             settings.h
             sglib.h
-            text_util.c
+#            text_util.c
             text_util.h
             thread.h
             time_util.h

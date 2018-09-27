@@ -55,9 +55,9 @@ static bool mac_addresses_changed(yella_fb_mac_addr_vec_t old_addrs, chucho_logg
     return result;
 }
 
-static char* ss_file_name(void)
+static sds ss_file_name(void)
 {
-    return yella_sprintf("%s%s%s", yella_settings_get_text("agent", "data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
+    return sdscatprintf(sdsempty(), "%s%s%s", yella_settings_get_text("agent", "data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
 }
 
 static void reset_ss(yella_saved_state* st, chucho_logger_t* lgr)
@@ -76,7 +76,7 @@ void yella_destroy_saved_state(yella_saved_state* ss)
 
 yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
 {
-    char* fname;
+    sds fname;
     uint8_t* raw;
     yella_fb_saved_state_table_t tbl;
     bool is_corrupt;
@@ -86,8 +86,7 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
     yella_fb_mac_addr_vec_t mac_addrs_vec;
     flatbuffers_uint8_vec_t addr_bytes;
     int i;
-    size_t addr_text_size;
-    char* addr_text = "";
+    sds addr_text;
 
     ss = malloc(sizeof(yella_saved_state));
     is_corrupt = false;
@@ -163,30 +162,26 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
         remove(fname);
         reset_ss(ss, lgr);
     }
-    free(fname);
+    sdsfree(fname);
+    ++ss->boot_count;
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
+        addr_text = sdsempty();
         if (ss->mac_addresses->count > 0)
         {
-            addr_text_size =
-            ss->mac_addresses->count * sizeof(ss->mac_addresses->addrs[0].text) + ss->mac_addresses->count;
-            addr_text = malloc(addr_text_size);
-            addr_text[0] = 0;
             for (i = 0; i < ss->mac_addresses->count; i++)
             {
-                strcat(addr_text, ss->mac_addresses->addrs[i].text);
-                strcat(addr_text, ",");
+                addr_text = sdscat(addr_text, ss->mac_addresses->addrs[i].text);
+                addr_text = sdscat(addr_text, ",");
             }
             addr_text[strlen(addr_text) - 1] = 0;
         }
-        ++ss->boot_count;
         CHUCHO_C_INFO_L(lgr,
                         "Saved state: boot_count = %u, id = %s, mac_addresses = { %s }",
                         ss->boot_count,
                         ss->id->text,
                         addr_text);
-        if (addr_text[0] != 0)
-            free(addr_text);
+        sdsfree(addr_text);
     }
     return ss;
 }
@@ -248,7 +243,7 @@ yella_rc yella_save_saved_state(yella_saved_state* ss, chucho_logger_t* lgr)
         remove(fname);
         return YELLA_WRITE_ERROR;
     }
-    free(fname);
+    sdsfree(fname);
     return YELLA_NO_ERROR;
 }
 
