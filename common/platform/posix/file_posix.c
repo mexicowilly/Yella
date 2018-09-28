@@ -16,7 +16,7 @@
 
 #include "common/file.h"
 #include "common/text_util.h"
-#include "common/ptr_vector.h"
+#include "common/sds_util.h"
 #include <chucho/log.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -64,8 +64,7 @@ static yella_ptr_vector* yella_get_dirs(const char* const fqpath)
     char* cur;
     yella_ptr_vector* vec;
 
-    vec = yella_create_ptr_vector();
-    yella_set_ptr_vector_destructor(vec, sds_ptr_destructor, NULL);
+    vec = yella_create_sds_ptr_vector();
     cur = yella_dir_name(fqpath);
     if (strcmp(cur, ".") == 0)
     {

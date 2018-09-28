@@ -3,6 +3,7 @@ ADD_LIBRARY(hello SHARED
             ../plugin.h)
 TARGET_LINK_LIBRARIES(hello plugin)
 SET_TARGET_PROPERTIES(hello PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins)
+ADD_DEPENDENCIES(all-targets hello)
 
 YELLA_GEN_TARGET(hello
                  serialization/public/hello.fbs)

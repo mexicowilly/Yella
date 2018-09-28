@@ -49,10 +49,11 @@ ADD_LIBRARY(common SHARED
             sds.c
             sds.h
             sdsalloc.h
+            sds_util.c
+            sds_util.h
             settings.c
             settings.h
             sglib.h
-#            text_util.c
             text_util.h
             thread.h
             time_util.h

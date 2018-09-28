@@ -227,7 +227,6 @@ void yella_destroy_settings_doc(void)
 
 void yella_initialize_settings(void)
 {
-    lgr = chucho_get_logger("yella.settings");
     guard = yella_create_mutex();
     yella_initialize_platform_settings();
 }
@@ -240,6 +239,9 @@ yella_rc yella_load_settings_doc(void)
     size_t sz = 0;
     const char* file_name;
 
+    /* Get the logger here, because the config location has been
+     * set properly by now. */
+    lgr = chucho_get_logger("yella.settings");
     file_name = yella_settings_get_text("agent", "config-file");
     if (file_name == NULL)
     {

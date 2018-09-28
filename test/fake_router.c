@@ -38,7 +38,7 @@ static void term_handler(void* udata)
 int main(int argc, char* argv[])
 {
     void* ctx;
-    char* bind_addr;
+    sds bind_addr;
     int rc;
     void* sock;
     chucho_logger_t* lgr;
@@ -47,17 +47,17 @@ int main(int argc, char* argv[])
     zmq_msg_t delim_msg;
     zmq_msg_t hdr_msg;
     zmq_msg_t payload_msg;
-    char* id;
+    sds id;
     zmq_pollitem_t pi;
     int poll_count;
     yella_message_header* mhdr;
 
     mrc = EXIT_SUCCESS;
-    chucho_cnf_set_file_name("./router.yaml");
     install_signal_handler();
     set_signal_termination_handler(term_handler, NULL);
     yella_initialize_settings();
     yella_settings_set_text("router", "config-file", "./router.yaml");
+    chucho_cnf_set_file_name(yella_settings_get_text("router", "config-file"));
     lgr = chucho_get_logger("router");
     CHUCHO_C_INFO_L(lgr, "Starting");
     yella_load_settings_doc();
@@ -72,9 +72,9 @@ int main(int argc, char* argv[])
     }
     else
     {
-        bind_addr = yella_sprintf("tcp://*:%" PRIu64, *yella_settings_get_uint("router", "port"));
+        bind_addr = sdscatprintf(sdsempty(), "tcp://*:%" PRIu64, *yella_settings_get_uint("router", "port"));
         rc = zmq_bind(sock, bind_addr);
-        free(bind_addr);
+        sdsfree(bind_addr);
         if (rc == 0)
         {
             pi.socket = sock;
@@ -94,10 +94,10 @@ int main(int argc, char* argv[])
                         mrc = EXIT_FAILURE;
                         break;
                     }
-                    id = calloc(zmq_msg_size(&id_msg) + 1, 1);
-                    memcpy(id, (char *) zmq_msg_data(&id_msg), zmq_msg_size(&id_msg));
+                    id = sdsnewlen(zmq_msg_data(&id_msg), zmq_msg_size(&id_msg));
                     zmq_msg_close(&id_msg);
                     CHUCHO_C_INFO_L(lgr, "Got identity: %s", id);
+                    sdsfree(id);
                     zmq_msg_init(&delim_msg);
                     rc = zmq_msg_recv(&delim_msg, sock, 0);
                     if (rc == -1)
