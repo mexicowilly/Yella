@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-CONFIGURE_FILE(test-agent.yaml.in ${CMAKE_BINARY_DIR}/test-agent.yaml)
+CONFIGURE_FILE(test-agent.yaml.in ${CMAKE_BINARY_DIR}/test/agent/test-agent.yaml)
 
 YELLA_TEST(router-test)
 YELLA_TEST(spool-test)
