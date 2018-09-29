@@ -1,0 +1,7 @@
+- chucho::logger:
+    name: <root>
+    chucho::file_writer:
+        chucho::pattern_formatter:
+            pattern: '%p %D{%F %T.%q} %c %b:%L] %m%n'
+        file_name: ${CMAKE_BINARY_DIR}/fake-router/fake-router.log
+        on_start: truncate

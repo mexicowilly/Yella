@@ -309,7 +309,6 @@ static void retrieve_agent_settings(void)
     yella_setting_desc descs[] =
     {
         { "data-dir", YELLA_SETTING_VALUE_TEXT },
-        { "log-dir", YELLA_SETTING_VALUE_TEXT },
         { "plugin-dir", YELLA_SETTING_VALUE_TEXT },
         { "spool-dir", YELLA_SETTING_VALUE_TEXT },
         { "router", YELLA_SETTING_VALUE_TEXT },

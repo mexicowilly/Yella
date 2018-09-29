@@ -67,7 +67,6 @@ static void initial_settings(void** arg)
 {
 #if defined(YELLA_POSIX)
     assert_string_equal(yella_settings_get_text("agent", "config-file"), "/etc/yella.yaml");
-    assert_string_equal(yella_settings_get_text("agent", "log-dir"), "/var/log/yella");
     assert_string_equal(yella_settings_get_text("agent", "data-dir"), "/var/lib/yella");
     assert_string_equal(yella_settings_get_text("agent", "spool-dir"), "/var/spool/yella");
     assert_string_equal(yella_settings_get_text("agent", "plugin-dir"), "/usr/local/plugin");
