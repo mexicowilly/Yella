@@ -82,7 +82,7 @@ static void plugin_dtor(void* plg, void* udata)
 static void heartbeat_thr(void* udata)
 {
     time_t next;
-    size_t to_wait = *yella_settings_get_uint("agent", "hearbeat-seconds");
+    size_t to_wait = *yella_settings_get_uint("agent", "heartbeat-seconds");
     yella_agent* ag = (yella_agent*)udata;
     plugin_api* api;
     yella_plugin* plg;
@@ -369,9 +369,23 @@ get_out:
 yella_agent* yella_create_agent(void)
 {
     yella_agent* result;
+    const char* dirs[2];
+    int i;
+    yella_rc yrc;
 
     yella_load_settings_doc();
     retrieve_agent_settings();
+    dirs[0] = yella_settings_get_text("agent", "data-dir");
+    dirs[1] = yella_settings_get_text("agent", "plugin-dir");
+    for (i = 0; i < 2; i++)
+    {
+        yrc = yella_ensure_dir_exists(dirs[i]);
+        if (yrc != YELLA_NO_ERROR)
+        {
+            CHUCHO_C_ERROR("yella.agent", "Could not create %s: %s", dirs[i], yella_strerror(yrc));
+            return NULL;
+        }
+    }
     result = calloc(1, sizeof(yella_agent));
     result->should_stop = false;
     result->lgr = chucho_get_logger("yella.agent");

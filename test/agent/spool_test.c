@@ -47,6 +47,26 @@ typedef struct thread_arg
     size_t count;
 } thread_arg;
 
+static void empty(void** data)
+{
+    yella_spool* sp;
+    yella_rc rc;
+    yella_message_part* popped;
+    size_t count_popped;
+
+    sp = yella_create_spool();
+    assert_non_null(sp);
+    rc = yella_spool_pop(sp, 250, &popped, &count_popped);
+    assert_int_equal(rc, YELLA_TIMED_OUT);
+    rc = yella_spool_pop(sp, 250, &popped, &count_popped);
+    assert_int_equal(rc, YELLA_TIMED_OUT);
+    rc = yella_spool_pop(sp, 250, &popped, &count_popped);
+    assert_int_equal(rc, YELLA_TIMED_OUT);
+    rc = yella_spool_pop(sp, 250, &popped, &count_popped);
+    assert_int_equal(rc, YELLA_TIMED_OUT);
+    yella_destroy_spool(sp);
+}
+
 static void full_speed_main(void* data)
 {
     thread_arg* targ = (thread_arg*)data;
@@ -64,6 +84,8 @@ static void full_speed_main(void* data)
         yella_spool_push(targ->sp, parts, 2);
         yella_sleep_this_thread(targ->milliseconds_delay);
     }
+    free(parts[0].data);
+    free(parts[1].data);
 }
 
 static char* stats_to_json(const yella_spool_stats* stats)
@@ -204,6 +226,7 @@ static void pick_up(void** targ)
         assert_int_equal(count_popped, 2);
         assert_int_equal(popped[0].size, sizeof(size_t));
         memcpy(&found, popped[0].data, sizeof(found));
+        printf("*** %zu\n", i);
         assert_int_equal(found, i);
         assert_int_equal(popped[1].size, sizeof(size_t));
         memcpy(&found, popped[1].data, sizeof(found));
@@ -326,7 +349,8 @@ int main()
         cmocka_unit_test_setup_teardown(simple, clean_spool, NULL),
         cmocka_unit_test_setup_teardown(full_speed, clean_spool, NULL),
         cmocka_unit_test_setup_teardown(cull, clean_spool, NULL),
-        cmocka_unit_test_setup_teardown(pick_up, clean_spool, NULL)
+        cmocka_unit_test_setup_teardown(pick_up, clean_spool, NULL),
+        cmocka_unit_test_setup_teardown(empty, clean_spool, NULL)
     };
 
 #if defined(YELLA_POSIX)
