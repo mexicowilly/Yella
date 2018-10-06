@@ -78,6 +78,8 @@ static void get_set(void** arg)
     const uint64_t* val;
     const char* str;
 
+    yella_load_settings_doc();
+    yella_destroy_settings_doc();
     yella_settings_set_uint("doggy", "int-test", 67);
     val = yella_settings_get_uint("doggy", "int-test");
     assert_non_null(val);

@@ -18,6 +18,7 @@
 #include "common/file.h"
 #include "common/thread.h"
 #include "agent/spool.h"
+#include <chucho/configuration.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -226,7 +227,6 @@ static void pick_up(void** targ)
         assert_int_equal(count_popped, 2);
         assert_int_equal(popped[0].size, sizeof(size_t));
         memcpy(&found, popped[0].data, sizeof(found));
-        printf("*** %zu\n", i);
         assert_int_equal(found, i);
         assert_int_equal(popped[1].size, sizeof(size_t));
         memcpy(&found, popped[1].data, sizeof(found));
@@ -327,18 +327,25 @@ static int clean_settings(void** arg)
     return 0;
 }
 
-static int clean_spool(void** arg)
+static int init_test(void **arg)
 {
     yella_remove_all(yella_settings_get_text("agent", "spool-dir"));
+    yella_settings_set_uint("agent", "max-spool-partition-size", 1024 * 1024);
+    yella_settings_set_uint("agent", "max-spool-partitions", 100);
     return 0;
 }
 
 static int init_settings(void** arg)
 {
+    chucho_cnf_set_fallback(
+"chucho::logger:\n"
+"    name: <root>\n"
+"    level: trace\n"
+"    chucho::cout_writer:\n"
+"        chucho::pattern_formatter:\n"
+"            pattern: '%-5p %5r %b:%L] %m%n'\n");
     yella_initialize_settings();
     yella_settings_set_text("agent", "spool-dir", "test-spool");
-    yella_settings_set_uint("agent", "max-spool-partition-size", 1024 * 1024);
-    yella_settings_set_uint("agent", "max-spool-partitions", 100);
     return 0;
 }
 
@@ -346,15 +353,12 @@ int main()
 {
     const struct CMUnitTest tests[] =
     {
-        cmocka_unit_test_setup_teardown(simple, clean_spool, NULL),
-        cmocka_unit_test_setup_teardown(full_speed, clean_spool, NULL),
-        cmocka_unit_test_setup_teardown(cull, clean_spool, NULL),
-        cmocka_unit_test_setup_teardown(pick_up, clean_spool, NULL),
-        cmocka_unit_test_setup_teardown(empty, clean_spool, NULL)
+        cmocka_unit_test_setup_teardown(simple, init_test, NULL),
+        cmocka_unit_test_setup_teardown(full_speed, init_test, NULL),
+        cmocka_unit_test_setup_teardown(cull, init_test, NULL),
+        cmocka_unit_test_setup_teardown(pick_up, init_test, NULL),
+        cmocka_unit_test_setup_teardown(empty, init_test, NULL)
     };
 
-#if defined(YELLA_POSIX)
-    setenv("CMOCKA_TEST_ABORT", "1", 1);
-#endif
     return cmocka_run_group_tests(tests, init_settings, clean_settings);
 }

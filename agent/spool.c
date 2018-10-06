@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
+#include <inttypes.h>
 
 const uint64_t YELLA_SPOOL_ID = 0x9311a59001;
 const size_t YELLA_MAX_MSG_COUNT = 0x0fff;
@@ -316,6 +317,25 @@ static bool increment_read_spool_partition(yella_spool* sp)
     return true;
 }
 
+static int compare_write_to_read(yella_spool* sp)
+{
+    int32_t diff;
+
+    if (sp->write_pos.major_seq > sp->read_pos.major_seq)
+    {
+        return 1;
+    }
+    else if (sp->write_pos.major_seq == sp->read_pos.major_seq)
+    {
+        diff = sp->write_pos.minor_seq - sp->read_pos.minor_seq;
+        return (diff == 0) ? ftell(sp->writef) - ftell(sp->readf) : diff;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
 /**
  * Returns message count in the next unvisited entry and sets
  * the file pointer to the uint32_t that has the size of the
@@ -336,6 +356,7 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
     size_t visited_count = 0;
     long cur_write_pos;
     size_t sz;
+    int diff;
 
     do
     {
@@ -344,16 +365,8 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
         {
             if (feof(sp->readf) != 0)
             {
-                if (sp->read_pos.major_seq == sp->write_pos.major_seq &&
-                    sp->read_pos.minor_seq == sp->write_pos.minor_seq)
-                {
-                    CHUCHO_C_ERROR_L(sp->lgr,
-                                     "The spool is in an inconsistent state. Cannot continue.");
-                    return 0;
-                }
-                else if (sp->read_pos.major_seq < sp->write_pos.major_seq ||
-                         (sp->read_pos.major_seq == sp->write_pos.major_seq &&
-                          sp->read_pos.minor_seq < sp->write_pos.minor_seq))
+                diff = compare_write_to_read(sp);
+                if (diff > 0)
                 {
                     /* advance to next */
                     CHUCHO_C_TRACE_L(sp->lgr,
@@ -386,10 +399,12 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                                         sp->read_file_name,
                                         strerror(err));
                     }
+                    sdsfree(sp->read_file_name);
+                    sp->read_file_name = NULL;
                     if (!increment_read_spool_partition(sp))
                         return 0;
                 }
-                else
+                else if (diff < 0)
                 {
                     CHUCHO_C_ERROR_L(sp->lgr,
                                      "The spool reader at (%lu, %lu) has read beyond the spool writer at (%lu, %lu)",
@@ -397,6 +412,10 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                                      (unsigned long)sp->read_pos.minor_seq,
                                      (unsigned long)sp->write_pos.major_seq,
                                      (unsigned long)sp->write_pos.minor_seq);
+                    return 0;
+                }
+                else
+                {
                     return 0;
                 }
             }
@@ -478,16 +497,6 @@ static size_t current_spool_size()
     }
     yella_destroy_directory_iterator(itor);
     return result;
-}
-
-static bool write_pos_greater_than_read_pos(yella_spool* sp)
-{
-    return (sp->write_pos.major_seq > sp->read_pos.major_seq) ||
-           (sp->write_pos.major_seq == sp->read_pos.major_seq &&
-            sp->write_pos.minor_seq > sp->read_pos.minor_seq) ||
-           (sp->write_pos.major_seq == sp->read_pos.major_seq &&
-            sp->write_pos.minor_seq == sp->read_pos.minor_seq &&
-            ftell(sp->writef) > ftell(sp->readf));
 }
 
 yella_spool* yella_create_spool(void)
@@ -573,10 +582,10 @@ yella_rc yella_spool_pop(yella_spool* sp,
     *parts = NULL;
     *count = 0;
     yella_lock_mutex(sp->guard);
-    if (write_pos_greater_than_read_pos(sp) ||
+    if (compare_write_to_read(sp) > 0 ||
         yella_wait_milliseconds_for_condition_variable(sp->was_written_cond, sp->guard, milliseconds_to_wait))
     {
-        if (!write_pos_greater_than_read_pos(sp))
+        if (compare_write_to_read(sp) <= 0)
         {
             yella_unlock_mutex(sp->guard);
             return YELLA_TIMED_OUT;
