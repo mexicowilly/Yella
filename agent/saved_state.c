@@ -192,7 +192,7 @@ yella_rc yella_save_saved_state(yella_saved_state* ss, chucho_logger_t* lgr)
     flatcc_builder_t bld;
     uint8_t* raw;
     size_t size;
-    char* fname;
+    sds fname;
     size_t num_written;
     int err;
     int i;
@@ -229,6 +229,7 @@ yella_rc yella_save_saved_state(yella_saved_state* ss, chucho_logger_t* lgr)
                          "Could not open %s for writing: %s",
                          fname,
                          strerror(err));
+        sdsfree(fname);
         free(raw);
         return YELLA_WRITE_ERROR;
     }
@@ -241,6 +242,7 @@ yella_rc yella_save_saved_state(yella_saved_state* ss, chucho_logger_t* lgr)
                          "The was a problem writing to %s. The boot state cannot be saved. Subsequent boots will be considered first boot.",
                          fname);
         remove(fname);
+        sdsfree(fname);
         return YELLA_WRITE_ERROR;
     }
     sdsfree(fname);

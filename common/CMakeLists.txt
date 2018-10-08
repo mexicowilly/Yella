@@ -73,4 +73,5 @@ TARGET_LINK_LIBRARIES(common
                       "${YELLA_CHUCHO_LIB}"
                       "${YELLA_LIBYAML_LIB}"
                       "${YELLA_LZ4_LIB}"
-                      ${CMAKE_THREAD_LIBS_INIT})
+                      Threads::Threads
+                      ${YELLA_MEM_LIBS})

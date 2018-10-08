@@ -61,7 +61,7 @@ static bool yella_do_stat(const char* const name, struct stat* info)
 
 static yella_ptr_vector* yella_get_dirs(const char* const fqpath)
 {
-    char* cur;
+    sds cur;
     yella_ptr_vector* vec;
 
     vec = yella_create_sds_ptr_vector();
@@ -76,7 +76,7 @@ static yella_ptr_vector* yella_get_dirs(const char* const fqpath)
         yella_push_front_ptr_vector(vec, cur);
         cur = yella_dir_name(cur);
     }
-    free(cur);
+    sdsfree(cur);
     return vec;
 }
 

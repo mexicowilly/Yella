@@ -517,12 +517,10 @@ yella_spool* yella_create_spool(void)
     sp->lgr = chucho_get_logger("yella.spool");
     sp->guard = yella_create_mutex();
     sp->was_written_cond = yella_create_condition_variable();
-    memset(&sp->stats, 0, sizeof(yella_spool_stats));
     sp->stats.current_size = current_spool_size();
     sp->stats.max_partition_size = *yella_settings_get_uint("agent", "max-spool-partition-size");
     sp->stats.max_partitions = *yella_settings_get_uint("agent", "max-spool-partitions");
     sp->stats.smallest_event_size = (size_t)-1;
-    sp->total_event_bytes_written = 0;
     if (!init_writer(sp) || !init_reader(sp))
     {
         yella_destroy_condition_variable(sp->was_written_cond);
