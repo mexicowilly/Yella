@@ -19,6 +19,9 @@
 #include "common/thread.h"
 #include "agent/signal_handler.h"
 #include "agent/agent.h"
+#define OPTPARSE_API static
+#define OPTPARSE_IMPLEMENTATION
+#include "agent/optparse.h"
 #include <chucho/configuration.h>
 #include <chucho/finalize.h>
 #include <chucho/log.h>
@@ -28,17 +31,34 @@
 
 static void process_command_line(int argc, char* argv[])
 {
-    if (argc == 3)
+    struct optparse_long opts[] =
     {
-        if (strcmp(argv[1], "--config-file") == 0)
+        { "config-file", 'c', OPTPARSE_OPTIONAL },
+        { "help", 'h', OPTPARSE_NONE },
+        { 0 }
+    };
+    struct optparse parser;
+    int opt;
+
+    optparse_init(&parser, argv);
+    opt = optparse_long(&parser, opts, NULL);
+    while (opt != -1)
+    {
+        switch (opt)
         {
-            yella_settings_set_text("agent", "config-file", argv[2]);
+        case 'c':
+            yella_settings_set_text("agent", "config-file", parser.optarg);
+            break;
+        case '?':
+            printf("Error: %s\n", parser.errmsg);
+            /* fall through */
+        case 'h':
+            printf("Accepted options are:\n");
+            printf("  -c,--config-file\tThe name of the config file\n");
+            printf("  -h,--help\t\tPrint this helpful message\n");
+            exit(opt == 'h' ? EXIT_SUCCESS : EXIT_FAILURE);
         }
-        else
-        {
-            printf("Unknown command line argument: %s\n", argv[1]);
-            exit(EXIT_FAILURE);
-        }
+        opt = optparse_long(&parser, opts, NULL);
     }
 }
 
