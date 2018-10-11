@@ -16,6 +16,7 @@
 
 #include "settings.h"
 #include "text_util.h"
+#include "sds.h"
 #include "file.h"
 #include "sglib.h"
 #include "thread.h"
@@ -24,15 +25,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <inttypes.h>
 
 void yella_initialize_platform_settings(void);
 
 typedef struct setting
 {
-    char* key;
+    sds key;
     union
     {
-        char* text;
+        sds text;
         uint64_t uint;
     } value;
     yella_setting_value_type type;
@@ -43,7 +45,7 @@ typedef struct setting
 
 typedef struct section
 {
-    char* key;
+    sds key;
     setting* settings;
     char color;
     struct section* left;
@@ -85,7 +87,7 @@ static void handle_yaml_node(const yaml_node_t* node,
             }
             else if (key_desc->type == YELLA_SETTING_VALUE_UINT)
             {
-                yella_settings_set_uint(section, key_desc->key, yella_text_to_int((const char*)node->data.scalar.value));
+                yella_settings_set_uint(section, key_desc->key, strtoull((const char*)node->data.scalar.value, NULL, 10));
             }
         }
     }
@@ -201,12 +203,12 @@ void yella_destroy_settings(void)
              set_elem != NULL;
              set_elem = sglib_setting_it_next(&set_itor))
         {
-            free(set_elem->key);
+            sdsfree(set_elem->key);
             if (set_elem->type == YELLA_SETTING_VALUE_TEXT)
-                free(set_elem->value.text);
+                sdsfree(set_elem->value.text);
             free(set_elem);
         }
-        free(sct_elem->key);
+        sdsfree(sct_elem->key);
         free(sct_elem);
     }
     yella_destroy_mutex(guard);
@@ -225,7 +227,6 @@ void yella_destroy_settings_doc(void)
 
 void yella_initialize_settings(void)
 {
-    lgr = chucho_get_logger("yella.settings");
     guard = yella_create_mutex();
     yella_initialize_platform_settings();
 }
@@ -238,6 +239,9 @@ yella_rc yella_load_settings_doc(void)
     size_t sz = 0;
     const char* file_name;
 
+    /* Get the logger here, because the config location has been
+     * set properly by now. */
+    lgr = chucho_get_logger("yella.settings");
     file_name = yella_settings_get_text("agent", "config-file");
     if (file_name == NULL)
     {
@@ -290,6 +294,52 @@ yella_rc yella_load_settings_doc(void)
     return YELLA_NO_ERROR;
 }
 
+void yella_log_settings(void)
+{
+    section* sct_elem;
+    setting* set_elem;
+    struct sglib_setting_iterator set_itor;
+    struct sglib_section_iterator sct_itor;
+    sds out;
+
+    if (chucho_logger_permits(lgr, CHUCHO_INFO))
+    {
+        out = sdsempty();
+        yella_lock_mutex(guard);
+        for (sct_elem = sglib_section_it_init(&sct_itor, sections);
+             sct_elem != NULL;
+             sct_elem = sglib_section_it_next(&sct_itor))
+        {
+            sdscatsds(out, sct_elem->key);
+            sdscatlen(out, ":", 1);
+            sdscat(out, yella_nl);
+            for (set_elem = sglib_setting_it_init(&set_itor, sct_elem->settings);
+                 set_elem != NULL;
+                 set_elem = sglib_setting_it_next(&set_itor))
+            {
+                sdscatlen(out, "  ", 2);
+                sdscatsds(out, set_elem->key);
+                sdscatlen(out, "=", 1);
+                if (set_elem->type == YELLA_SETTING_VALUE_TEXT)
+                {
+                    sdscatlen(out, "'", 1);
+                    sdscatsds(out, set_elem->value.text);
+                    sdscatlen(out, "'", 1);
+                }
+                else
+                {
+                    sdscatprintf(out, "%" PRIu64, set_elem->value.uint);
+                }
+                sdscat(out, yella_nl);
+            }
+        }
+        yella_unlock_mutex(guard);
+        sdstrim(out, "\n\r");
+        CHUCHO_C_INFO_L(lgr, "Settings:%s%s%s", yella_nl, yella_nl, out);
+        sdsfree(out);
+    }
+}
+
 void yella_retrieve_settings(const char* const section, const yella_setting_desc* desc, size_t count)
 {
     yaml_node_t* node;
@@ -329,7 +379,7 @@ void yella_settings_set_uint(const char* const sct, const char* const key, uint6
     if (sct_found == NULL)
     {
         sct_found = malloc(sizeof(section));
-        sct_found->key = yella_text_dup(sct);
+        sct_found->key = sdsnew(sct);
         sct_found->settings = NULL;
         sglib_section_add(&sections, sct_found);
     }
@@ -338,7 +388,7 @@ void yella_settings_set_uint(const char* const sct, const char* const key, uint6
     if (set_found == NULL)
     {
         set_found = malloc(sizeof(setting));
-        set_found->key = yella_text_dup(key);
+        set_found->key = sdsnew(key);
         set_found->value.uint = val;
         set_found->type = YELLA_SETTING_VALUE_UINT;
         sglib_setting_add(&sct_found->settings, set_found);
@@ -361,7 +411,7 @@ void yella_settings_set_text(const char* const sct, const char* const key, const
     if (sct_found == NULL)
     {
         sct_found = malloc(sizeof(section));
-        sct_found->key = yella_text_dup(sct);
+        sct_found->key = sdsnew(sct);
         sct_found->settings = NULL;
         sglib_section_add(&sections, sct_found);
     }
@@ -370,14 +420,14 @@ void yella_settings_set_text(const char* const sct, const char* const key, const
     if (set_found == NULL)
     {
         set_found = malloc(sizeof(setting));
-        set_found->key = yella_text_dup(key);
-        set_found->value.text = yella_text_dup(val);
+        set_found->key = sdsnew(key);
+        set_found->value.text = sdsnew(val);
         set_found->type = YELLA_SETTING_VALUE_TEXT;
         sglib_setting_add(&sct_found->settings, set_found);
     }
     else
     {
-        free(set_found->value.text);
-        set_found->value.text = yella_text_dup(val);
+        sdsfree(set_found->value.text);
+        set_found->value.text = sdsnew(val);
     }
 }

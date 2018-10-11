@@ -1,7 +1,7 @@
 #include "plugin/plugin.h"
 #include "common/thread.h"
 #include "common/settings.h"
-#include "common/text_util.h"
+#include "common/sds_util.h"
 #include "hello_reader.h"
 #include "hello_builder.h"
 #include <string.h>
@@ -15,7 +15,7 @@ static yella_condition_variable* work_cond;
 static unsigned interval_secs;
 static yella_agent_api agent_api;
 static uint32_t minor_seq;
-static char* recipient;
+static sds recipient;
 static void* agent;
 static time_t next;
 static yella_plugin* hello_desc;
@@ -35,13 +35,13 @@ static yella_rc set_interval_handler(const yella_message_header* const mhdr, con
         yella_log_plugin_config(lgr, cfg);
         cfg_v = ((yella_plugin_in_cap*)yella_ptr_vector_at(hello_desc->in_caps, 0))->configs;
         yella_clear_ptr_vector(cfg_v);
-        yella_push_back_ptr_vector(cfg_v, yella_text_dup(yella_fb_plugin_config_name(cfg)));
+        yella_push_back_ptr_vector(cfg_v, sdsnew(yella_fb_plugin_config_name(cfg)));
     }
     if (yella_fb_hello_set_interval_seconds_is_present(tbl))
     {
         interval_secs = yella_fb_hello_set_interval_seconds(tbl);
         next = time(NULL) + interval_secs;
-        recipient = yella_text_dup(mhdr->sender);
+        recipient = sdsnew(mhdr->sender);
     }
     yella_unlock_mutex(guard);
     return YELLA_NO_ERROR;
@@ -73,8 +73,8 @@ static void thr_main(void* uarg)
         raw = flatcc_builder_finalize_buffer(&bld, &raw_size);
         flatcc_builder_clear(&bld);
         mhdr = yella_create_mhdr();
-        mhdr->type = yella_text_dup(((yella_plugin_out_cap*)yella_ptr_vector_at(hello_desc->out_caps, 0))->name);
-        mhdr->recipient = yella_text_dup(recipient);
+        mhdr->type = sdsnew(((yella_plugin_out_cap*)yella_ptr_vector_at(hello_desc->out_caps, 0))->name);
+        mhdr->recipient = sdsnew(recipient);
         mhdr->seq.minor = ++minor_seq;
         agent_api.send_message(agent, mhdr, raw, raw_size);
         yella_destroy_mhdr(mhdr);

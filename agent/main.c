@@ -19,6 +19,7 @@
 #include "common/thread.h"
 #include "agent/signal_handler.h"
 #include "agent/agent.h"
+#include "agent/argparse.h"
 #include <chucho/configuration.h>
 #include <chucho/finalize.h>
 #include <chucho/log.h>
@@ -28,18 +29,25 @@
 
 static void process_command_line(int argc, char* argv[])
 {
-    if (argc == 3)
+    const char* cfg = NULL;
+    struct argparse parser;
+    struct argparse_option opts[] =
     {
-        if (strcmp(argv[1], "--config-file") == 0)
-        {
-            yella_settings_set_text("agent", "config-file", argv[2]);
-        }
-        else
-        {
-            printf("Unknown command line argument: %s\n", argv[1]);
-            exit(EXIT_FAILURE);
-        }
-    }
+        OPT_HELP(),
+        OPT_STRING('c', "config-file", &cfg, "configuration file"),
+        OPT_END()
+    };
+    const char* const usage[] =
+    {
+        "yellad [options]",
+        NULL
+    };
+
+    argparse_init(&parser, opts, usage, 0);
+    argparse_describe(&parser, "\nA monitoring agent", "");
+    argparse_parse(&parser, argc, (const char**)argv);
+    if (cfg != NULL)
+        yella_settings_set_text("agent", "config-file", cfg);
 }
 
 static void term_handler(void* udata)
@@ -75,6 +83,7 @@ int main(int argc, char* argv[])
     }
     yella_destroy_event(term_evt);
     yella_destroy_settings();
+    CHUCHO_C_INFO("yella.agent", "Exiting");
     chucho_finalize();
     return rc;
 }

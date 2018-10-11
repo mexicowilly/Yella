@@ -28,29 +28,29 @@ static void base_name(void** arg)
 
     r = yella_base_name("/one/two/three");
     assert_string_equal(r, "three");
-    free(r);
+    sdsfree(r);
     r = yella_base_name("/one/two/three/");
     assert_string_equal(r, "three");
-    free(r);
+    sdsfree(r);
     r = yella_base_name("/one/two/three///");
     assert_string_equal(r, "three");
-    free(r);
+    sdsfree(r);
     r = yella_base_name("/one/two////////three///");
     assert_string_equal(r, "three");
-    free(r);
+    sdsfree(r);
     r = yella_base_name("");
     assert_string_equal(r, ".");
-    free(r);
+    sdsfree(r);
     r = yella_base_name("one");
     assert_string_equal(r, "one");
-    free(r);
+    sdsfree(r);
 #if defined(YELLA_POSIX)
     r = yella_base_name("/");
     assert_string_equal(r, "/");
-    free(r);
+    sdsfree(r);
     r = yella_base_name("//////");
     assert_string_equal(r, "/");
-    free(r);
+    sdsfree(r);
 #endif
 }
 
@@ -60,34 +60,34 @@ static void dir_name(void** arg)
 
     r = yella_dir_name("/one/two/three");
     assert_string_equal(r, "/one/two");
-    free(r);
+    sdsfree(r);
     r = yella_dir_name("/one/two/three/");
     assert_string_equal(r, "/one/two");
-    free(r);
+    sdsfree(r);
     r = yella_dir_name("/one/two/three/////////");
     assert_string_equal(r, "/one/two");
-    free(r);
+    sdsfree(r);
     r = yella_dir_name("/one/two/////three/////////");
     assert_string_equal(r, "/one/two");
-    free(r);
+    sdsfree(r);
     r = yella_dir_name("/one/two/////three");
     assert_string_equal(r, "/one/two");
-    free(r);
+    sdsfree(r);
     r = yella_dir_name("one/two");
     assert_string_equal(r, "one");
-    free(r);
+    sdsfree(r);
     r = yella_dir_name("one/////two/////////////");
     assert_string_equal(r, "one");
-    free(r);
+    sdsfree(r);
     r = yella_dir_name("");
     assert_string_equal(r, ".");
-    free(r);
+    sdsfree(r);
     r = yella_dir_name("one");
     assert_string_equal(r, ".");
-    free(r);
+    sdsfree(r);
     r = yella_dir_name("/one");
     assert_string_equal(r, "/");
-    free(r);
+    sdsfree(r);
 }
 
 int main()

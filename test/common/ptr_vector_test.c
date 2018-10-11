@@ -15,28 +15,34 @@
  */
 
 #include "common/ptr_vector.h"
-#include "common/text_util.h"
+#include "common/sds.h"
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include <stdlib.h>
 #include <cmocka.h>
 
+static void sds_ptr_destructor(void* elem, void* udata)
+{
+    sdsfree(elem);
+}
+
 static void simple(void** arg)
 {
     yella_ptr_vector* vec;
 
     vec = yella_create_ptr_vector();
+    yella_set_ptr_vector_destructor(vec, sds_ptr_destructor, NULL);
     assert_non_null(vec);
     assert_int_equal(yella_ptr_vector_size(vec), 0);
-    yella_push_back_ptr_vector(vec, yella_text_dup("two"));
+    yella_push_back_ptr_vector(vec, sdsnew("two"));
     assert_int_equal(yella_ptr_vector_size(vec), 1);
     assert_string_equal(yella_ptr_vector_at(vec, 0), "two");
-    yella_push_front_ptr_vector(vec, yella_text_dup("one"));
+    yella_push_front_ptr_vector(vec, sdsnew("one"));
     assert_int_equal(yella_ptr_vector_size(vec), 2);
     assert_string_equal(yella_ptr_vector_at(vec, 0), "one");
     assert_string_equal(yella_ptr_vector_at(vec, 1), "two");
-    yella_push_back_ptr_vector(vec, yella_text_dup("three"));
+    yella_push_back_ptr_vector(vec, sdsnew("three"));
     assert_int_equal(yella_ptr_vector_size(vec), 3);
     assert_string_equal(yella_ptr_vector_at(vec, 0), "one");
     assert_string_equal(yella_ptr_vector_at(vec, 1), "two");
@@ -54,11 +60,12 @@ static void erase(void** arg)
     yella_ptr_vector* vec;
 
     vec = yella_create_ptr_vector();
-    yella_push_back_ptr_vector(vec, yella_text_dup("one"));
-    yella_push_back_ptr_vector(vec, yella_text_dup("two"));
-    yella_push_back_ptr_vector(vec, yella_text_dup("three"));
-    yella_push_back_ptr_vector(vec, yella_text_dup("four"));
-    yella_push_back_ptr_vector(vec, yella_text_dup("five"));
+    yella_set_ptr_vector_destructor(vec, sds_ptr_destructor, NULL);
+    yella_push_back_ptr_vector(vec, sdsnew("one"));
+    yella_push_back_ptr_vector(vec, sdsnew("two"));
+    yella_push_back_ptr_vector(vec, sdsnew("three"));
+    yella_push_back_ptr_vector(vec, sdsnew("four"));
+    yella_push_back_ptr_vector(vec, sdsnew("five"));
     assert_int_equal(yella_ptr_vector_size(vec), 5);
     assert_string_equal(yella_ptr_vector_at(vec, 0), "one");
     assert_string_equal(yella_ptr_vector_at(vec, 1), "two");
@@ -140,7 +147,7 @@ static void* test_copier(void* p, void* udata)
 
     d = (struct test_data*)udata;
     d->val = -1;
-    return yella_text_dup((char*)p);
+    return sdsdup((sds)p);
 }
 
 static void copier(void** arg)
@@ -153,7 +160,8 @@ static void copier(void** arg)
     tdd.val = 1;
     vec = yella_create_ptr_vector();
     yella_set_ptr_vector_copier(vec, test_copier, &tdd);
-    p = yella_text_dup("my dog has fleas");
+    yella_set_ptr_vector_destructor(vec, sds_ptr_destructor, NULL);
+    p = sdsnew("my dog has fleas");
     yella_push_back_ptr_vector(vec, p);
     vec2 = yella_copy_ptr_vector(vec);
     assert_int_equal(yella_ptr_vector_size(vec2), 1);

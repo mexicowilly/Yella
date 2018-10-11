@@ -18,6 +18,7 @@
 #define MESSAGE_HEADER_H__
 
 #include "export.h"
+#include "common/sds.h"
 #include <chucho/logger.h>
 #include <stdint.h>
 #include <time.h>
@@ -42,16 +43,16 @@ typedef struct yella_sequence
 
 typedef struct yella_group
 {
-    char* identifier;
+    sds identifier;
     yella_group_disposition disposition;
 } yella_group;
 
 typedef struct yella_message_header
 {
     time_t time;
-    char* sender;
-    char* recipient;
-    char* type;
+    sds sender;
+    sds recipient;
+    sds type;
     yella_compression cmp;
     yella_sequence seq;
     yella_group* grp;

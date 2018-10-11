@@ -20,6 +20,8 @@ INCLUDE_DIRECTORIES("${YELLA_ZEROMQ_INCLUDE_DIR}"
 SET(YELLA_SOURCES
     agent.c
     agent.h
+    argparse.c
+    argparse.h
     heartbeat.c
     heartbeat.h
     mac_addresses.c
@@ -79,8 +81,8 @@ IF(YELLA_LINUX)
 ENDIF()
 
 ADD_EXECUTABLE(yellad main.c)
-
 TARGET_LINK_LIBRARIES(yellad agent)
+ADD_DEPENDENCIES(all-targets yellad)
 
 SET_SOURCE_FILES_PROPERTIES(main.c PROPERTIES
                             COMPILE_DEFINITIONS YELLA_VERSION=${YELLA_VERSION})

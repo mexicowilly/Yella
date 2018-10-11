@@ -1,5 +1,4 @@
 #include "common/message_header.h"
-#include "common/text_util.h"
 #include <time.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -18,15 +17,15 @@ static void simple(void** targ)
     mhdr = yella_create_mhdr();
     assert_non_null(mhdr);
     mhdr->time = time(NULL);
-    mhdr->sender = yella_text_dup("doggy");
-    mhdr->recipient = yella_text_dup("iguana");
-    mhdr->type = yella_text_dup("fun stuff");
+    mhdr->sender = sdsnew("doggy");
+    mhdr->recipient = sdsnew("iguana");
+    mhdr->type = sdsnew("fun stuff");
     mhdr->cmp = YELLA_COMPRESSION_LZ4;
     mhdr->seq.major = 12;
     mhdr->seq.minor = 13;
     mhdr->grp = malloc(sizeof(yella_group));
     mhdr->grp->disposition = YELLA_GROUP_DISPOSITION_MORE;
-    mhdr->grp->identifier = yella_text_dup("glucille");
+    mhdr->grp->identifier = sdsnew("glucille");
     pack = yella_pack_mhdr(mhdr, &pack_sz);
     assert_non_null(pack);
     assert_true(pack_sz > 0);

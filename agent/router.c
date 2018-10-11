@@ -185,9 +185,9 @@ static bool read_monitor_event(void* sock, monitor_event* evt)
         zmq_msg_close(&frame2);
         return false;
     }
-    strncpy(evt->endpoint, zmq_msg_data(&frame2), sizeof(evt->endpoint));
-    if (zmq_msg_size(&frame2) > sizeof(evt->endpoint))
-        evt->endpoint[sizeof(evt->endpoint) - 1] = 0;
+    strncpy(evt->endpoint, zmq_msg_data(&frame2), zmq_msg_size(&frame2));
+    if (zmq_msg_size(&frame2) < sizeof(evt->endpoint) - 1)
+        evt->endpoint[zmq_msg_size(&frame2)] = 0;
     zmq_msg_close(&frame2);
     return true;
 }
@@ -421,7 +421,7 @@ static void socket_worker_main(void* arg)
     pis[2].events = ZMQ_POLLIN;
     while (true)
     {
-        poll_count = zmq_poll(pis, 3, POLL_TIMEOUT_MILLIS * 1000);
+        poll_count = zmq_poll(pis, 3, POLL_TIMEOUT_MILLIS);
         yella_lock_mutex(rtr->mtx);
         stopped = rtr->stopped;
         yella_unlock_mutex(rtr->mtx);

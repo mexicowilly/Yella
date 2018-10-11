@@ -16,7 +16,7 @@
 
 #include "common/file.h"
 #include "common/text_util.h"
-#include "common/ptr_vector.h"
+#include "common/sds_util.h"
 #include <chucho/log.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -38,6 +38,11 @@ struct yella_directory_iterator
     size_t dir_name_len;
 };
 
+void sds_ptr_destructor(void* elem, void* udata)
+{
+    sdsfree(elem);
+}
+
 static bool yella_do_stat(const char* const name, struct stat* info)
 {
     int err;
@@ -56,10 +61,10 @@ static bool yella_do_stat(const char* const name, struct stat* info)
 
 static yella_ptr_vector* yella_get_dirs(const char* const fqpath)
 {
-    char* cur;
+    sds cur;
     yella_ptr_vector* vec;
 
-    vec = yella_create_ptr_vector();
+    vec = yella_create_sds_ptr_vector();
     cur = yella_dir_name(fqpath);
     if (strcmp(cur, ".") == 0)
     {
@@ -71,7 +76,7 @@ static yella_ptr_vector* yella_get_dirs(const char* const fqpath)
         yella_push_front_ptr_vector(vec, cur);
         cur = yella_dir_name(cur);
     }
-    free(cur);
+    sdsfree(cur);
     return vec;
 }
 
@@ -89,31 +94,26 @@ static const char* yella_last_not(const char* const str, char c)
     return (result < str) ? NULL : result;
 }
 
-char* yella_base_name(const char* const path)
+sds yella_base_name(const char* const path)
 {
     size_t len;
     size_t span;
     const char* end;
     const char* slash;
-    char* result;
 
     len = strlen(path);
     if (len == 0)
-        return yella_text_dup(".");
+        return sdsnew(".");
     span = strspn(path, "/");
     if (span == len)
-        return yella_text_dup("/");
+        return sdsnew("/");
     end = yella_last_not(path, '/');
     slash = end;
     while (*slash != '/' && slash >= path)
         slash--;
     if (slash < path)
-        return yella_text_dup(path);
-    len = end - slash;
-    result = malloc(len + 1);
-    strncpy(result, slash + 1, len);
-    result[len] = 0;
-    return result;
+        return sdsnew(path);
+    return sdsnewlen(slash + 1, end - slash);
 }
 
 yella_rc yella_create_directory(const char* const name)
@@ -192,36 +192,31 @@ const char* yella_directory_iterator_next(yella_directory_iterator* itor)
     return itor->fqn;
 }
 
-char* yella_dir_name(const char* const path)
+sds yella_dir_name(const char* const path)
 {
     size_t len;
-    char* result;
     const char* end;
     const char* slash;
     size_t span;
 
     len = strlen(path);
     if (len == 0)
-        return yella_text_dup(".");
+        return sdsnew(".");
     span = strspn(path, "/");
     if (span == len)
-        return yella_text_dup("/");
+        return sdsnew("/");
     end = yella_last_not(path, '/');
     slash = end;
     while (*slash != '/' && slash >= path)
         slash--;
     if (slash < path)
-        return yella_text_dup(".");
+        return sdsnew(".");
     end = slash;
     while (*end == '/' && end >= path)
         end--;
     if (end < path)
-        return yella_text_dup("/");
-    len = end - path + 1;
-    result = malloc(len + 1);
-    strncpy(result, path, len);
-    result[len] = 0;
-    return result;
+        return sdsnew("/");
+    return sdsnewlen(path, end - path + 1);
 }
 
 yella_rc yella_ensure_dir_exists(const char* const name)
@@ -236,7 +231,7 @@ yella_rc yella_ensure_dir_exists(const char* const name)
     dirs = yella_get_dirs(name);
     if (strcmp(yella_ptr_vector_at(dirs, 0), ".") == 0)
         yella_pop_front_ptr_vector(dirs);
-    yella_push_back_ptr_vector(dirs, yella_text_dup(name));
+    yella_push_back_ptr_vector(dirs, sdsnew(name));
     for (i = 0; i < yella_ptr_vector_size(dirs); i++)
     {
         cur = yella_ptr_vector_at(dirs, i);
@@ -286,28 +281,7 @@ yella_rc yella_file_size(const char* const name, size_t* sz)
 
 char* yella_getcwd(void)
 {
-    long sz = PATH_MAX;
-    char* buf = NULL;
-    char* res = NULL;
-
-    while (res == NULL)
-    {
-        buf = realloc(buf, sz);
-        res = getcwd(buf, sz);
-        if (res == NULL)
-        {
-            if (errno == ERANGE)
-            {
-                sz *= 2;
-            }
-            else
-            {
-                free(buf);
-                return NULL;
-            }
-        }
-    }
-    return buf;
+    return getcwd(NULL, 0);
 }
 
 static yella_rc remove_all_impl(const char* const name)

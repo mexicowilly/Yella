@@ -38,6 +38,7 @@ YELLA_EXPORT void yella_destroy_settings(void);
 YELLA_EXPORT void yella_destroy_settings_doc(void);
 YELLA_EXPORT void yella_initialize_settings(void);
 YELLA_EXPORT yella_rc yella_load_settings_doc(void);
+YELLA_EXPORT void yella_log_settings(void);
 YELLA_EXPORT void yella_retrieve_settings(const char* const section, const yella_setting_desc* desc, size_t count);
 YELLA_EXPORT const uint64_t* yella_settings_get_uint(const char* const section, const char* const key);
 YELLA_EXPORT const char* yella_settings_get_text(const char* const section, const char* const key);

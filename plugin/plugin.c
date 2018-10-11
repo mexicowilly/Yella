@@ -1,10 +1,15 @@
 #include "plugin/plugin.h"
-#include "common/text_util.h"
+#include "common/sds.h"
 #include <chucho/log.h>
 
 static void* config_copier(void* p, void* udata)
 {
-    return yella_text_dup((char*)p);
+    return sdsdup((sds)p);
+}
+
+static void config_destructor(void* p, void* udata)
+{
+    sdsfree(p);
 }
 
 static void* in_cap_copier(void* p, void* udata)
@@ -14,7 +19,7 @@ static void* in_cap_copier(void* p, void* udata)
 
     in = (yella_plugin_in_cap*)p;
     result = malloc(sizeof(yella_plugin_in_cap));
-    result->name = yella_text_dup(in->name);
+    result->name = sdsnew(in->name);
     result->version = in->version;
     result->configs = yella_copy_ptr_vector(in->configs);
     return result;
@@ -25,7 +30,7 @@ static void in_cap_destructor(void* p, void* udata)
     yella_plugin_in_cap* in;
 
     in = (yella_plugin_in_cap*)p;
-    free(in->name);
+    sdsfree(in->name);
     yella_destroy_ptr_vector(in->configs);
     free(in);
 }
@@ -37,7 +42,7 @@ static void* out_cap_copier(void* p, void* udata)
 
     in = (yella_plugin_out_cap*)p;
     result = malloc(sizeof(yella_plugin_out_cap));
-    result->name = yella_text_dup(in->name);
+    result->name = sdsnew(in->name);
     result->version = in->version;
     return result;
 }
@@ -47,7 +52,7 @@ static void out_cap_destructor(void* p, void* udata)
     yella_plugin_out_cap* in;
 
     in = (yella_plugin_out_cap*)p;
-    free(in->name);
+    sdsfree(in->name);
     free(in);
 }
 
@@ -56,8 +61,8 @@ yella_plugin* yella_copy_plugin(const yella_plugin* const plug)
     yella_plugin* result;
 
     result = malloc(sizeof(yella_plugin));
-    result->name = yella_text_dup(plug->name);
-    result->version = yella_text_dup(plug->version);
+    result->name = sdsnew(plug->name);
+    result->version = sdsnew(plug->version);
     result->in_caps = yella_copy_ptr_vector(plug->in_caps);
     result->out_caps = yella_copy_ptr_vector(plug->out_caps);
     return result;
@@ -68,8 +73,8 @@ yella_plugin* yella_create_plugin(const char* const name, const char* const vers
     yella_plugin* plug;
 
     plug = calloc(1, sizeof(yella_plugin));
-    plug->name = yella_text_dup(name);
-    plug->version = yella_text_dup(version);
+    plug->name = sdsnew(name);
+    plug->version = sdsnew(version);
     plug->in_caps = yella_create_ptr_vector();
     yella_set_ptr_vector_copier(plug->in_caps, in_cap_copier, NULL);
     yella_set_ptr_vector_destructor(plug->in_caps, in_cap_destructor, NULL);
@@ -84,11 +89,12 @@ yella_plugin_in_cap* yella_create_plugin_in_cap(const char* const name, int vers
     yella_plugin_in_cap* result;
 
     result = malloc(sizeof(yella_plugin_in_cap));
-    result->name = yella_text_dup(name);
+    result->name = sdsnew(name);
     result->version = version;
     result->handler = handler;
     result->configs = yella_create_ptr_vector();
     yella_set_ptr_vector_copier(result->configs, config_copier, NULL);
+    yella_set_ptr_vector_destructor(result->configs, config_destructor, NULL);
     return result;
 }
 
@@ -97,15 +103,15 @@ yella_plugin_out_cap* yella_create_plugin_out_cap(const char* const name, int ve
     yella_plugin_out_cap* result;
 
     result = malloc(sizeof(yella_plugin_out_cap));
-    result->name = yella_text_dup(name);
+    result->name = sdsnew(name);
     result->version = version;
     return result;
 }
 
 void yella_destroy_plugin(yella_plugin* plug)
 {
-    free(plug->name);
-    free(plug->version);
+    sdsfree(plug->name);
+    sdsfree(plug->version);
     yella_destroy_ptr_vector(plug->in_caps);
     yella_destroy_ptr_vector(plug->out_caps);
     free(plug);

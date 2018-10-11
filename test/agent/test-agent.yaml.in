@@ -1,0 +1,13 @@
+agent:
+  data-dir: ${CMAKE_BINARY_DIR}/test/agent/test-agent/data
+  plugin-dir: ${CMAKE_BINARY_DIR}/plugins
+  spool-dir: ${CMAKE_BINARY_DIR}/test/agent/test-agent/spool
+  router: tcp://127.0.0.1:19567
+
+chucho::logger:
+  name: <root>
+  chucho::file_writer:
+    chucho::pattern_formatter:
+      pattern: '%p %D{%F %T.%q} %c %b:%L] %m%n'
+    file_name: ${CMAKE_BINARY_DIR}/test/agent/test-agent.log
+    on_start: truncate

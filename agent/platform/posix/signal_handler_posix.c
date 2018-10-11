@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 int async_signals[] =
 {
@@ -174,11 +175,10 @@ void install_signal_handler(void)
         if (sigaction(coring_signals[i], &action, 0) != 0)
         {
             const sig_info* info = signal_info(i);
-            CHUCHO_C_ERROR("yella.agent",
-                           "Failed installing signal handler for (%i) (%s) %s",
-                           info->sig,
-                           info->name,
-                           info->description);
+            printf("Failed installing signal handler for (%i) (%s) %s",
+                   info->sig,
+                   info->name,
+                   info->description);
         }
         ++i;
     }
