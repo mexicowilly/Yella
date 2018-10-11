@@ -211,6 +211,7 @@ void yella_destroy_settings(void)
         sdsfree(sct_elem->key);
         free(sct_elem);
     }
+    sections = NULL;
     yella_destroy_mutex(guard);
     chucho_release_logger(lgr);
 }

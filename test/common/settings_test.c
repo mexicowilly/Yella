@@ -168,11 +168,11 @@ int main()
 {
     const struct CMUnitTest tests[] =
     {
-        cmocka_unit_test(initial_settings),
-        cmocka_unit_test(get_set),
-        cmocka_unit_test(load_1),
-        cmocka_unit_test(load_2),
-        cmocka_unit_test(too_big)
+        cmocka_unit_test_setup_teardown(initial_settings, set_up, tear_down),
+        cmocka_unit_test_setup_teardown(get_set, set_up, tear_down),
+        cmocka_unit_test_setup_teardown(load_1, set_up, tear_down),
+        cmocka_unit_test_setup_teardown(load_2, set_up, tear_down),
+        cmocka_unit_test_setup_teardown(too_big, set_up, tear_down)
     };
-    return cmocka_run_group_tests(tests, set_up, tear_down);
+    return cmocka_run_group_tests(tests, NULL, NULL);
 }

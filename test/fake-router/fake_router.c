@@ -3,6 +3,7 @@
 #include "common/macro_util.h"
 #include "common/text_util.h"
 #include "common/message_header.h"
+#include "heartbeat_json_printer.h"
 #include <zmq.h>
 #include <chucho/configuration.h>
 #include <chucho/finalize.h>
@@ -17,7 +18,21 @@ static void handle_message(const yella_message_header* hdr,
                            size_t sz,
                            chucho_logger_t* lgr)
 {
+    FILE* fbuf;
+    char* buf;
+    flatcc_json_printer_t printer;
+
     yella_log_mhdr(hdr, lgr);
+    if (strcmp(hdr->type, "yella.heartbeat") == 0)
+    {
+        buf = malloc(8 * 1024);
+        fbuf = fmemopen(buf, 8 * 1024, "w");
+        flatcc_json_printer_init(&printer, fbuf);
+        yella_fb_heartbeat_print_json_as_root(&printer, bytes, sz, 0);
+        CHUCHO_C_INFO_L(lgr, "%s", buf);
+        fclose(fbuf);
+        free(buf);
+    }
 }
 
 static void retrieve_router_settings(void)
