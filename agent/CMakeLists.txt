@@ -20,11 +20,13 @@ INCLUDE_DIRECTORIES("${YELLA_ZEROMQ_INCLUDE_DIR}"
 SET(YELLA_SOURCES
     agent.c
     agent.h
+    argparse.c
+    argparse.h
     heartbeat.c
     heartbeat.h
     mac_addresses.c
     mac_addresses.h
-    optparse.h
+#    optparse.h
     router.c
     router.h
     runtime_link.h

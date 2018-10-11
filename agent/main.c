@@ -19,9 +19,10 @@
 #include "common/thread.h"
 #include "agent/signal_handler.h"
 #include "agent/agent.h"
-#define OPTPARSE_API static
-#define OPTPARSE_IMPLEMENTATION
-#include "agent/optparse.h"
+//#define OPTPARSE_API static
+//#define OPTPARSE_IMPLEMENTATION
+//#include "agent/optparse.h"
+#include "agent/argparse.h"
 #include <chucho/configuration.h>
 #include <chucho/finalize.h>
 #include <chucho/log.h>
@@ -31,35 +32,25 @@
 
 static void process_command_line(int argc, char* argv[])
 {
-    struct optparse_long opts[] =
+    const char* cfg = NULL;
+    struct argparse parser;
+    struct argparse_option opts[] =
     {
-        { "config-file", 'c', OPTPARSE_OPTIONAL },
-        { "help", 'h', OPTPARSE_NONE },
-        { 0 }
+        OPT_HELP(),
+        OPT_STRING('c', "config-file", &cfg, "configuration file"),
+        OPT_END()
     };
-    struct optparse parser;
-    int opt;
-
-    optparse_init(&parser, argv);
-    opt = optparse_long(&parser, opts, NULL);
-    while (opt != -1)
+    const char* const usage[] =
     {
-        switch (opt)
-        {
-        case 'c':
-            yella_settings_set_text("agent", "config-file", parser.optarg);
-            break;
-        case '?':
-            printf("Error: %s\n", parser.errmsg);
-            /* fall through */
-        case 'h':
-            printf("Accepted options are:\n");
-            printf("  -c,--config-file\tThe name of the config file\n");
-            printf("  -h,--help\t\tPrint this helpful message\n");
-            exit(opt == 'h' ? EXIT_SUCCESS : EXIT_FAILURE);
-        }
-        opt = optparse_long(&parser, opts, NULL);
-    }
+        "yellad [options]",
+        NULL
+    };
+
+    argparse_init(&parser, opts, usage, 0);
+    argparse_describe(&parser, "\nA monitoring agent", "");
+    argparse_parse(&parser, argc, (const char**)argv);
+    if (cfg != NULL)
+        yella_settings_set_text("agent", "config-file", cfg);
 }
 
 static void term_handler(void* udata)

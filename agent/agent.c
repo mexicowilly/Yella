@@ -125,6 +125,7 @@ static void heartbeat_thr(void* udata)
             mhdr->seq.major = ag->state->boot_count;
             mhdr->seq.minor = ++minor_seq;
             parts[0].data = yella_pack_mhdr(mhdr, &parts[0].size);
+            yella_destroy_mhdr(mhdr);
             if (yella_send(sndr, parts, 2))
                 CHUCHO_C_INFO_L(ag->lgr, "Sent heartbeat");
             else
@@ -253,6 +254,20 @@ static void load_plugins(yella_agent* agent)
     yella_destroy_directory_iterator(itor);
 }
 
+static void maybe_wait_for_router(yella_agent* ag)
+{
+    time_t stop;
+
+    stop = time(NULL) + *yella_settings_get_uint("agent", "start-connection-seconds");
+    while (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED && time(NULL) < stop)
+    {
+        CHUCHO_C_INFO_L(ag->lgr, "Waiting for router connection");
+        yella_sleep_this_thread(250);
+    }
+    if (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED)
+        CHUCHO_C_INFO_L(ag->lgr, "Initial router connection failed");
+}
+
 static void message_received(const yella_message_part* const hdr, const yella_message_part* const body, void* udata)
 {
     in_handler to_find;
@@ -316,7 +331,8 @@ static void retrieve_agent_settings(void)
         { "max-spool-partition-size", YELLA_SETTING_VALUE_UINT },
         { "reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
         { "poll-milliseconds", YELLA_SETTING_VALUE_UINT },
-        { "heartbeat-seconds", YELLA_SETTING_VALUE_UINT }
+        { "heartbeat-seconds", YELLA_SETTING_VALUE_UINT },
+        { "start-connection-seconds", YELLA_SETTING_VALUE_UINT }
     };
 
     yella_settings_set_uint("agent", "max-spool-partitions", 1000);
@@ -324,6 +340,7 @@ static void retrieve_agent_settings(void)
     yella_settings_set_uint("agent", "reconnect-timeout-seconds", 5);
     yella_settings_set_uint("agent", "poll-milliseconds", 500);
     yella_settings_set_uint("agent", "heartbeat-seconds", 30);
+    yella_settings_set_uint("agent", "start-connection-seconds", 2);
     yella_retrieve_settings("agent", descs, YELLA_ARRAY_SIZE(descs));
 }
 
@@ -408,6 +425,7 @@ yella_agent* yella_create_agent(void)
         return NULL;
     }
     result->router = yella_create_router(result->state->id);
+    maybe_wait_for_router(result);
     result->plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(result->plugins, plugin_api_dtor, NULL);
     load_plugins(result);
