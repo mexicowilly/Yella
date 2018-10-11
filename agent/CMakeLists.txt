@@ -26,7 +26,6 @@ SET(YELLA_SOURCES
     heartbeat.h
     mac_addresses.c
     mac_addresses.h
-#    optparse.h
     router.c
     router.h
     runtime_link.h

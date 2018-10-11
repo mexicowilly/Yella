@@ -19,9 +19,6 @@
 #include "common/thread.h"
 #include "agent/signal_handler.h"
 #include "agent/agent.h"
-//#define OPTPARSE_API static
-//#define OPTPARSE_IMPLEMENTATION
-//#include "agent/optparse.h"
 #include "agent/argparse.h"
 #include <chucho/configuration.h>
 #include <chucho/finalize.h>
@@ -86,6 +83,7 @@ int main(int argc, char* argv[])
     }
     yella_destroy_event(term_evt);
     yella_destroy_settings();
+    CHUCHO_C_INFO("yella.agent", "Exiting");
     chucho_finalize();
     return rc;
 }

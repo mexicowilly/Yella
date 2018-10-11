@@ -124,7 +124,6 @@ yella_message_header* yella_unpack_mhdr(const uint8_t* const bytes)
     YELLA_REQUIRE_FLATB_FIELD(header, tbl, recipient, "yella.message_header", return NULL)
     YELLA_REQUIRE_FLATB_FIELD(header, tbl, type, "yella.message_header", return NULL)
     YELLA_REQUIRE_FLATB_FIELD(header, tbl, seq, "yella.message_header", return NULL)
-    YELLA_REQUIRE_FLATB_FIELD(header, tbl, cmp, "yella.message_header", return NULL)
     result = malloc(sizeof(yella_message_header));
     result->time = yella_fb_header_seconds_since_epoch(tbl);
     result->sender = sdsnew(yella_fb_header_sender(tbl));

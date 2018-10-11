@@ -185,9 +185,9 @@ static bool read_monitor_event(void* sock, monitor_event* evt)
         zmq_msg_close(&frame2);
         return false;
     }
-    strncpy(evt->endpoint, zmq_msg_data(&frame2), sizeof(evt->endpoint));
-    if (zmq_msg_size(&frame2) > sizeof(evt->endpoint))
-        evt->endpoint[sizeof(evt->endpoint) - 1] = 0;
+    strncpy(evt->endpoint, zmq_msg_data(&frame2), zmq_msg_size(&frame2));
+    if (zmq_msg_size(&frame2) < sizeof(evt->endpoint) - 1)
+        evt->endpoint[zmq_msg_size(&frame2)] = 0;
     zmq_msg_close(&frame2);
     return true;
 }

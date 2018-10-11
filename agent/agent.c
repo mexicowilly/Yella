@@ -120,6 +120,7 @@ static void heartbeat_thr(void* udata)
             mhdr = yella_create_mhdr();
             mhdr->time = time(NULL);
             mhdr->sender = sdsnew(ag->state->id->text);
+            mhdr->recipient = sdsnew(yella_settings_get_text("agent", "router"));
             mhdr->type = sdsnew("yella.heartbeat");
             mhdr->cmp = YELLA_COMPRESSION_NONE;
             mhdr->seq.major = ag->state->boot_count;
