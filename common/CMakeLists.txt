@@ -23,6 +23,7 @@ IF(YELLA_POSIX)
     SET(COMMON_PLATFORM_SOURCES
         platform/posix/calendar_posix.c
         platform/posix/file_posix.c
+        platform/posix/process_posix.c
         platform/posix/settings_posix.c
         platform/posix/text_util_posix.c
         platform/posix/thread_posix.c
@@ -42,6 +43,7 @@ ADD_LIBRARY(common SHARED
             message_header.c
             message_header.h
             message_part.h
+            process.h
             ptr_vector.c
             ptr_vector.h
             return_code.c
