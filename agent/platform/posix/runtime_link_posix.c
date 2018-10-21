@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+#include "common/text_util.h"
 #include <chucho/log.h>
 #include <dlfcn.h>
 #include <stddef.h>
@@ -23,30 +24,38 @@ void close_shared_object(void* handle)
     dlclose(handle);
 }
 
-void* open_shared_object(const char* const file_name, chucho_logger_t* lgr)
+void* open_shared_object(const UChar* const file_name, chucho_logger_t* lgr)
 {
     void* handle;
+    char* utf8;
 
-    handle = dlopen(file_name, RTLD_LAZY);
+    utf8 = yella_to_utf8(file_name);
+    handle = dlopen(utf8, RTLD_LAZY);
     if(handle == NULL)
     {
         CHUCHO_C_ERROR_L(lgr,
                          "The shared object %s could not be loaded: %s",
-                         file_name,
+                         utf8,
                          dlerror());
     }
+    free(utf8);
     return handle;
 }
 
-void* shared_object_symbol(void* handle, const char* const name, chucho_logger_t* lgr)
+void* shared_object_symbol(void* handle, const UChar* const name, chucho_logger_t* lgr)
 {
-    void* sym = dlsym(handle, name);
+    char* utf8;
+    void* sym;
+
+    utf8 = yella_to_utf8(name);
+    sym = dlsym(handle, utf8);
     if (sym == NULL)
     {
         CHUCHO_C_ERROR_L(lgr,
                          "The symbol %s could not be found: %s",
-                         name,
+                         utf8,
                          dlerror());
     }
+    free(utf8);
     return sym;
 }

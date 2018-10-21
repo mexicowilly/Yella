@@ -19,27 +19,27 @@
 
 #include "export.h"
 #include "common/return_code.h"
-#include "common/sds.h"
+#include "common/uds.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
 
-YELLA_EXPORT extern const char* YELLA_DIR_SEP;
+YELLA_EXPORT extern const UChar* YELLA_DIR_SEP;
 
 typedef struct yella_directory_iterator yella_directory_iterator;
 
-YELLA_EXPORT sds yella_base_name(const char* const path);
-YELLA_EXPORT yella_rc yella_create_directory(const char* const name);
-YELLA_EXPORT sds yella_dir_name(const char* const path);
-YELLA_EXPORT yella_rc yella_ensure_dir_exists(const char* const name);
-YELLA_EXPORT char* yella_getcwd(void);
-YELLA_EXPORT yella_rc yella_file_contents(const char* const name, uint8_t** contents);
-YELLA_EXPORT bool yella_file_exists(const char* const name);
-YELLA_EXPORT yella_rc yella_file_size(const char* const name, size_t* sz);
-YELLA_EXPORT yella_rc yella_remove_all(const char* const name);
+YELLA_EXPORT uds yella_base_name(const UChar* const path);
+YELLA_EXPORT yella_rc yella_create_directory(const UChar* const name);
+YELLA_EXPORT uds yella_dir_name(const UChar* const path);
+YELLA_EXPORT yella_rc yella_ensure_dir_exists(const UChar* const name);
+YELLA_EXPORT const UChar* yella_getcwd(void);
+YELLA_EXPORT yella_rc yella_file_contents(const UChar* const name, uint8_t** contents);
+YELLA_EXPORT bool yella_file_exists(const UChar* const name);
+YELLA_EXPORT yella_rc yella_file_size(const UChar* const name, size_t* sz);
+YELLA_EXPORT yella_rc yella_remove_all(const UChar* const name);
 
-YELLA_EXPORT yella_directory_iterator* yella_create_directory_iterator(const char* const dir);
+YELLA_EXPORT yella_directory_iterator* yella_create_directory_iterator(const UChar* const dir);
 YELLA_EXPORT void yella_destroy_directory_iterator(yella_directory_iterator* itor);
-YELLA_EXPORT const char* yella_directory_iterator_next(yella_directory_iterator* itor);
+YELLA_EXPORT const UChar* yella_directory_iterator_next(yella_directory_iterator* itor);
 
 #endif

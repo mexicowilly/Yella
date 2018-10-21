@@ -48,17 +48,23 @@ ADD_LIBRARY(common SHARED
             ptr_vector.h
             return_code.c
             return_code.h
-            sds.c
-            sds.h
-            sdsalloc.h
-            sds_util.c
-            sds_util.h
+#            sds.c
+#            sds.h
+#            sdsalloc.h
+#            sds_util.c
+#            sds_util.h
             settings.c
             settings.h
             sglib.h
+            text_util.c
             text_util.h
             thread.h
             time_util.h
+            uds.c
+            uds.h
+            udsalloc.h
+            uds_util.c
+            uds_util.h
             ${COMMON_PLATFORM_SOURCES})
 SET_TARGET_PROPERTIES(common PROPERTIES
                       VERSION ${YELLA_VERSION}

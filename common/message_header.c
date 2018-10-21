@@ -17,10 +17,9 @@
 #include "message_header.h"
 #include "header_reader.h"
 #include "header_builder.h"
-#include "common/sds.h"
 #include "common/macro_util.h"
 #include "common/calendar.h"
-#include <stdio.h>
+#include "common/text_util.h"
 
 yella_message_header* yella_create_mhdr(void)
 {
@@ -32,12 +31,12 @@ yella_message_header* yella_create_mhdr(void)
 
 void yella_destroy_mhdr(yella_message_header* mhdr)
 {
-    sdsfree(mhdr->sender);
-    sdsfree(mhdr->recipient);
-    sdsfree(mhdr->type);
+    udsfree(mhdr->sender);
+    udsfree(mhdr->recipient);
+    udsfree(mhdr->type);
     if (mhdr->grp != NULL)
     {
-        sdsfree(mhdr->grp->identifier);
+        udsfree(mhdr->grp->identifier);
         free(mhdr->grp);
     }
     free(mhdr);
@@ -47,9 +46,9 @@ void yella_log_mhdr(const yella_message_header* const mhdr, chucho_logger_t* lgr
 {
     char* timestamp;
     const char* cmp;
-    sds group;
+    uds group;
     size_t sz;
-    const char* dis;
+    const UChar* dis;
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
@@ -57,13 +56,14 @@ void yella_log_mhdr(const yella_message_header* const mhdr, chucho_logger_t* lgr
         cmp = (mhdr->cmp == YELLA_COMPRESSION_NONE) ? "NONE" : "LZ4";
         if (mhdr->grp == NULL)
         {
-            group = sdsempty();
+            group = udsempty();
         }
         else
         {
-            dis = (mhdr->grp->disposition == YELLA_GROUP_DISPOSITION_END) ? "END" : "MORE";
-            group = sdscatprintf(sdsempty(), ", group { identifier = %s, disposition = %s }", mhdr->grp->identifier, dis);
+            dis = (mhdr->grp->disposition == YELLA_GROUP_DISPOSITION_END) ? u"END" : u"MORE";
+            group = udscatprintf(sdsempty(), ", group { identifier = %S, disposition = %S }", mhdr->grp->identifier, dis);
         }
+        /*
         CHUCHO_C_INFO_L(lgr,
                         "Message header: time = %s, sender = %s, recipient = %s, type = %s, compression = %s, sequence { major = %u, minor = %u }%s",
                         timestamp,
@@ -74,8 +74,9 @@ void yella_log_mhdr(const yella_message_header* const mhdr, chucho_logger_t* lgr
                         mhdr->seq.major,
                         mhdr->seq.minor,
                         group);
+                        */
         free(timestamp);
-        sdsfree(group);
+        udsfree(group);
     }
 }
 
@@ -83,14 +84,23 @@ uint8_t* yella_pack_mhdr(const yella_message_header* const mhdr, size_t* size)
 {
     flatcc_builder_t bld;
     uint8_t* result;
+    char* utf8;
 
     flatcc_builder_init(&bld);
     yella_fb_header_start_as_root(&bld);
     yella_fb_header_seconds_since_epoch_add(&bld, mhdr->time);
-    yella_fb_header_sender_create_str(&bld, mhdr->sender);
+    utf8 = yella_to_utf8(mhdr->sender);
+    yella_fb_header_sender_create_str(&bld, utf8);
+    free(utf8);
     if (mhdr->recipient != NULL)
-        yella_fb_header_recipient_create_str(&bld, mhdr->recipient);
-    yella_fb_header_type_create_str(&bld, mhdr->type);
+    {
+        utf8 = yella_to_utf8(mhdr->recipient);
+        yella_fb_header_recipient_create_str(&bld, utf8);
+        free(utf8);
+    }
+    utf8 = yella_to_utf8(mhdr->type);
+    yella_fb_header_type_create_str(&bld, utf8);;
+    free(utf8);
     yella_fb_header_cmp_add(&bld, (mhdr->cmp == YELLA_COMPRESSION_LZ4) ? yella_fb_compression_LZ4 : yella_fb_compression_NONE);
     yella_fb_sequence_start(&bld);
     yella_fb_sequence_major_add(&bld, mhdr->seq.major);
@@ -99,7 +109,9 @@ uint8_t* yella_pack_mhdr(const yella_message_header* const mhdr, size_t* size)
     if (mhdr->grp != NULL)
     {
         yella_fb_group_start(&bld);
-        yella_fb_group_id_create_str(&bld, mhdr->grp->identifier);
+        utf8 = yella_to_utf8(mhdr->grp->identifier);
+        yella_fb_group_id_create_str(&bld, utf8);
+        free(utf8);
         yella_fb_group_disposition_add(&bld,
                                        (mhdr->grp->disposition == YELLA_GROUP_DISPOSITION_MORE)
                                        ? yella_fb_group_disposition_MORE : yella_fb_group_disposition_END);
@@ -117,6 +129,7 @@ yella_message_header* yella_unpack_mhdr(const uint8_t* const bytes)
     yella_fb_sequence_table_t seq;
     yella_fb_group_table_t grp;
     yella_message_header* result;
+    UChar* utf16;
 
     tbl = yella_fb_header_as_root(bytes);
     YELLA_REQUIRE_FLATB_FIELD(header, tbl, seconds_since_epoch, "yella.message_header", return NULL)
@@ -126,9 +139,15 @@ yella_message_header* yella_unpack_mhdr(const uint8_t* const bytes)
     YELLA_REQUIRE_FLATB_FIELD(header, tbl, seq, "yella.message_header", return NULL)
     result = malloc(sizeof(yella_message_header));
     result->time = yella_fb_header_seconds_since_epoch(tbl);
-    result->sender = sdsnew(yella_fb_header_sender(tbl));
-    result->recipient = sdsnew(yella_fb_header_recipient(tbl));
-    result->type = sdsnew(yella_fb_header_type(tbl));
+    utf16 = yella_from_utf8(yella_fb_header_sender(tbl));
+    result->sender = udsnew(utf16);
+    free(utf16);
+    utf16 = yella_from_utf8(yella_fb_header_recipient(tbl));
+    result->recipient = udsnew(utf16);
+    free(utf16);
+    utf16 = yella_from_utf8(yella_fb_header_type(tbl));
+    result->type = udsnew(utf16);
+    free(utf16);
     if (yella_fb_header_cmp(tbl) == yella_fb_compression_LZ4)
         result->cmp = YELLA_COMPRESSION_LZ4;
     else
@@ -144,7 +163,9 @@ yella_message_header* yella_unpack_mhdr(const uint8_t* const bytes)
         grp = yella_fb_header_grp(tbl);
         // checking the disposition presence fails, even thought it is correctly set
         result->grp = malloc(sizeof(yella_group));
-        result->grp->identifier = sdsnew(yella_fb_group_id(grp));
+        utf16 = yella_from_utf8(yella_fb_group_id(grp));
+        result->grp->identifier = udsnew(utf16);
+        free(utf16);
         if (yella_fb_group_disposition(grp) == yella_fb_group_disposition_MORE)
             result->grp->disposition = YELLA_GROUP_DISPOSITION_MORE;
         else

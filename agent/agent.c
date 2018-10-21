@@ -28,6 +28,7 @@
 #include "common/file.h"
 #include "common/thread.h"
 #include "common/macro_util.h"
+#include "common/text_util.h"
 #include "plugin/plugin.h"
 #include "common/sglib.h"
 #include <lz4.h>
@@ -40,7 +41,7 @@ static const uint64_t YELLA_GIGABYTE = 1024 * 1024 * 1024;
 
 typedef struct in_handler
 {
-    sds key;
+    uds key;
     yella_in_cap_handler func;
     char color;
     struct in_handler* left;
@@ -49,7 +50,7 @@ typedef struct in_handler
 
 typedef struct plugin_api
 {
-    sds name;
+    uds name;
     void* shared_object;
     yella_plugin_start_func start_func;
     yella_plugin_status_func status_func;
@@ -69,7 +70,7 @@ typedef struct yella_agent
     chucho_logger_t* lgr;
 } yella_agent;
 
-#define YELLA_KEY_COMPARE(x, y) strcmp((x->key), (y->key))
+#define YELLA_KEY_COMPARE(x, y) u_strcmp((x->key), (y->key))
 
 SGLIB_DEFINE_RBTREE_PROTOTYPES(in_handler, left, right, color, YELLA_KEY_COMPARE);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(in_handler, left, right, color, YELLA_KEY_COMPARE);
@@ -168,7 +169,7 @@ static void load_plugins(yella_agent* agent)
 {
     yella_agent_api agent_api;
     yella_directory_iterator* itor;
-    const char* cur;
+    const UChar* cur;
     void* so;
     plugin_api* api;
     yella_plugin_start_func start;
@@ -177,27 +178,29 @@ static void load_plugins(yella_agent* agent)
     in_handler* hndlr_found;
     int i;
     yella_plugin_in_cap* in_cap;
+    char* utf8_n;
+    char* utf8_v;
 
     agent_api.send_message = send_plugin_message;
-    itor = yella_create_directory_iterator(yella_settings_get_text("agent", "plugin-dir"));
+    itor = yella_create_directory_iterator(yella_settings_get_text(u"agent", u"plugin-dir"));
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
     {
         so = open_shared_object(cur, agent->lgr);
         if (so != NULL)
         {
-            start = shared_object_symbol(so, "plugin_start", agent->lgr);
+            start = shared_object_symbol(so, u"plugin_start", agent->lgr);
             if (start != NULL)
             {
                 api = malloc(sizeof(plugin_api));
                 plugin = start(&agent_api, agent);
                 if (plugin != NULL)
                 {
-                    api->name = sdsnew(plugin->name);
+                    api->name = udsnew(plugin->name);
                     api->shared_object = so;
                     api->start_func = start;
-                    api->status_func = shared_object_symbol(so, "plugin_status", agent->lgr);
-                    api->stop_func = shared_object_symbol(so, "plugin_stop", agent->lgr);
+                    api->status_func = shared_object_symbol(so, u"plugin_status", agent->lgr);
+                    api->stop_func = shared_object_symbol(so, u"plugin_stop", agent->lgr);
                     if (api->status_func && api->stop_func)
                     {
                         yella_push_back_ptr_vector(agent->plugins, api);
@@ -209,24 +212,29 @@ static void load_plugins(yella_agent* agent)
                             if (hndlr_found == NULL)
                             {
                                 hndlr_found = malloc(sizeof(in_handler));
-                                hndlr_found->key = sdsnew(in_cap->name);
+                                hndlr_found->key = udsnew(in_cap->name);
                                 sglib_in_handler_add(&agent->in_handlers, hndlr_found);
                             }
                             hndlr_found->func = in_cap->handler;
                         }
+                        utf8_n = yella_to_utf8(plugin->name);
+                        utf8_v = yella_to_utf8(plugin->version);
                         CHUCHO_C_INFO_L(agent->lgr,
                                         "Loaded plugin %s, version %s",
-                                        plugin->name,
-                                        plugin->version);
+                                        utf8_n,
+                                        utf8_v);
+                        free(utf8_n);
+                        free(utf8_v);
                     }
                     else
                     {
                         free(api);
                         close_shared_object(so);
+                        utf8_n = yella_to_utf8(cur);
                         CHUCHO_C_WARN_L(agent->lgr,
                                         "plugin_status or plugin_stop is not defined in %s",
-                                        cur);
-
+                                        utf8_n);
+                        free(utf8_n);
                     }
                     yella_destroy_plugin(plugin);
                 }
@@ -239,16 +247,20 @@ static void load_plugins(yella_agent* agent)
             else
             {
                 close_shared_object(so);
+                utf8_n = yella_to_utf8(cur);
                 CHUCHO_C_WARN_L(agent->lgr,
                                 "plugin_start is not defined in %s",
-                                cur);
+                                utf8_n);
+                free(utf8_n);
             }
         }
         else
         {
+            utf8_n = yella_to_utf8(cur);
             CHUCHO_C_WARN_L(agent->lgr,
                             "The file %s could not be loaded as a shared object",
-                            cur);
+                            utf8_n);
+            free(utf8_n);
         }
         cur = yella_directory_iterator_next(itor);
     }
@@ -259,7 +271,7 @@ static void maybe_wait_for_router(yella_agent* ag)
 {
     time_t stop;
 
-    stop = time(NULL) + *yella_settings_get_uint("agent", "start-connection-seconds");
+    stop = time(NULL) + *yella_settings_get_uint(u"agent", u"start-connection-seconds");
     while (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED && time(NULL) < stop)
     {
         CHUCHO_C_INFO_L(ag->lgr, "Waiting for router connection");
@@ -280,6 +292,7 @@ static void message_received(const yella_message_part* const hdr, const yella_me
     in_handler* hndlr;
     in_handler hndlr_to_find;
     yella_rc rc;
+    char* utf8;
 
     mhdr = yella_unpack_mhdr(hdr->data);
     ag = (yella_agent*)udata;
@@ -288,7 +301,9 @@ static void message_received(const yella_message_part* const hdr, const yella_me
     hndlr = sglib_in_handler_find_member(ag->in_handlers, &hndlr_to_find);
     if (hndlr == NULL)
     {
-        CHUCHO_C_ERROR_L(ag->lgr, "This message type is not registered: %s", mhdr->type);
+        utf8 = yella_to_utf8(mhdr->type);
+        CHUCHO_C_ERROR_L(ag->lgr, "This message type is not registered: %s", utf8);
+        free(utf8);
     }
     else
     {
@@ -304,7 +319,11 @@ static void message_received(const yella_message_part* const hdr, const yella_me
             rc = hndlr->func(mhdr, body->data, body->size);
         }
         if (rc != YELLA_NO_ERROR)
-            CHUCHO_C_ERROR_L(ag->lgr, "Error handling message %s: %s", mhdr->type, yella_strerror(rc));
+        {
+            utf8 = yella_to_utf8(mhdr->type);
+            CHUCHO_C_ERROR_L(ag->lgr, "Error handling message %s: %s", utf8, yella_strerror(rc));
+            free(utf8);
+        }
     }
     yella_destroy_mhdr(mhdr);
 }
@@ -312,8 +331,11 @@ static void message_received(const yella_message_part* const hdr, const yella_me
 static void plugin_api_dtor(void* p, void* udata)
 {
     plugin_api* w = (plugin_api*)p;
+    char* utf8;
 
-    CHUCHO_C_INFO("yella.agent", "Closing plugin %s", w->name);
+    utf8 = yella_to_utf8(w->name);
+    CHUCHO_C_INFO("yella.agent", "Closing plugin %s", utf8);
+    free(utf8);
     w->stop_func();
     sdsfree(w->name);
     close_shared_object(w->shared_object);
@@ -324,25 +346,25 @@ static void retrieve_agent_settings(void)
 {
     yella_setting_desc descs[] =
     {
-        { "data-dir", YELLA_SETTING_VALUE_TEXT },
-        { "plugin-dir", YELLA_SETTING_VALUE_TEXT },
-        { "spool-dir", YELLA_SETTING_VALUE_TEXT },
-        { "router", YELLA_SETTING_VALUE_TEXT },
-        { "max-spool-partitions", YELLA_SETTING_VALUE_UINT },
-        { "max-spool-partition-size", YELLA_SETTING_VALUE_UINT },
-        { "reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
-        { "poll-milliseconds", YELLA_SETTING_VALUE_UINT },
-        { "heartbeat-seconds", YELLA_SETTING_VALUE_UINT },
-        { "start-connection-seconds", YELLA_SETTING_VALUE_UINT }
+        { u"data-dir", YELLA_SETTING_VALUE_TEXT },
+        { u"plugin-dir", YELLA_SETTING_VALUE_TEXT },
+        { u"spool-dir", YELLA_SETTING_VALUE_TEXT },
+        { u"router", YELLA_SETTING_VALUE_TEXT },
+        { u"max-spool-partitions", YELLA_SETTING_VALUE_UINT },
+        { u"max-spool-partition-size", YELLA_SETTING_VALUE_UINT },
+        { u"reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
+        { u"poll-milliseconds", YELLA_SETTING_VALUE_UINT },
+        { u"heartbeat-seconds", YELLA_SETTING_VALUE_UINT },
+        { u"start-connection-seconds", YELLA_SETTING_VALUE_UINT }
     };
 
-    yella_settings_set_uint("agent", "max-spool-partitions", 1000);
-    yella_settings_set_uint("agent", "max-spool-partition-size", 2 * YELLA_MEGABYTE);
-    yella_settings_set_uint("agent", "reconnect-timeout-seconds", 5);
-    yella_settings_set_uint("agent", "poll-milliseconds", 500);
-    yella_settings_set_uint("agent", "heartbeat-seconds", 30);
-    yella_settings_set_uint("agent", "start-connection-seconds", 2);
-    yella_retrieve_settings("agent", descs, YELLA_ARRAY_SIZE(descs));
+    yella_settings_set_uint(u"agent", u"max-spool-partitions", 1000);
+    yella_settings_set_uint(u"agent", u"max-spool-partition-size", 2 * YELLA_MEGABYTE);
+    yella_settings_set_uint(u"agent", u"reconnect-timeout-seconds", 5);
+    yella_settings_set_uint(u"agent", u"poll-milliseconds", 500);
+    yella_settings_set_uint(u"agent", u"heartbeat-seconds", 30);
+    yella_settings_set_uint(u"agent", u"start-connection-seconds", 2);
+    yella_retrieve_settings(u"agent", descs, YELLA_ARRAY_SIZE(descs));
 }
 
 static void spool_thr(void* udata)
@@ -387,20 +409,23 @@ get_out:
 yella_agent* yella_create_agent(void)
 {
     yella_agent* result;
-    const char* dirs[2];
+    const UChar* dirs[2];
     int i;
     yella_rc yrc;
+    char* utf8;
 
     yella_load_settings_doc();
     retrieve_agent_settings();
-    dirs[0] = yella_settings_get_text("agent", "data-dir");
-    dirs[1] = yella_settings_get_text("agent", "plugin-dir");
+    dirs[0] = yella_settings_get_text(u"agent", u"data-dir");
+    dirs[1] = yella_settings_get_text(u"agent", u"plugin-dir");
     for (i = 0; i < 2; i++)
     {
         yrc = yella_ensure_dir_exists(dirs[i]);
         if (yrc != YELLA_NO_ERROR)
         {
-            CHUCHO_C_ERROR("yella.agent", "Could not create %s: %s", dirs[i], yella_strerror(yrc));
+            utf8 = yella_to_utf8(dirs[i]);
+            CHUCHO_C_ERROR("yella.agent", "Could not create %s: %s", utf8, yella_strerror(yrc));
+            free(utf8);
             return NULL;
         }
     }
@@ -418,7 +443,7 @@ yella_agent* yella_create_agent(void)
         free(result);
         return NULL;
     }
-    if (yella_settings_get_text("agent", "router") == NULL)
+    if (yella_settings_get_text(u"agent", u"router") == NULL)
     {
         chucho_release_logger(result->lgr);
         yella_destroy_saved_state(result->state);
@@ -451,7 +476,7 @@ void yella_destroy_agent(yella_agent* agent)
          hndlr != NULL;
          hndlr = sglib_in_handler_it_next(&itor))
     {
-        sdsfree(hndlr->key);
+        udsfree(hndlr->key);
         free(hndlr);
     }
     yella_destroy_ptr_vector(agent->plugins);

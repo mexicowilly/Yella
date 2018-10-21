@@ -14,41 +14,55 @@
  *    limitations under the License.
  */
 
-/*
-#include "text_util.h"
-#include <string.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdio.h>
+#include "common/text_util.h"
+#include <chucho/log.h>
 
-char* yella_sprintf(const char* const fmt, ...)
+UChar* yella_from_utf8(const char* const str)
 {
-    va_list args;
-    va_list args2;
-    int req;
-    char* result;
+    int32_t len;
+    UChar* buf;
+    int32_t dest_len;
+    UErrorCode ec;
 
-    va_start(args, fmt);
-    va_copy(args2, args);
-    req = vsnprintf(NULL, 0, fmt, args) + 1;
-    va_end(args);
-    result = malloc(req);
-    vsnprintf(result, req, fmt, args2);
-    va_end(args2);
-    return result;
+    len = strlen(str);
+    buf = malloc((len + 1) * sizeof(UChar));
+    u_strFromUTF8(buf, len + 1, &dest_len, str, len, &ec);
+    if (ec != U_ZERO_ERROR)
+    {
+        buf = realloc(buf, dest_len * sizeof(UChar));
+        u_strFromUTF8(buf, dest_len, &dest_len, str, len, &ec);
+        if (ec != U_ZERO_ERROR)
+        {
+            free(buf);
+            CHUCHO_C_ERROR("yella.common", "Could not convert UTF-8 to UTF-16: %s", u_errorName(ec));
+            buf = NULL;
+        }
+    }
+    return buf;
 }
 
-char* yella_text_dup(const char* const t)
+char* yella_to_utf8(const UChar* const str)
 {
-    size_t len = strlen(t) + 1;
-    char* result = malloc(len);
-    if (result != NULL)
-        strcpy(result, t);
-    return result;
+    int32_t len;
+    char* buf;
+    int32_t dest_len;
+    UErrorCode ec;
+
+    len = u_strlen(str);
+    buf = malloc(len + 1);
+    u_strToUTF8(buf, len + 1, &dest_len, str, len, &ec);
+    if (ec != U_ZERO_ERROR)
+    {
+        buf = realloc(buf, dest_len);
+        u_strToUTF8(buf, dest_len, &dest_len, str, len, &ec);
+        if (ec != U_ZERO_ERROR)
+        {
+            free(buf);
+            CHUCHO_C_ERROR("yella.common", "Could not convert UTF-16 to UTF-8: %s", u_errorName(ec));
+            buf = NULL;
+        }
+    }
+    return buf;
 }
 
-uintmax_t yella_text_to_int(const char* const t)
-{
-    return strtoull(t, NULL, 10);
-}
-*/
+

@@ -1,7 +1,7 @@
 #include "agent/mac_addresses.h"
 #include <chucho/log.h>
 #include <string.h>
-#include <stdio.h>
+#include <unicode/ustdio.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -36,10 +36,10 @@ yella_mac_addresses* yella_get_mac_addresses(chucho_logger_t* lgr)
             {
                 addr = (uint8_t*)LLADDR((struct sockaddr_dl*)cur->ifa_addr);
                 memcpy(result->addrs[i].addr, addr, 6);
-                snprintf(result->addrs[i].text,
-                         sizeof(result->addrs[i].text),
-                         "%02x:%02x:%02x:%02x:%02x:%02x",
-                         addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+                u_snprintf_u(result->addrs[i].text,
+                             sizeof(result->addrs[i].text),
+                             u"%02x:%02x:%02x:%02x:%02x:%02x",
+                             addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
                 ++i;
             }
         }

@@ -46,29 +46,29 @@ typedef UChar* uds;
 
 /* Note: sdshdr5 is never used, we just access the flags byte directly.
  * However is here to document the layout of type 5 SDS strings. */
-struct udshdr5 {
+struct __attribute__ ((packed)) udshdr5 {
     unsigned short flags; /* 3 lsb of type, and 5 msb of string length */
     UChar buf[];
 };
-struct udshdr8 {
+struct __attribute__ ((packed)) udshdr8 {
     uint8_t len; /* used */
     uint8_t alloc; /* excluding the header and null terminator */
     unsigned short flags; /* 3 lsb of type, 5 unused bits */
     UChar buf[];
 };
-struct udshdr16 {
+struct __attribute__ ((packed)) udshdr16 {
     uint16_t len; /* used */
     uint16_t alloc; /* excluding the header and null terminator */
     unsigned short flags; /* 3 lsb of type, 5 unused bits */
     UChar buf[];
 };
-struct udshdr32 {
+struct __attribute__ ((packed)) udshdr32 {
     uint32_t len; /* used */
     uint32_t alloc; /* excluding the header and null terminator */
     unsigned short flags; /* 3 lsb of type, 5 unused bits */
     UChar buf[];
 };
-struct udshdr64 {
+struct __attribute__ ((packed)) udshdr64 {
     uint64_t len; /* used */
     uint64_t alloc; /* excluding the header and null terminator */
     unsigned short flags; /* 3 lsb of type, 5 unused bits */
@@ -136,7 +136,7 @@ static inline void udssetlen(uds s, size_t newlen) {
         case UDS_TYPE_5:
             {
                 unsigned short *fp = ((unsigned short*)s)-1;
-                *fp = UDS_TYPE_5 | (chlen << UDS_TYPE_BITS);
+                *fp = UDS_TYPE_5 | (newlen << UDS_TYPE_BITS);
             }
             break;
         case UDS_TYPE_8:
@@ -197,7 +197,7 @@ static inline size_t udsalloc(const uds s) {
     return 0;
 }
 
-static inline unsigned char* udssetalloc(uds s, size_t newlen) {
+static inline void udssetalloc(uds s, size_t newlen) {
     unsigned short flags = UDS_FLAGS(s);
     switch(flags&UDS_TYPE_MASK) {
         case UDS_TYPE_5:
@@ -219,41 +219,40 @@ static inline unsigned char* udssetalloc(uds s, size_t newlen) {
 }
 
 YELLA_EXPORT uds udsnewlen(const void *init, size_t initlen);
-YELLA_EXPORT uds udsnew(const char *init);
+YELLA_EXPORT uds udsnew(const UChar *init);
 YELLA_EXPORT uds udsempty(void);
 YELLA_EXPORT uds udsdup(const uds s);
 YELLA_EXPORT void udsfree(uds s);
 YELLA_EXPORT uds udsgrowzero(uds s, size_t len);
 YELLA_EXPORT uds udscatlen(uds s, const void *t, size_t len);
-YELLA_EXPORT uds udscat(uds s, const char *t);
+YELLA_EXPORT uds udscat(uds s, const UChar *t);
 YELLA_EXPORT uds udscatuds(uds s, const uds t);
-YELLA_EXPORT uds udscpylen(uds s, const char *t, size_t len);
-YELLA_EXPORT uds udscpy(uds s, const char *t);
+YELLA_EXPORT uds udscpylen(uds s, const UChar *t, size_t len);
+YELLA_EXPORT uds udscpy(uds s, const UChar *t);
 
-YELLA_EXPORT uds udscatvprintf(uds s, const char *fmt, va_list ap);
+YELLA_EXPORT uds udscatvprintf(uds s, const UChar *fmt, va_list ap);
 #ifdef __GNUC__
-YELLA_EXPORT uds udscatprintf(uds s, const char *fmt, ...)
-    __attribute__((format(printf, 2, 3)));
+YELLA_EXPORT uds udscatprintf(uds s, const UChar *fmt, ...);
 #else
 YELLA_EXPORT uds udscatprintf(uds s, const char *fmt, ...);
 #endif
 
-YELLA_EXPORT uds udscatfmt(uds s, char const *fmt, ...);
-YELLA_EXPORT uds udstrim(uds s, const char *cset);
+/* YELLA_EXPORT uds udscatfmt(uds s, char const *fmt, ...); */
+YELLA_EXPORT uds udstrim(uds s, const UChar *cset);
 YELLA_EXPORT void udsrange(uds s, ssize_t start, ssize_t end);
 YELLA_EXPORT void udsupdatelen(uds s);
 YELLA_EXPORT void udsclear(uds s);
-YELLA_EXPORT int udscmp(const uds s1, const uds s2);
-YELLA_EXPORT uds *udssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count);
-YELLA_EXPORT void udsfreesplitres(uds *tokens, int count);
-YELLA_EXPORT void udstolower(uds s);
-YELLA_EXPORT void udstoupper(uds s);
-YELLA_EXPORT uds udsfromlonglong(long long value);
-YELLA_EXPORT uds udscatrepr(uds s, const char *p, size_t len);
-YELLA_EXPORT uds *udssplitargs(const char *line, int *argc);
-YELLA_EXPORT uds udsmapchars(uds s, const char *from, const char *to, size_t setlen);
-YELLA_EXPORT uds udsjoin(char **argv, int argc, char *sep);
-YELLA_EXPORT uds udsjoinuds(uds *argv, int argc, const char *sep, size_t seplen);
+//YELLA_EXPORT int udscmp(const uds s1, const uds s2);
+//YELLA_EXPORT uds *udssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count);
+//YELLA_EXPORT void udsfreesplitres(uds *tokens, int count);
+//YELLA_EXPORT void udstolower(uds s);
+//YELLA_EXPORT void udstoupper(uds s);
+//YELLA_EXPORT uds udsfromlonglong(long long value);
+//YELLA_EXPORT uds udscatrepr(uds s, const char *p, size_t len);
+//YELLA_EXPORT uds *udssplitargs(const char *line, int *argc);
+//YELLA_EXPORT uds udsmapchars(uds s, const char *from, const char *to, size_t setlen);
+YELLA_EXPORT uds udsjoin(UChar **argv, int argc, UChar *sep);
+YELLA_EXPORT uds udsjoinuds(uds *argv, int argc, const UChar *sep, size_t seplen);
 
 /* Low level functions exposed to the user API */
 YELLA_EXPORT uds udsMakeRoomFor(uds s, size_t addlen);

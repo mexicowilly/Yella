@@ -17,6 +17,7 @@
 #include "common/settings.h"
 #include "common/macro_util.h"
 #include "common/thread.h"
+#include "common/text_util.h"
 #include "agent/signal_handler.h"
 #include "agent/agent.h"
 #include "agent/argparse.h"
@@ -42,12 +43,17 @@ static void process_command_line(int argc, char* argv[])
         "yellad [options]",
         NULL
     };
+    char* utf16;
 
     argparse_init(&parser, opts, usage, 0);
     argparse_describe(&parser, "\nA monitoring agent", "");
     argparse_parse(&parser, argc, (const char**)argv);
     if (cfg != NULL)
-        yella_settings_set_text("agent", "config-file", cfg);
+    {
+        utf16 = yella_from_utf8(cfg);
+        yella_settings_set_text(u"agent", u"config-file", utf16);
+        free(utf16);
+    }
 }
 
 static void term_handler(void* udata)
@@ -60,11 +66,14 @@ int main(int argc, char* argv[])
     yella_event* term_evt;
     yella_agent* agent;
     int rc;
+    char* utf8;
 
     install_signal_handler();
     yella_initialize_settings();
     process_command_line(argc, argv);
-    chucho_cnf_set_file_name(yella_settings_get_text("agent", "config-file"));
+    utf8 = yella_to_utf8(yella_settings_get_text("agent", "config-file"));
+    chucho_cnf_set_file_name(utf8);
+    free(utf8);
     CHUCHO_C_INFO("yella.agent",
                   "Yella version " YELLA_VALUE_STR(YELLA_VERSION) " is starting");
     term_evt = yella_create_event();

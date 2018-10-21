@@ -4,7 +4,7 @@
 #include "common/return_code.h"
 #include "common/message_header.h"
 #include "common/ptr_vector.h"
-#include "common/sds.h"
+#include "common/uds.h"
 #include "plugin_reader.h"
 #include <chucho/logger.h>
 
@@ -17,31 +17,31 @@ typedef yella_rc (*yella_in_cap_handler)(const yella_message_header* const mhdr,
 
 typedef struct yella_plugin_in_cap
 {
-    sds name;
+    uds name;
     int version;
     yella_in_cap_handler handler;
-    /* The vector of configs is of type sds */
+    /* The vector of configs is of type uds */
     yella_ptr_vector* configs;
 } yella_plugin_in_cap;
 
 typedef struct yella_plugin_out_cap
 {
-    sds name;
+    uds name;
     int version;
 } yella_plugin_out_cap;
 
 typedef struct yella_plugin
 {
-    sds name;
-    sds version;
+    uds name;
+    uds version;
     yella_ptr_vector* in_caps;
     yella_ptr_vector* out_caps;
 } yella_plugin;
 
 YELLA_EXPORT yella_plugin* yella_copy_plugin(const yella_plugin* const plug);
-YELLA_EXPORT yella_plugin* yella_create_plugin(const char* const name, const char* const version);
-YELLA_EXPORT yella_plugin_in_cap* yella_create_plugin_in_cap(const char* const name, int version, yella_in_cap_handler handler);
-YELLA_EXPORT yella_plugin_out_cap* yella_create_plugin_out_cap(const char* const name, int version);
+YELLA_EXPORT yella_plugin* yella_create_plugin(const UChar* const name, const UChar* const version);
+YELLA_EXPORT yella_plugin_in_cap* yella_create_plugin_in_cap(const UChar* const name, int version, yella_in_cap_handler handler);
+YELLA_EXPORT yella_plugin_out_cap* yella_create_plugin_out_cap(const UChar* const name, int version);
 YELLA_EXPORT void yella_destroy_plugin(yella_plugin* plug);
 YELLA_EXPORT void yella_log_plugin_config(chucho_logger_t* lgr, yella_fb_plugin_config_table_t cfg);
 
