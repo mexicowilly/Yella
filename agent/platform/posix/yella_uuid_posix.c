@@ -15,6 +15,7 @@
  */
 
 #include "agent/yella_uuid.h"
+#include "common/text_util.h"
 #include <chucho/log.h>
 #include <uuid.h>
 #include <stdlib.h>
@@ -23,20 +24,30 @@
 yella_uuid* yella_create_uuid(void)
 {
     yella_uuid* id;
+    char utf8[37];
+    UChar* utf16;
 
     id = malloc(sizeof(yella_uuid));
     uuid_generate(id->id);
-    uuid_unparse_lower(id->id, id->text);
+    uuid_unparse_lower(id->id, utf8);
+    utf16 = yella_from_utf8(utf8);
+    u_strcpy(id->text, utf16);
+    free(utf16);
     return id;
 }
 
 yella_uuid* yella_create_uuid_from_bytes(const uint8_t* bytes)
 {
     yella_uuid* id;
+    char utf8[37];
+    UChar* utf16;
 
     id = malloc(sizeof(yella_uuid));
     memcpy(id->id, bytes, sizeof(id->id));
-    uuid_unparse_lower(id->id, id->text);
+    uuid_unparse_lower(id->id, utf8);
+    utf16 = yella_from_utf8(utf8);
+    u_strcpy(id->text, utf16);
+    free(utf16);
     return id;
 }
 

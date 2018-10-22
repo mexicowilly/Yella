@@ -83,7 +83,7 @@ static void plugin_dtor(void* plg, void* udata)
 static void heartbeat_thr(void* udata)
 {
     time_t next;
-    size_t to_wait = *yella_settings_get_uint("agent", "heartbeat-seconds");
+    size_t to_wait = *yella_settings_get_uint(u"agent", u"heartbeat-seconds");
     yella_agent* ag = (yella_agent*)udata;
     plugin_api* api;
     yella_plugin* plg;
@@ -120,9 +120,9 @@ static void heartbeat_thr(void* udata)
             yella_destroy_ptr_vector(plugins);
             mhdr = yella_create_mhdr();
             mhdr->time = time(NULL);
-            mhdr->sender = sdsnew(ag->state->id->text);
-            mhdr->recipient = sdsnew(yella_settings_get_text("agent", "router"));
-            mhdr->type = sdsnew("yella.heartbeat");
+            mhdr->sender = udsnew(ag->state->id->text);
+            mhdr->recipient = udsnew(yella_settings_get_text(u"agent", u"router"));
+            mhdr->type = udsnew(u"yella.heartbeat");
             mhdr->cmp = YELLA_COMPRESSION_NONE;
             mhdr->seq.major = ag->state->boot_count;
             mhdr->seq.minor = ++minor_seq;
@@ -153,7 +153,7 @@ static void send_plugin_message(void* agent,
     size_t hdr_sz;
 
     mhdr->time = time(NULL);
-    mhdr->sender = sdsnew(ag->state->id->text);
+    mhdr->sender = udsnew(ag->state->id->text);
     mhdr->cmp = YELLA_COMPRESSION_LZ4;
     mhdr->seq.major = ag->state->boot_count;
     parts[0].data = yella_pack_mhdr(mhdr, &hdr_sz);
@@ -337,7 +337,7 @@ static void plugin_api_dtor(void* p, void* udata)
     CHUCHO_C_INFO("yella.agent", "Closing plugin %s", utf8);
     free(utf8);
     w->stop_func();
-    sdsfree(w->name);
+    udsfree(w->name);
     close_shared_object(w->shared_object);
     free(w);
 }

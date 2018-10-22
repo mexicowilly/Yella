@@ -16,6 +16,7 @@
 
 
 #include "common/file.h"
+#include <unicode/ustring.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
@@ -41,14 +42,14 @@ static void base_name(void** arg)
     r = yella_base_name(u"");
     assert_true(u_strcmp(r, u".") == 0);
     udsfree(r);
-    r = yella_base_name("one");
+    r = yella_base_name(u"one");
     assert_true(u_strcmp(r, u"one") == 0);
     udsfree(r);
 #if defined(YELLA_POSIX)
-    r = yella_base_name("/");
+    r = yella_base_name(u"/");
     assert_true(u_strcmp(r, u"/") == 0);
     udsfree(r);
-    r = yella_base_name("//////");
+    r = yella_base_name(u"//////");
     assert_true(u_strcmp(r, u"/") == 0);
     udsfree(r);
 #endif

@@ -342,12 +342,12 @@ void yella_log_settings(void)
                  set_elem = sglib_setting_it_next(&set_itor))
             {
                 udscatlen(out, "  ", 2);
-                udscatsds(out, set_elem->key);
+                udscatuds(out, set_elem->key);
                 udscatlen(out, "=", 1);
                 if (set_elem->type == YELLA_SETTING_VALUE_TEXT)
                 {
                     udscatlen(out, "'", 1);
-                    udscatsds(out, set_elem->value.text);
+                    udscatuds(out, set_elem->value.text);
                     udscatlen(out, "'", 1);
                 }
                 else

@@ -20,6 +20,8 @@
 #include "common/ptr_vector.h"
 #include "common/thread.h"
 #include "common/text_util.h"
+#include "common/uds_util.h"
+#include <unicode/ustdio.h>
 #include <chucho/log.h>
 #include <stdio.h>
 #include <errno.h>
@@ -82,7 +84,7 @@ static bool is_spool_file(const UChar* const name)
 static uds spool_file_name(uint32_t major_seq, uint32_t minor_seq)
 {
     return udscatprintf(udsempty(),
-                        "%S%S%lu-%lu.yella.spool",
+                        u"%S%S%lu-%lu.yella.spool",
                         yella_settings_get_text(u"agent", u"spool-dir"),
                         YELLA_DIR_SEP,
                         (unsigned long)major_seq,
@@ -129,7 +131,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
         free(utf8);
         fclose(sp->writef);
         sp->writef = NULL;
-        sdsfree(sp->write_file_name);
+        udsfree(sp->write_file_name);
         sp->write_file_name = NULL;
         return false;
     }
@@ -143,7 +145,7 @@ static bool increment_write_spool_partition(yella_spool* sp)
         free(utf8);
         fclose(sp->writef);
         sp->writef = NULL;
-        sdsfree(sp->write_file_name);
+        udsfree(sp->write_file_name);
         sp->write_file_name = NULL;
         return false;
     }
@@ -232,7 +234,7 @@ static bool init_writer(yella_spool* sp)
     else
     {
         sp->write_pos.major_seq = pos.major_seq + 1;
-        sdsfree(newest);
+        udsfree(newest);
     }
     sp->write_pos.minor_seq = 0;
     sp->write_file_name = NULL;
@@ -262,7 +264,8 @@ static void cull(yella_spool* sp)
     char* utf8;
 
     yella_file_size(oldest, &sz);
-    if (remove(oldest) == 0)
+    utf8 = yella_to_utf8(oldest);
+    if (remove(utf8) == 0)
     {
         sp->stats.current_size -= sz;
         sp->stats.bytes_culled += sz;
@@ -270,11 +273,13 @@ static void cull(yella_spool* sp)
         ++sp->stats.cull_events;
         CHUCHO_C_WARN_L(sp->lgr,
                         "The spool filled, so the oldest bytes were culled. File %s: %zu bytes",
-                        oldest,
+                        utf8,
                         sz);
+        free(utf8);
     }
     else
     {
+        free(utf8);
         utf8 = yella_to_utf8(sp->read_file_name);
         CHUCHO_C_ERROR_L(sp->lgr,
                          "Could not remove %s: %s",
@@ -475,7 +480,7 @@ static uint16_t advance_to_next_unvisited(yella_spool* sp)
                                      "Fast forwarding over already visited event (%zu) in %s",
                                      ++visited_count,
                                      utf8);
-                    freee(utf8);
+                    free(utf8);
                 }
                 for (i = 0; i < YELLA_EVENT_MSG_COUNT(msg_count); i++)
                 {
@@ -516,7 +521,7 @@ static size_t current_spool_size()
     size_t cur_size;
 
     result = 0;
-    itor = yella_create_directory_iterator(yella_settings_get_text("agent", "spool-dir"));
+    itor = yella_create_directory_iterator(yella_settings_get_text(u"agent", u"spool-dir"));
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
     {

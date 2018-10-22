@@ -61,7 +61,7 @@ void yella_log_mhdr(const yella_message_header* const mhdr, chucho_logger_t* lgr
         else
         {
             dis = (mhdr->grp->disposition == YELLA_GROUP_DISPOSITION_END) ? u"END" : u"MORE";
-            group = udscatprintf(sdsempty(), ", group { identifier = %S, disposition = %S }", mhdr->grp->identifier, dis);
+            group = udscatprintf(udsempty(), u", group { identifier = %S, disposition = %S }", mhdr->grp->identifier, dis);
         }
         /*
         CHUCHO_C_INFO_L(lgr,

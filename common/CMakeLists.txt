@@ -81,5 +81,9 @@ TARGET_LINK_LIBRARIES(common
                       "${YELLA_CHUCHO_LIB}"
                       "${YELLA_LIBYAML_LIB}"
                       "${YELLA_LZ4_LIB}"
+                      ICU::io
+                      ICU::i18n
+                      ICU::uc
+                      ICU::data
                       Threads::Threads
                       ${YELLA_MEM_LIBS})

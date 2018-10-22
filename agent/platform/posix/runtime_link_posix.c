@@ -18,6 +18,7 @@
 #include <chucho/log.h>
 #include <dlfcn.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 void close_shared_object(void* handle)
 {

@@ -26,10 +26,12 @@ UChar* yella_from_utf8(const char* const str)
 
     len = strlen(str);
     buf = malloc((len + 1) * sizeof(UChar));
+    ec = U_ZERO_ERROR;
     u_strFromUTF8(buf, len + 1, &dest_len, str, len, &ec);
     if (ec != U_ZERO_ERROR)
     {
         buf = realloc(buf, dest_len * sizeof(UChar));
+        ec = U_ZERO_ERROR;
         u_strFromUTF8(buf, dest_len, &dest_len, str, len, &ec);
         if (ec != U_ZERO_ERROR)
         {
@@ -50,10 +52,12 @@ char* yella_to_utf8(const UChar* const str)
 
     len = u_strlen(str);
     buf = malloc(len + 1);
+    ec = U_ZERO_ERROR;
     u_strToUTF8(buf, len + 1, &dest_len, str, len, &ec);
     if (ec != U_ZERO_ERROR)
     {
         buf = realloc(buf, dest_len);
+        ec = U_ZERO_ERROR;
         u_strToUTF8(buf, dest_len, &dest_len, str, len, &ec);
         if (ec != U_ZERO_ERROR)
         {
