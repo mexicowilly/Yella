@@ -221,9 +221,9 @@ static int set_up(void** arg)
     targ->server_is_ready = yella_create_event();
     targ->receiver_is_ready = yella_create_event();
     targ->thr = yella_create_thread(server_thread, targ);
-    yella_settings_set_text("agent", "router", "tcp://127.0.0.1:19567");
-    yella_settings_set_uint("agent", "reconnect-timeout-seconds", 5);
-    yella_settings_set_uint("agent", "poll-milliseconds", 500);
+    yella_settings_set_text(u"agent", u"router", u"tcp://127.0.0.1:19567");
+    yella_settings_set_uint(u"agent", u"reconnect-timeout-seconds", 5);
+    yella_settings_set_uint(u"agent", u"poll-milliseconds", 500);
     targ->id = yella_create_uuid();
     targ->rtr = yella_create_router(targ->id);
     state_event = yella_create_event();

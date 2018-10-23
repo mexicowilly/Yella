@@ -41,7 +41,9 @@ uint8_t* create_heartbeat(const UChar* id, const yella_ptr_vector* plugins, size
             }
             in_cap = (yella_plugin_in_cap*)yella_ptr_vector_at(plg->in_caps, j);
             yella_fb_capability_start(&bld);
-            yella_fb_capability_name_create_str(&bld, in_cap->name);
+            utf8 = yella_to_utf8(in_cap->name);
+            yella_fb_capability_name_create_str(&bld, utf8);
+            free(utf8);
             yella_fb_capability_version_add(&bld, in_cap->version);
             has_configs = false;
             for (k = 0; k < yella_ptr_vector_size(in_cap->configs); k++)
