@@ -16,6 +16,7 @@
 
 
 #include "common/file.h"
+#include <unicode/ustring.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
@@ -24,70 +25,70 @@
 
 static void base_name(void** arg)
 {
-    char* r;
+    uds r;
 
-    r = yella_base_name("/one/two/three");
-    assert_string_equal(r, "three");
-    sdsfree(r);
-    r = yella_base_name("/one/two/three/");
-    assert_string_equal(r, "three");
-    sdsfree(r);
-    r = yella_base_name("/one/two/three///");
-    assert_string_equal(r, "three");
-    sdsfree(r);
-    r = yella_base_name("/one/two////////three///");
-    assert_string_equal(r, "three");
-    sdsfree(r);
-    r = yella_base_name("");
-    assert_string_equal(r, ".");
-    sdsfree(r);
-    r = yella_base_name("one");
-    assert_string_equal(r, "one");
-    sdsfree(r);
+    r = yella_base_name(u"/one/two/three");
+    assert_true(u_strcmp(r, u"three") == 0);
+    udsfree(r);
+    r = yella_base_name(u"/one/two/three/");
+    assert_true(u_strcmp(r, u"three") == 0);
+    udsfree(r);
+    r = yella_base_name(u"/one/two/three///");
+    assert_true(u_strcmp(r, u"three") == 0);
+    udsfree(r);
+    r = yella_base_name(u"/one/two////////three///");
+    assert_true(u_strcmp(r, u"three") == 0);
+    udsfree(r);
+    r = yella_base_name(u"");
+    assert_true(u_strcmp(r, u".") == 0);
+    udsfree(r);
+    r = yella_base_name(u"one");
+    assert_true(u_strcmp(r, u"one") == 0);
+    udsfree(r);
 #if defined(YELLA_POSIX)
-    r = yella_base_name("/");
-    assert_string_equal(r, "/");
-    sdsfree(r);
-    r = yella_base_name("//////");
-    assert_string_equal(r, "/");
-    sdsfree(r);
+    r = yella_base_name(u"/");
+    assert_true(u_strcmp(r, u"/") == 0);
+    udsfree(r);
+    r = yella_base_name(u"//////");
+    assert_true(u_strcmp(r, u"/") == 0);
+    udsfree(r);
 #endif
 }
 
 static void dir_name(void** arg)
 {
-    char* r;
+    uds r;
 
-    r = yella_dir_name("/one/two/three");
-    assert_string_equal(r, "/one/two");
-    sdsfree(r);
-    r = yella_dir_name("/one/two/three/");
-    assert_string_equal(r, "/one/two");
-    sdsfree(r);
-    r = yella_dir_name("/one/two/three/////////");
-    assert_string_equal(r, "/one/two");
-    sdsfree(r);
-    r = yella_dir_name("/one/two/////three/////////");
-    assert_string_equal(r, "/one/two");
-    sdsfree(r);
-    r = yella_dir_name("/one/two/////three");
-    assert_string_equal(r, "/one/two");
-    sdsfree(r);
-    r = yella_dir_name("one/two");
-    assert_string_equal(r, "one");
-    sdsfree(r);
-    r = yella_dir_name("one/////two/////////////");
-    assert_string_equal(r, "one");
-    sdsfree(r);
-    r = yella_dir_name("");
-    assert_string_equal(r, ".");
-    sdsfree(r);
-    r = yella_dir_name("one");
-    assert_string_equal(r, ".");
-    sdsfree(r);
-    r = yella_dir_name("/one");
-    assert_string_equal(r, "/");
-    sdsfree(r);
+    r = yella_dir_name(u"/one/two/three");
+    assert_true(u_strcmp(r, u"/one/two") == 0);
+    udsfree(r);
+    r = yella_dir_name(u"/one/two/three/");
+    assert_true(u_strcmp(r, u"/one/two") == 0);
+    udsfree(r);
+    r = yella_dir_name(u"/one/two/three/////////");
+    assert_true(u_strcmp(r, u"/one/two") == 0);
+    udsfree(r);
+    r = yella_dir_name(u"/one/two/////three/////////");
+    assert_true(u_strcmp(r, u"/one/two") == 0);
+    udsfree(r);
+    r = yella_dir_name(u"/one/two/////three");
+    assert_true(u_strcmp(r, u"/one/two") == 0);
+    udsfree(r);
+    r = yella_dir_name(u"one/two");
+    assert_true(u_strcmp(r, u"one") == 0);
+    udsfree(r);
+    r = yella_dir_name(u"one/////two/////////////");
+    assert_true(u_strcmp(r, u"one") == 0);
+    udsfree(r);
+    r = yella_dir_name(u"");
+    assert_true(u_strcmp(r, u".") == 0);
+    udsfree(r);
+    r = yella_dir_name(u"one");
+    assert_true(u_strcmp(r, u".") == 0);
+    udsfree(r);
+    r = yella_dir_name(u"/one");
+    assert_true(u_strcmp(r, u"/") == 0);
+    udsfree(r);
 }
 
 int main()

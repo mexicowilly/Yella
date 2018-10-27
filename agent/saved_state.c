@@ -22,6 +22,7 @@
 #include "common/settings.h"
 #include "common/file.h"
 #include "common/text_util.h"
+#include <unicode/ustdio.h>
 #include <chucho/log.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,9 +56,9 @@ static bool mac_addresses_changed(yella_fb_mac_addr_vec_t old_addrs, chucho_logg
     return result;
 }
 
-static sds ss_file_name(void)
+static uds ss_file_name(void)
 {
-    return sdscatprintf(sdsempty(), "%s%s%s", yella_settings_get_text("agent", "data-dir"), YELLA_DIR_SEP, "saved_state.flatb");
+    return udscatprintf(udsempty(), u"%S%S%S", yella_settings_get_text(u"agent", u"data-dir"), YELLA_DIR_SEP, u"saved_state.flatb");
 }
 
 static void reset_ss(yella_saved_state* st, chucho_logger_t* lgr)
@@ -76,7 +77,7 @@ void yella_destroy_saved_state(yella_saved_state* ss)
 
 yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
 {
-    sds fname;
+    uds fname;
     uint8_t* raw;
     yella_fb_saved_state_table_t tbl;
     bool is_corrupt;
@@ -86,7 +87,9 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
     yella_fb_mac_addr_vec_t mac_addrs_vec;
     flatbuffers_uint8_vec_t addr_bytes;
     int i;
-    sds addr_text;
+    uds addr_text;
+    char* utf8_addr;
+    char* utf8_id;
 
     ss = malloc(sizeof(yella_saved_state));
     is_corrupt = false;
@@ -124,15 +127,15 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
                         addr_bytes = yella_fb_mac_addr_bytes(yella_fb_mac_addr_vec_at(mac_addrs_vec, i));
                         assert(flatbuffers_uint8_vec_len(addr_bytes) == sizeof(ss->mac_addresses->addrs[i].addr));
                         memcpy(&ss->mac_addresses->addrs[i], addr_bytes, sizeof(ss->mac_addresses->addrs[i].addr));
-                        snprintf(ss->mac_addresses->addrs[i].text,
-                                 sizeof(ss->mac_addresses->addrs[i].text),
-                                 "%02x:%02x:%02x:%02x:%02x:%02x",
-                                 ss->mac_addresses->addrs[i].addr[0],
-                                 ss->mac_addresses->addrs[i].addr[1],
-                                 ss->mac_addresses->addrs[i].addr[2],
-                                 ss->mac_addresses->addrs[i].addr[3],
-                                 ss->mac_addresses->addrs[i].addr[4],
-                                 ss->mac_addresses->addrs[i].addr[5]);
+                        u_snprintf_u(ss->mac_addresses->addrs[i].text,
+                                     sizeof(ss->mac_addresses->addrs[i].text) / sizeof(UChar),
+                                     u"%02x:%02x:%02x:%02x:%02x:%02x",
+                                     ss->mac_addresses->addrs[i].addr[0],
+                                     ss->mac_addresses->addrs[i].addr[1],
+                                     ss->mac_addresses->addrs[i].addr[2],
+                                     ss->mac_addresses->addrs[i].addr[3],
+                                     ss->mac_addresses->addrs[i].addr[4],
+                                     ss->mac_addresses->addrs[i].addr[5]);
                     }
                 }
             }
@@ -145,9 +148,11 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
     }
     else if (rc == YELLA_DOES_NOT_EXIST)
     {
+        utf8_id = yella_to_utf8(fname);
         CHUCHO_C_INFO_L(lgr,
                         "The file %s does not exist. This is first boot.",
-                        fname);
+                        utf8_id);
+        free(utf8_id);
         reset_ss(ss, lgr);
     }
     else
@@ -156,32 +161,38 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
     }
     if (is_corrupt)
     {
+        utf8_id = yella_to_utf8(fname);
         CHUCHO_C_INFO_L(lgr,
                         "The file %s is corrupt. It is being recreated.",
-                        fname);
-        remove(fname);
+                        utf8_id);
+        remove(utf8_id);
+        free(utf8_id);
         reset_ss(ss, lgr);
     }
-    sdsfree(fname);
+    udsfree(fname);
     ++ss->boot_count;
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
-        addr_text = sdsempty();
+        addr_text = udsempty();
         if (ss->mac_addresses->count > 0)
         {
             for (i = 0; i < ss->mac_addresses->count; i++)
             {
-                addr_text = sdscat(addr_text, ss->mac_addresses->addrs[i].text);
-                addr_text = sdscat(addr_text, ",");
+                addr_text = udscat(addr_text, ss->mac_addresses->addrs[i].text);
+                addr_text = udscat(addr_text, u",");
             }
-            addr_text[strlen(addr_text) - 1] = 0;
+            addr_text[u_strlen(addr_text) - 1] = 0;
         }
+        utf8_addr = yella_to_utf8(addr_text);
+        utf8_id = yella_to_utf8(ss->id->text);
         CHUCHO_C_INFO_L(lgr,
                         "Saved state: boot_count = %u, id = %s, mac_addresses = { %s }",
                         ss->boot_count,
-                        ss->id->text,
-                        addr_text);
-        sdsfree(addr_text);
+                        utf8_id,
+                        utf8_addr);
+        free(utf8_id);
+        free(utf8_addr);
+        udsfree(addr_text);
     }
     return ss;
 }
@@ -192,17 +203,18 @@ yella_rc yella_save_saved_state(yella_saved_state* ss, chucho_logger_t* lgr)
     flatcc_builder_t bld;
     uint8_t* raw;
     size_t size;
-    sds fname;
+    uds fname;
     size_t num_written;
     int err;
     int i;
+    char* utf8;
 
     flatcc_builder_init(&bld);
     yella_fb_saved_state_start_as_root(&bld);
     yella_fb_saved_state_boot_count_add(&bld, ss->boot_count);
     yella_fb_saved_state_uuid_create(&bld,
-                                    ss->id->id,
-                                    sizeof(ss->id->text));
+                                     ss->id->id,
+                                     sizeof(ss->id->id));
     if (ss->mac_addresses->count > 0)
     {
         yella_fb_saved_state_mac_addrs_start(&bld);
@@ -221,15 +233,17 @@ yella_rc yella_save_saved_state(yella_saved_state* ss, chucho_logger_t* lgr)
     raw = flatcc_builder_finalize_buffer(&bld, &size);
     flatcc_builder_clear(&bld);
     fname = ss_file_name();
-    f = fopen(fname, "wb");
+    utf8 = yella_to_utf8(fname);
+    f = fopen(utf8, "wb");
     if (f == NULL)
     {
         err = errno;
         CHUCHO_C_ERROR_L(lgr,
                          "Could not open %s for writing: %s",
-                         fname,
+                         utf8,
                          strerror(err));
-        sdsfree(fname);
+        free(utf8);
+        udsfree(fname);
         free(raw);
         return YELLA_WRITE_ERROR;
     }
@@ -240,12 +254,14 @@ yella_rc yella_save_saved_state(yella_saved_state* ss, chucho_logger_t* lgr)
     {
         CHUCHO_C_ERROR_L(lgr,
                          "The was a problem writing to %s. The boot state cannot be saved. Subsequent boots will be considered first boot.",
-                         fname);
-        remove(fname);
-        sdsfree(fname);
+                         utf8);
+        remove(utf8);
+        free(utf8);
+        udsfree(fname);
         return YELLA_WRITE_ERROR;
     }
-    sdsfree(fname);
+    free(utf8);
+    udsfree(fname);
     return YELLA_NO_ERROR;
 }
 

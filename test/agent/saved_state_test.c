@@ -11,7 +11,7 @@ static void load_new_and_save(void** targ)
     yella_saved_state* st2;
     yella_rc rc;
     int i;
-    chucho_logger_t* lgr;
+    chucho_logger_t* lgr = NULL;
 
     lgr = chucho_get_logger("saved_state");
     st = yella_load_saved_state(lgr);
@@ -38,15 +38,15 @@ static void load_new_and_save(void** targ)
 static int set_up(void** arg)
 {
     yella_initialize_settings();
-    yella_settings_set_text("agent", "data-dir", "saved-state-data");
-    yella_remove_all(yella_settings_get_text("agent", "data-dir"));
-    yella_ensure_dir_exists(yella_settings_get_text("agent", "data-dir"));
+    yella_settings_set_text(u"agent", u"data-dir", u"saved-state-data");
+    yella_remove_all(yella_settings_get_text(u"agent", u"data-dir"));
+    yella_ensure_dir_exists(yella_settings_get_text(u"agent", u"data-dir"));
     return 0;
 }
 
 static int tear_down(void** arg)
 {
-    yella_remove_all(yella_settings_get_text("agent", "data-dir"));
+    yella_remove_all(yella_settings_get_text(u"agent", u"data-dir"));
     yella_destroy_settings();
     return 0;
 }

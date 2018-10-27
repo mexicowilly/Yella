@@ -16,11 +16,22 @@
 
 #include "common/settings.h"
 #include "common/macro_util.h"
+#include "common/text_util.h"
+#include "common/uds.h"
+#include <stdlib.h>
 
 void yella_initialize_platform_settings(void)
 {
-    yella_settings_set_text("agent", "config-file", "/etc/yella.yaml");
-    yella_settings_set_text("agent", "data-dir", "/var/lib/yella");
-    yella_settings_set_text("agent", "spool-dir", "/var/spool/yella");
-    yella_settings_set_text("agent", "plugin-dir", YELLA_VALUE_STR(YELLA_INSTALL_PREFIX) "/plugin");
+    uds plg;
+    UChar* utf16;
+
+    yella_settings_set_text(u"agent", u"config-file", u"/etc/yella.yaml");
+    yella_settings_set_text(u"agent", u"data-dir", u"/var/lib/yella");
+    yella_settings_set_text(u"agent", u"spool-dir", u"/var/spool/yella");
+    utf16 = yella_from_utf8(YELLA_VALUE_STR(YELLA_INSTALL_PREFIX));
+    plg = udsnew(utf16);
+    free(utf16);
+    plg = udscat(plg, u"/plugin");
+    yella_settings_set_text(u"agent", u"plugin-dir", plg);
+    udsfree(plg);
 }

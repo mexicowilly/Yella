@@ -15,8 +15,8 @@
  */
 
 #include "common/file.h"
+#include "common/uds_util.h"
 #include "common/text_util.h"
-#include "common/sds_util.h"
 #include <chucho/log.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -28,106 +28,89 @@
 #include <dirent.h>
 #include <stdio.h>
 
-const char* YELLA_DIR_SEP = "/";
+const UChar* YELLA_DIR_SEP = u"/";
 
 struct yella_directory_iterator
 {
     DIR* dir;
-    struct dirent* entry;
-    char fqn[PATH_MAX + 1];
-    size_t dir_name_len;
+    uds dir_name;
+    uds fqn;
 };
 
-void sds_ptr_destructor(void* elem, void* udata)
+static yella_ptr_vector* yella_get_dirs(const UChar* const fqpath)
 {
-    sdsfree(elem);
-}
-
-static bool yella_do_stat(const char* const name, struct stat* info)
-{
-    int err;
-
-    if (stat(name, info) != 0)
-    {
-        err = errno;
-        CHUCHO_C_ERROR("yella.common",
-                       "Could not get information about %s: %s",
-                       name,
-                       strerror(err));
-        return false;
-    }
-    return true;
-}
-
-static yella_ptr_vector* yella_get_dirs(const char* const fqpath)
-{
-    sds cur;
+    uds cur;
     yella_ptr_vector* vec;
 
-    vec = yella_create_sds_ptr_vector();
+    vec = yella_create_uds_ptr_vector();
     cur = yella_dir_name(fqpath);
-    if (strcmp(cur, ".") == 0)
+    if (u_strcmp(cur, u".") == 0)
     {
         yella_push_back_ptr_vector(vec, cur);
         return vec;
     }
-    while (strcmp(cur, "/") != 0)
+    while (u_strcmp(cur, u"/") != 0)
     {
         yella_push_front_ptr_vector(vec, cur);
         cur = yella_dir_name(cur);
     }
-    sdsfree(cur);
+    udsfree(cur);
     return vec;
 }
 
-static const char* yella_last_not(const char* const str, char c)
+static const UChar* yella_last_not(const UChar* const str, UChar c)
 {
-    const char* result;
+    const UChar* result;
     size_t len;
 
-    len = strlen(str);
+    len = u_strlen(str);
     if (len == 0)
         return NULL;
     result = str + len - 1;
     while (result >= str && *result == c)
-        result --;
+        result--;
     return (result < str) ? NULL : result;
 }
 
-sds yella_base_name(const char* const path)
+uds yella_base_name(const UChar* const path)
 {
     size_t len;
     size_t span;
-    const char* end;
-    const char* slash;
+    const UChar* end;
+    const UChar* slash;
 
-    len = strlen(path);
+    len = u_strlen(path);
     if (len == 0)
-        return sdsnew(".");
-    span = strspn(path, "/");
+        return udsnew(u".");
+    span = u_strspn(path, u"/");
     if (span == len)
-        return sdsnew("/");
-    end = yella_last_not(path, '/');
+        return udsnew(u"/");
+    end = yella_last_not(path, u'/');
     slash = end;
-    while (*slash != '/' && slash >= path)
+    while (*slash != u'/' && slash >= path)
         slash--;
     if (slash < path)
-        return sdsnew(path);
-    return sdsnewlen(slash + 1, end - slash);
+        return udsnew(path);
+    return udsnewlen(slash + 1, end - slash);
 }
 
-yella_rc yella_create_directory(const char* const name)
+yella_rc yella_create_directory(const UChar* const name)
 {
     yella_rc result;
     int err;
+    int rc;
+    char* utf8;
 
-    if(mkdir(name, 0755) == 0)
+    utf8 = yella_to_utf8(name);
+    rc = mkdir(utf8, 0755);
+    err = errno;
+    free(utf8);
+    if(rc == 0)
     {
         result = YELLA_NO_ERROR;
     }
     else
     {
-        err = errno;
         CHUCHO_C_ERROR("yella.common",
                        "Could not create directory %s: %s",
                        name,
@@ -142,43 +125,47 @@ yella_rc yella_create_directory(const char* const name)
     return result;
 }
 
-yella_directory_iterator* yella_create_directory_iterator(const char* const dir)
+yella_directory_iterator* yella_create_directory_iterator(const UChar* const dir)
 {
     yella_directory_iterator* result;
     int err;
     size_t len;
+    char* utf8;
 
     result = malloc(sizeof(yella_directory_iterator));
-    result->dir = opendir(dir);
+    utf8 = yella_to_utf8(dir);
+    result->dir = opendir(utf8);
     if (result->dir == NULL)
     {
         err = errno;
         CHUCHO_C_ERROR("yella.common",
                        "Could not open directory %s for reading: %s",
-                       dir,
+                       utf8,
                        strerror(err));
+        free(utf8);
         free(result);
         return NULL;
     }
-    result->entry = malloc(sizeof(struct dirent) + NAME_MAX + 1);
-    strcpy(result->fqn, dir);
-    len = strlen(result->fqn);
-    if (result->fqn[len - 1] != YELLA_DIR_SEP[0])
-        strcat(result->fqn, YELLA_DIR_SEP);
-    result->dir_name_len = strlen(result->fqn);
+    free(utf8);
+    result->dir_name = udsnew(dir);
+    if (result->dir_name[udslen(result->dir_name) - 1] != YELLA_DIR_SEP[0])
+        result->dir_name = udscat(result->dir_name, YELLA_DIR_SEP);
+    result->fqn = NULL;
     return result;
 }
 
 void yella_destroy_directory_iterator(yella_directory_iterator* itor)
 {
-    free(itor->entry);
     closedir(itor->dir);
+    udsfree(itor->dir_name);
+    udsfree(itor->fqn);
     free(itor);
 }
 
-const char* yella_directory_iterator_next(yella_directory_iterator* itor)
+const UChar* yella_directory_iterator_next(yella_directory_iterator* itor)
 {
     struct dirent* found;
+    UChar* utf16;
 
     do
     {
@@ -187,51 +174,54 @@ const char* yella_directory_iterator_next(yella_directory_iterator* itor)
              (strcmp(found->d_name, ".") == 0 || strcmp(found->d_name, "..") == 0));
     if (found == NULL)
         return NULL;
-    itor->fqn[itor->dir_name_len] = 0;
-    strcat(itor->fqn, found->d_name);
+    udsfree(itor->fqn);
+    itor->fqn = udscpy(udsempty(), itor->dir_name);
+    utf16 = yella_from_utf8(found->d_name);
+    itor->fqn = udscat(itor->fqn, utf16);
+    free(utf16);
     return itor->fqn;
 }
 
-sds yella_dir_name(const char* const path)
+uds yella_dir_name(const UChar* const path)
 {
     size_t len;
-    const char* end;
-    const char* slash;
+    const UChar* end;
+    const UChar* slash;
     size_t span;
 
-    len = strlen(path);
+    len = u_strlen(path);
     if (len == 0)
-        return sdsnew(".");
-    span = strspn(path, "/");
+        return udsnew(u".");
+    span = u_strspn(path, u"/");
     if (span == len)
-        return sdsnew("/");
-    end = yella_last_not(path, '/');
+        return udsnew(u"/");
+    end = yella_last_not(path, u'/');
     slash = end;
-    while (*slash != '/' && slash >= path)
+    while (*slash != u'/' && slash >= path)
         slash--;
     if (slash < path)
-        return sdsnew(".");
+        return udsnew(u".");
     end = slash;
-    while (*end == '/' && end >= path)
+    while (*end == u'/' && end >= path)
         end--;
     if (end < path)
-        return sdsnew("/");
-    return sdsnewlen(path, end - path + 1);
+        return udsnew(u"/");
+    return udsnewlen(path, end - path + 1);
 }
 
-yella_rc yella_ensure_dir_exists(const char* const name)
+yella_rc yella_ensure_dir_exists(const UChar* const name)
 {
     yella_ptr_vector* dirs;
     size_t i;
     yella_rc rc = YELLA_NO_ERROR;
-    const char* cur;
+    const UChar* cur;
 
     if (name == NULL || name[0] == 0)
         return YELLA_LOGIC_ERROR;
     dirs = yella_get_dirs(name);
-    if (strcmp(yella_ptr_vector_at(dirs, 0), ".") == 0)
+    if (u_strcmp(yella_ptr_vector_at(dirs, 0), u".") == 0)
         yella_pop_front_ptr_vector(dirs);
-    yella_push_back_ptr_vector(dirs, sdsnew(name));
+    yella_push_back_ptr_vector(dirs, udsnew(name));
     for (i = 0; i < yella_ptr_vector_size(dirs); i++)
     {
         cur = yella_ptr_vector_at(dirs, i);
@@ -246,18 +236,28 @@ yella_rc yella_ensure_dir_exists(const char* const name)
     return rc;
 }
 
-bool yella_file_exists(const char* const name)
+bool yella_file_exists(const UChar* const name)
 {
-    return access(name, F_OK) == 0;
+    char* utf8;
+    int rc;
+
+    utf8 = yella_to_utf8(name);
+    rc = access(utf8, F_OK);
+    free(utf8);
+    return rc == 0;
 }
 
-yella_rc yella_file_size(const char* const name, size_t* sz)
+yella_rc yella_file_size(const UChar* const name, size_t* sz)
 {
     struct stat info;
     int err;
     yella_rc yrc;
+    char* utf8;
+    int rc;
 
-    if (stat(name, &info) == 0)
+    utf8 = yella_to_utf8(name);
+    rc = stat(utf8, &info);
+    if (rc == 0)
     {
         *sz = info.st_size;
         yrc = YELLA_NO_ERROR;
@@ -273,28 +273,31 @@ yella_rc yella_file_size(const char* const name, size_t* sz)
             yrc = YELLA_FILE_SYSTEM_ERROR;
         CHUCHO_C_ERROR("yella.common",
                        "Could not get information about %s: %s",
-                       name,
+                       utf8,
                        strerror(err));
     }
+    free(utf8);
     return yrc;
 }
 
-char* yella_getcwd(void)
+const UChar* yella_getcwd(void)
 {
-    return getcwd(NULL, 0);
+    return yella_from_utf8(getcwd(NULL, 0));
 }
 
-static yella_rc remove_all_impl(const char* const name)
+static yella_rc remove_all_impl(const UChar* const name)
 {
     yella_directory_iterator* itor = yella_create_directory_iterator(name);
-    const char* cur = yella_directory_iterator_next(itor);
+    const UChar* cur = yella_directory_iterator_next(itor);
     struct stat st;
     yella_rc rc = YELLA_NO_ERROR;
     yella_rc cur_rc;
+    char* utf8;
 
     while (cur != NULL)
     {
-        stat(cur, &st);
+        utf8 = yella_to_utf8(cur);
+        stat(utf8, &st);
         if (S_ISDIR(st.st_mode))
         {
             cur_rc = remove_all_impl(cur);
@@ -303,57 +306,69 @@ static yella_rc remove_all_impl(const char* const name)
         }
         else
         {
-            if (remove(cur) != 0)
+            if (remove(utf8) != 0)
             {
                 CHUCHO_C_ERROR("yella.common",
                                "Unable to remove %s: %s",
-                               cur,
+                               utf8,
                                strerror(errno));
                 if (YELLA_FILE_SYSTEM_ERROR > rc)
                     rc = YELLA_FILE_SYSTEM_ERROR;
             }
         }
+        free(utf8);
         cur = yella_directory_iterator_next(itor);
     }
     yella_destroy_directory_iterator(itor);
-    if (remove(name) != 0)
+    utf8 = yella_to_utf8(name);
+    if (remove(utf8) != 0)
     {
         CHUCHO_C_ERROR("yella.common",
                        "Unable to remove %s: %s",
-                       name,
+                       utf8,
                        strerror(errno));
         if (YELLA_FILE_SYSTEM_ERROR > rc)
             rc = YELLA_FILE_SYSTEM_ERROR;
     }
+    free(utf8);
     return rc;
 }
 
-yella_rc yella_remove_all(const char* const name)
+yella_rc yella_remove_all(const UChar* const name)
 {
     struct stat st;
+    char* utf8;
 
-    if (access(name, F_OK) != 0)
+    utf8 = yella_to_utf8(name);
+    if (access(utf8, F_OK) != 0)
+    {
+        free(utf8);
         return YELLA_NO_ERROR;
-    if (stat(name, &st) != 0)
+    }
+    if (stat(utf8, &st) != 0)
     {
         CHUCHO_C_ERROR("yella.common",
                        "Unable to stat %s: %s",
-                       name,
+                       utf8,
                        strerror(errno));
+        free(utf8);
         return YELLA_FILE_SYSTEM_ERROR;
     }
     if (S_ISDIR(st.st_mode))
     {
+        free(utf8);
         return remove_all_impl(name);
     }
-    if (remove(name) != 0)
+    if (remove(utf8) != 0)
     {
         CHUCHO_C_ERROR("yella.common",
                        "Unable to remove %s: %s",
-                       name,
+                       utf8,
                        strerror(errno));
+        free(utf8);
         return YELLA_FILE_SYSTEM_ERROR;
     }
+    free(utf8);
     return YELLA_NO_ERROR;
 }
 

@@ -15,30 +15,34 @@
  */
 
 #include "common/file.h"
+#include "common/text_util.h"
 #include <chucho/log.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 
-yella_rc yella_file_contents(const char* const name, uint8_t** contents)
+yella_rc yella_file_contents(const UChar* const name, uint8_t** contents)
 {
     FILE* f;
     size_t size = 0;
     int err;
     size_t num_read;
+    char* utf8;
 
     if (!yella_file_exists(name))
         return YELLA_DOES_NOT_EXIST;
     yella_file_size(name, &size);
-    f = fopen(name, "rb");
+    utf8 = yella_to_utf8(name);
+    f = fopen(utf8, "rb");
     if (f == NULL)
     {
         err = errno;
         CHUCHO_C_ERROR("yella.common",
                        "Could not open %s for reading: %s",
-                       name,
+                       utf8,
                        strerror(err));
+        free(utf8);
         return YELLA_FILE_SYSTEM_ERROR;
     }
     *contents = malloc(size);
@@ -48,9 +52,11 @@ yella_rc yella_file_contents(const char* const name, uint8_t** contents)
     {
         CHUCHO_C_ERROR("yella.common",
                        "Could not read %s",
-                       name);
+                       utf8);
+        free(utf8);
         free(*contents);
         return YELLA_FILE_SYSTEM_ERROR;
     }
+    free(utf8);
     return YELLA_NO_ERROR;
 }

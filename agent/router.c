@@ -18,6 +18,7 @@
 #include "common/settings.h"
 #include "common/return_code.h"
 #include "common/thread.h"
+#include "common/text_util.h"
 #include <chucho/log.h>
 #include <zmq.h>
 #include <stdlib.h>
@@ -83,13 +84,14 @@ static void* create_monitor_socket(yella_router* rtr)
 static void* create_router_socket(yella_router* rtr)
 {
     void* sock;
-    const char* endpoint;
+    const UChar* endpoint;
     const char* id_text;
     int recon_timeout_millis;
     int rc;
+    char* utf8;
 
     sock = NULL;
-    endpoint = yella_settings_get_text("agent", "router");
+    endpoint = yella_settings_get_text(u"agent", u"router");
     if (endpoint == NULL)
     {
         CHUCHO_C_ERROR_L(rtr->lgr,
@@ -103,11 +105,13 @@ static void* create_router_socket(yella_router* rtr)
                          "The router socket could not be created");
         return NULL;
     }
+    utf8 = yella_to_utf8(rtr->id->text);
     zmq_setsockopt(sock,
                    ZMQ_IDENTITY,
-                   rtr->id->text,
-                   strlen(rtr->id->text));
-    recon_timeout_millis = *yella_settings_get_uint("agent", "reconnect-timeout-seconds") * 1000;
+                   utf8,
+                   strlen(utf8));
+    free(utf8);
+    recon_timeout_millis = *yella_settings_get_uint(u"agent", u"reconnect-timeout-seconds") * 1000;
     zmq_setsockopt(sock,
                    ZMQ_RECONNECT_IVL,
                    &recon_timeout_millis,
@@ -122,16 +126,19 @@ static void* create_router_socket(yella_router* rtr)
         zmq_close(sock);
         return NULL;
     }
-    rc = zmq_connect(sock, endpoint);
+    utf8 = yella_to_utf8(endpoint);
+    rc = zmq_connect(sock, utf8);
     if (rc != 0)
     {
         CHUCHO_C_ERROR_L(rtr->lgr,
                          "Could not initiate connection to %s: %s",
-                         endpoint,
+                         utf8,
                          zmq_strerror(rc));
+        free(utf8);
         zmq_close(sock);
         return NULL;
     }
+    free(utf8);
     return sock;
 }
 

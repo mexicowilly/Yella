@@ -18,9 +18,12 @@
 #define TEXT_UTIL_H__
 
 #include "export.h"
-#include <stdint.h>
+#include <unicode/ustring.h>
 
-extern const char* yella_nl;
+extern const UChar* yella_nl;
+
+YELLA_EXPORT UChar* yella_from_utf8(const char* const str);
+YELLA_EXPORT char* yella_to_utf8(const UChar* const str);
 
 /*
 YELLA_EXPORT char* yella_sprintf(const char* const fmt, ...);

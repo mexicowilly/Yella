@@ -1,12 +1,13 @@
 #include "agent/heartbeat.h"
 #include "plugin/plugin.h"
+#include "common/text_util.h"
 #include "heartbeat_builder.h"
 #include <time.h>
 #include <stdbool.h>
 
 extern void set_host(flatcc_builder_t* bld);
 
-uint8_t* create_heartbeat(const char* id, const yella_ptr_vector* plugins, size_t* sz)
+uint8_t* create_heartbeat(const UChar* id, const yella_ptr_vector* plugins, size_t* sz)
 {
     flatcc_builder_t bld;
     int i;
@@ -18,10 +19,13 @@ uint8_t* create_heartbeat(const char* id, const yella_ptr_vector* plugins, size_
     uint8_t* result;
     bool has_caps;
     bool has_configs;
+    char* utf8;
 
     flatcc_builder_init(&bld);
     yella_fb_heartbeat_start_as_root(&bld);
-    yella_fb_heartbeat_id_create_str(&bld, id);
+    utf8 = yella_to_utf8(id);
+    yella_fb_heartbeat_id_create_str(&bld, utf8);
+    free(utf8);
     set_host(&bld);
     yella_fb_heartbeat_seconds_since_epoch_add(&bld, time(NULL));
     has_caps = false;
@@ -37,7 +41,9 @@ uint8_t* create_heartbeat(const char* id, const yella_ptr_vector* plugins, size_
             }
             in_cap = (yella_plugin_in_cap*)yella_ptr_vector_at(plg->in_caps, j);
             yella_fb_capability_start(&bld);
-            yella_fb_capability_name_create_str(&bld, in_cap->name);
+            utf8 = yella_to_utf8(in_cap->name);
+            yella_fb_capability_name_create_str(&bld, utf8);
+            free(utf8);
             yella_fb_capability_version_add(&bld, in_cap->version);
             has_configs = false;
             for (k = 0; k < yella_ptr_vector_size(in_cap->configs); k++)
@@ -47,8 +53,9 @@ uint8_t* create_heartbeat(const char* id, const yella_ptr_vector* plugins, size_
                     yella_fb_capability_configurations_start(&bld);
                     has_configs = true;
                 }
-                yella_fb_capability_configurations_push_create_str(&bld,
-                                                                   (const char*)yella_ptr_vector_at(in_cap->configs, k));
+                utf8 = yella_to_utf8((const UChar*)yella_ptr_vector_at(in_cap->configs, k));
+                yella_fb_capability_configurations_push_create_str(&bld, utf8);
+                free(utf8);
             }
             if (has_configs)
             {
@@ -76,7 +83,9 @@ uint8_t* create_heartbeat(const char* id, const yella_ptr_vector* plugins, size_
             }
             out_cap = (yella_plugin_out_cap*)yella_ptr_vector_at(plg->out_caps, j);
             yella_fb_capability_start(&bld);
-            yella_fb_capability_name_create_str(&bld, out_cap->name);
+            utf8 = yella_to_utf8(out_cap->name);
+            yella_fb_capability_name_create_str(&bld, utf8);
+            free(utf8);
             yella_fb_capability_version_add(&bld, out_cap->version);
             yella_fb_heartbeat_out_capabilities_push(&bld, yella_fb_capability_end(&bld));
         }

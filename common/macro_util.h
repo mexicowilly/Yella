@@ -19,8 +19,8 @@
 #if !defined(MACRO_UTIL_H__)
 #define MACRO_UTIL_H__
 
-#define YELLA_VALUE_STR(s) YELLA_VALUE_STR_IMPL(s)
 #define YELLA_VALUE_STR_IMPL(s) #s
+#define YELLA_VALUE_STR(s) YELLA_VALUE_STR_IMPL(s)
 #define YELLA_ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
 #define YELLA_REQUIRE_FLATB_FIELD(tbl, tbl_var, fld, lgr, fl) \

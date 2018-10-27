@@ -15,6 +15,7 @@
  */
 
 #include "common/settings.h"
+#include <unicode/ustring.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
@@ -36,14 +37,14 @@ static void write_config(const char* const fname, const char* const content)
 }
 
 static void load_preamble(const char* const config,
-                          const char* const section,
+                          const UChar* const section,
                           const yella_setting_desc* desc,
                           size_t count)
 {
     yella_rc rc;
 
     write_config("load_settings_test.yaml", config);
-    yella_settings_set_text("agent", "config-file", "load_settings_test.yaml");
+    yella_settings_set_text(u"agent", u"config-file", u"load_settings_test.yaml");
     rc = yella_load_settings_doc();
     remove("load_settings_test.yaml");
     assert_int_equal(rc, YELLA_NO_ERROR);
@@ -66,45 +67,45 @@ static int tear_down(void** arg)
 static void initial_settings(void** arg)
 {
 #if defined(YELLA_POSIX)
-    assert_string_equal(yella_settings_get_text("agent", "config-file"), "/etc/yella.yaml");
-    assert_string_equal(yella_settings_get_text("agent", "data-dir"), "/var/lib/yella");
-    assert_string_equal(yella_settings_get_text("agent", "spool-dir"), "/var/spool/yella");
-    assert_string_equal(yella_settings_get_text("agent", "plugin-dir"), "/usr/local/plugin");
+    assert_true(u_strcmp(yella_settings_get_text(u"agent", u"config-file"), u"/etc/yella.yaml") == 0);
+    assert_true(u_strcmp(yella_settings_get_text(u"agent", u"data-dir"), u"/var/lib/yella") == 0);
+    assert_true(u_strcmp(yella_settings_get_text(u"agent", u"spool-dir"), u"/var/spool/yella") == 0);
+    assert_true(u_strcmp(yella_settings_get_text(u"agent", u"plugin-dir"), u"/usr/local/plugin") == 0);
 #endif
 }
 
 static void get_set(void** arg)
 {
     const uint64_t* val;
-    const char* str;
+    const UChar* str;
 
     yella_load_settings_doc();
     yella_destroy_settings_doc();
-    yella_settings_set_uint("doggy", "int-test", 67);
-    val = yella_settings_get_uint("doggy", "int-test");
+    yella_settings_set_uint(u"doggy", u"int-test", 67);
+    val = yella_settings_get_uint(u"doggy", u"int-test");
     assert_non_null(val);
     assert_int_equal(*val, 67);
-    val = yella_settings_get_uint("agent", "config-file");
+    val = yella_settings_get_uint(u"agent", u"config-file");
     assert_null(val);
-    val = yella_settings_get_uint("plummers", "doggy");
+    val = yella_settings_get_uint(u"plummers", u"doggy");
     assert_null(val);
-    yella_settings_set_text("sumin", "text-test", "whoa");
-    str = yella_settings_get_text("sumin", "text-test");
+    yella_settings_set_text(u"sumin", u"text-test", u"whoa");
+    str = yella_settings_get_text(u"sumin", u"text-test");
     assert_non_null(str);
-    assert_string_equal(str, "whoa");
-    str = yella_settings_get_text("iguanas", "int-test");
+    assert_true(u_strcmp(str, u"whoa") == 0);
+    str = yella_settings_get_text(u"iguanas", u"int-test");
     assert_null(str);
-    str = yella_settings_get_text("lumpy", "lumpy-garbage");
+    str = yella_settings_get_text(u"lumpy", u"lumpy-garbage");
     assert_null(str);
 }
 
 static void load_1(void** arg)
 {
-    const char* val;
+    const UChar* val;
     yella_setting_desc desc[] =
     {
-        { "load-1-mine-1", YELLA_SETTING_VALUE_TEXT },
-        { "load-1-mine-2", YELLA_SETTING_VALUE_TEXT }
+        { u"load-1-mine-1", YELLA_SETTING_VALUE_TEXT },
+        { u"load-1-mine-2", YELLA_SETTING_VALUE_TEXT }
     };
 
     load_preamble("agent:\n"
@@ -112,25 +113,25 @@ static void load_1(void** arg)
                   "    load-1-mine-1: whaddup\n"
                   "    load-1-more-not-mine: bye\n"
                   "    load-1-mine-2: yummy",
-                  "agent",
+                  u"agent",
                   desc,
                   2);
-    val = yella_settings_get_text("agent", "load-1-mine-1");
+    val = yella_settings_get_text(u"agent", u"load-1-mine-1");
     assert_non_null(val);
-    assert_string_equal(val, "whaddup");
-    val = yella_settings_get_text("agent", "load-1-mine-2");
+    assert_true(u_strcmp(val, u"whaddup") == 0);
+    val = yella_settings_get_text(u"agent", u"load-1-mine-2");
     assert_non_null(val);
-    assert_string_equal(val, "yummy");
-    assert_null(yella_settings_get_text("agent", "non-mine"));
-    assert_null(yella_settings_get_text("agent", "more-non-mine"));
+    assert_true(u_strcmp(val, u"yummy") == 0);
+    assert_null(yella_settings_get_text(u"agent", u"non-mine"));
+    assert_null(yella_settings_get_text(u"agent", u"more-non-mine"));
 }
 
 static void load_2(void** arg)
 {
-    const char* val;
+    const UChar* val;
     yella_setting_desc desc;
 
-    desc.key = "load-2-mine";
+    desc.key = u"load-2-mine";
     desc.type = YELLA_SETTING_VALUE_TEXT;
     load_preamble("- chucho::logger:\n"
                   "    - name: will\n"
@@ -139,12 +140,12 @@ static void load_2(void** arg)
                   "            - pattern: '%m'\n"
                   "- agent:\n"
                   "    load-2-mine: doggy",
-                  "agent",
+                  u"agent",
                   &desc,
                   1);
-    val = yella_settings_get_text("agent", "load-2-mine");
+    val = yella_settings_get_text(u"agent", u"load-2-mine");
     assert_non_null(val);
-    assert_string_equal(val, "doggy");
+    assert_true(u_strcmp(val, u"doggy") == 0);
 }
 
 static void too_big(void** arg)
@@ -158,7 +159,7 @@ static void too_big(void** arg)
     for (i = 0; i < 100 * 1024 + 1; i++)
         fwrite(&ch, 1, 1, f);
     fclose(f);
-    yella_settings_set_text("agent", "config-file", "too_big.yaml");
+    yella_settings_set_text(u"agent", u"config-file", u"too_big.yaml");
     rc = yella_load_settings_doc();
     remove("too_big.yaml");
     assert_int_equal(rc, YELLA_TOO_BIG);

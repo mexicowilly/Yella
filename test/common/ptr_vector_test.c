@@ -15,38 +15,34 @@
  */
 
 #include "common/ptr_vector.h"
-#include "common/sds.h"
+#include "common/uds.h"
+#include "common/uds_util.h"
+#include <unicode/ustring.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include <stdlib.h>
 #include <cmocka.h>
 
-static void sds_ptr_destructor(void* elem, void* udata)
-{
-    sdsfree(elem);
-}
-
 static void simple(void** arg)
 {
     yella_ptr_vector* vec;
 
-    vec = yella_create_ptr_vector();
-    yella_set_ptr_vector_destructor(vec, sds_ptr_destructor, NULL);
+    vec = yella_create_uds_ptr_vector();
     assert_non_null(vec);
     assert_int_equal(yella_ptr_vector_size(vec), 0);
-    yella_push_back_ptr_vector(vec, sdsnew("two"));
+    yella_push_back_ptr_vector(vec, udsnew(u"two"));
     assert_int_equal(yella_ptr_vector_size(vec), 1);
-    assert_string_equal(yella_ptr_vector_at(vec, 0), "two");
-    yella_push_front_ptr_vector(vec, sdsnew("one"));
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 0), u"two") == 0);
+    yella_push_front_ptr_vector(vec, udsnew(u"one"));
     assert_int_equal(yella_ptr_vector_size(vec), 2);
-    assert_string_equal(yella_ptr_vector_at(vec, 0), "one");
-    assert_string_equal(yella_ptr_vector_at(vec, 1), "two");
-    yella_push_back_ptr_vector(vec, sdsnew("three"));
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 0), u"one") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 1), u"two") == 0);
+    yella_push_back_ptr_vector(vec, udsnew(u"three"));
     assert_int_equal(yella_ptr_vector_size(vec), 3);
-    assert_string_equal(yella_ptr_vector_at(vec, 0), "one");
-    assert_string_equal(yella_ptr_vector_at(vec, 1), "two");
-    assert_string_equal(yella_ptr_vector_at(vec, 2), "three");
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 0), u"one") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 1), u"two") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 2), u"three") == 0);
     yella_clear_ptr_vector(vec);
     assert_int_equal(yella_ptr_vector_size(vec), 0);
     assert_null(yella_ptr_vector_at(vec, 0));
@@ -59,37 +55,36 @@ static void erase(void** arg)
 {
     yella_ptr_vector* vec;
 
-    vec = yella_create_ptr_vector();
-    yella_set_ptr_vector_destructor(vec, sds_ptr_destructor, NULL);
-    yella_push_back_ptr_vector(vec, sdsnew("one"));
-    yella_push_back_ptr_vector(vec, sdsnew("two"));
-    yella_push_back_ptr_vector(vec, sdsnew("three"));
-    yella_push_back_ptr_vector(vec, sdsnew("four"));
-    yella_push_back_ptr_vector(vec, sdsnew("five"));
+    vec = yella_create_uds_ptr_vector();
+    yella_push_back_ptr_vector(vec, udsnew(u"one"));
+    yella_push_back_ptr_vector(vec, udsnew(u"two"));
+    yella_push_back_ptr_vector(vec, udsnew(u"three"));
+    yella_push_back_ptr_vector(vec, udsnew(u"four"));
+    yella_push_back_ptr_vector(vec, udsnew(u"five"));
     assert_int_equal(yella_ptr_vector_size(vec), 5);
-    assert_string_equal(yella_ptr_vector_at(vec, 0), "one");
-    assert_string_equal(yella_ptr_vector_at(vec, 1), "two");
-    assert_string_equal(yella_ptr_vector_at(vec, 2), "three");
-    assert_string_equal(yella_ptr_vector_at(vec, 3), "four");
-    assert_string_equal(yella_ptr_vector_at(vec, 4), "five");
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 0), u"one") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 1), u"two") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 2), u"three") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 3), u"four") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 4), u"five") == 0);
     yella_erase_ptr_vector_at(vec, 2);
     assert_int_equal(yella_ptr_vector_size(vec), 4);
-    assert_string_equal(yella_ptr_vector_at(vec, 0), "one");
-    assert_string_equal(yella_ptr_vector_at(vec, 1), "two");
-    assert_string_equal(yella_ptr_vector_at(vec, 2), "four");
-    assert_string_equal(yella_ptr_vector_at(vec, 3), "five");
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 0), u"one") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 1), u"two") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 2), u"four") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 3), u"five") == 0);
     yella_erase_ptr_vector_at(vec, 0);
     assert_int_equal(yella_ptr_vector_size(vec), 3);
-    assert_string_equal(yella_ptr_vector_at(vec, 0), "two");
-    assert_string_equal(yella_ptr_vector_at(vec, 1), "four");
-    assert_string_equal(yella_ptr_vector_at(vec, 2), "five");
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 0), u"two") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 1), u"four") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 2), u"five") == 0);
     yella_erase_ptr_vector_at(vec, 2);
     assert_int_equal(yella_ptr_vector_size(vec), 2);
-    assert_string_equal(yella_ptr_vector_at(vec, 0), "two");
-    assert_string_equal(yella_ptr_vector_at(vec, 1), "four");
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 0), u"two") == 0);
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 1), u"four") == 0);
     yella_pop_back_ptr_vector(vec);
     assert_int_equal(yella_ptr_vector_size(vec), 1);
-    assert_string_equal(yella_ptr_vector_at(vec, 0), "two");
+    assert_true(u_strcmp(yella_ptr_vector_at(vec, 0), u"two") == 0);
     yella_pop_front_ptr_vector(vec);
     assert_int_equal(yella_ptr_vector_size(vec), 0);
     assert_null(yella_ptr_vector_at(vec, 0));
@@ -147,7 +142,7 @@ static void* test_copier(void* p, void* udata)
 
     d = (struct test_data*)udata;
     d->val = -1;
-    return sdsdup((sds)p);
+    return udsdup((uds)p);
 }
 
 static void copier(void** arg)
@@ -155,19 +150,18 @@ static void copier(void** arg)
     yella_ptr_vector* vec;
     yella_ptr_vector* vec2;
     struct test_data tdd;
-    char* p;
+    uds p;
 
     tdd.val = 1;
-    vec = yella_create_ptr_vector();
+    vec = yella_create_uds_ptr_vector();
     yella_set_ptr_vector_copier(vec, test_copier, &tdd);
-    yella_set_ptr_vector_destructor(vec, sds_ptr_destructor, NULL);
-    p = sdsnew("my dog has fleas");
+    p = udsnew(u"my dog has fleas");
     yella_push_back_ptr_vector(vec, p);
     vec2 = yella_copy_ptr_vector(vec);
     assert_int_equal(yella_ptr_vector_size(vec2), 1);
     assert_ptr_not_equal(p, yella_ptr_vector_at(vec2, 0));
     assert_ptr_not_equal(yella_ptr_vector_at(vec, 0), yella_ptr_vector_at(vec2, 0));
-    assert_string_equal((char*)yella_ptr_vector_at(vec2, 0), p);
+    assert_true(u_strcmp((UChar*)yella_ptr_vector_at(vec2, 0), p) == 0);
     yella_destroy_ptr_vector(vec);
     yella_destroy_ptr_vector(vec2);
     assert_int_equal(tdd.val, -1);

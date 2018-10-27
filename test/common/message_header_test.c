@@ -1,4 +1,5 @@
 #include "common/message_header.h"
+#include <unicode/ustring.h>
 #include <time.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -17,15 +18,15 @@ static void simple(void** targ)
     mhdr = yella_create_mhdr();
     assert_non_null(mhdr);
     mhdr->time = time(NULL);
-    mhdr->sender = sdsnew("doggy");
-    mhdr->recipient = sdsnew("iguana");
-    mhdr->type = sdsnew("fun stuff");
+    mhdr->sender = udsnew(u"doggy");
+    mhdr->recipient = udsnew(u"iguana");
+    mhdr->type = udsnew(u"fun stuff");
     mhdr->cmp = YELLA_COMPRESSION_LZ4;
     mhdr->seq.major = 12;
     mhdr->seq.minor = 13;
     mhdr->grp = malloc(sizeof(yella_group));
     mhdr->grp->disposition = YELLA_GROUP_DISPOSITION_MORE;
-    mhdr->grp->identifier = sdsnew("glucille");
+    mhdr->grp->identifier = udsnew(u"glucille");
     pack = yella_pack_mhdr(mhdr, &pack_sz);
     assert_non_null(pack);
     assert_true(pack_sz > 0);
@@ -34,15 +35,15 @@ static void simple(void** targ)
     free(pack);
     assert_non_null(mhdr2);
     assert_int_equal(mhdr2->time, mhdr->time);
-    assert_string_equal(mhdr2->sender, mhdr->sender);
-    assert_string_equal(mhdr2->recipient, mhdr->recipient);
-    assert_string_equal(mhdr2->type, mhdr->type);
+    assert_true(u_strcmp(mhdr2->sender, mhdr->sender) == 0);
+    assert_true(u_strcmp(mhdr2->recipient, mhdr->recipient) == 0);
+    assert_true(u_strcmp(mhdr2->type, mhdr->type) == 0);
     assert_int_equal(mhdr2->cmp, mhdr->cmp);
     assert_int_equal(mhdr2->seq.major, mhdr->seq.major);
     assert_int_equal(mhdr2->seq.minor, mhdr->seq.minor);
     assert_non_null(mhdr2->grp);
     assert_int_equal(mhdr2->grp->disposition, mhdr->grp->disposition);
-    assert_string_equal(mhdr2->grp->identifier, mhdr->grp->identifier);
+    assert_true(u_strcmp(mhdr2->grp->identifier, mhdr->grp->identifier) == 0);
     yella_destroy_mhdr(mhdr2);
     yella_destroy_mhdr(mhdr);
 }

@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <chucho/logger.h>
+#include <unicode/utypes.h>
 
 #if !defined(MAC_ADDRESSES_H__)
 #define MAC_ADDRESSES_H__
@@ -24,7 +25,7 @@
 typedef struct yella_mac_address
 {
     uint8_t addr[6];
-    char text[18];
+    UChar text[18];
 } yella_mac_address;
 
 typedef struct yella_mac_addresses

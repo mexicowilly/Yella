@@ -1,4 +1,5 @@
 #include "common/process.h"
+#include "common/text_util.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -11,13 +12,14 @@ typedef struct yella_process
     FILE* in;
 } yella_process;
 
-yella_process* yella_create_process(const char* const command)
+yella_process* yella_create_process(const UChar* const command)
 {
     char* shell;
     const char* argv[4];
     pid_t pid;
     yella_process* proc;
     int link[2];
+    char* u8cmd;
 
     if (pipe(link) != 0)
         return NULL;
@@ -39,7 +41,8 @@ yella_process* yella_create_process(const char* const command)
             shell = "sh";
         argv[0] = shell;
         argv[1] = "-c";
-        argv[2] = command;
+        u8cmd = yella_to_utf8(command);
+        argv[2] = u8cmd;
         argv[3] = NULL;
         execvp(shell, (char* const*)argv);
         _exit(127);
