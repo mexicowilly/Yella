@@ -15,7 +15,7 @@ static yella_condition_variable* work_cond;
 static unsigned interval_secs;
 static yella_agent_api agent_api;
 static uint32_t minor_seq;
-static sds recipient;
+static uds recipient;
 static void* agent;
 static time_t next;
 static yella_plugin* hello_desc;
@@ -74,7 +74,7 @@ static void thr_main(void* uarg)
         flatcc_builder_clear(&bld);
         mhdr = yella_create_mhdr();
         mhdr->type = sdsnew(((yella_plugin_out_cap*)yella_ptr_vector_at(hello_desc->out_caps, 0))->name);
-        mhdr->recipient = sdsnew(recipient);
+        mhdr->recipient = udsnew(recipient);
         mhdr->seq.minor = ++minor_seq;
         agent_api.send_message(agent, mhdr, raw, raw_size);
         yella_destroy_mhdr(mhdr);
@@ -126,11 +126,11 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     interval_secs = 0;
     /* fifty years from now */
     next = time(NULL) + (60 * 60 * 24 * 365 * 50);
-    hello_desc = yella_create_plugin("hello", "1");
+    hello_desc = yella_create_plugin(u"hello", u"1");
     yella_push_back_ptr_vector(hello_desc->in_caps,
-                               yella_create_plugin_in_cap("yella.fb.hello.set_interval", 1, set_interval_handler));
+                               yella_create_plugin_in_cap(u"yella.fb.hello.set_interval", 1, set_interval_handler));
     yella_push_back_ptr_vector(hello_desc->out_caps,
-                               yella_create_plugin_out_cap("yella.fb.hello.hello", 1));
+                               yella_create_plugin_out_cap(u"yella.fb.hello.hello", 1));
     thr = yella_create_thread(thr_main, NULL);
     return yella_copy_plugin(hello_desc);
 }

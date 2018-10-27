@@ -149,7 +149,7 @@ yella_directory_iterator* yella_create_directory_iterator(const UChar* const dir
     free(utf8);
     result->dir_name = udsnew(dir);
     if (result->dir_name[udslen(result->dir_name) - 1] != YELLA_DIR_SEP[0])
-        udscat(result->dir_name, YELLA_DIR_SEP);
+        result->dir_name = udscat(result->dir_name, YELLA_DIR_SEP);
     result->fqn = NULL;
     return result;
 }

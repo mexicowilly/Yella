@@ -124,8 +124,8 @@ static void cull(void** targ)
     yella_spool_stats stats;
     char* tstats;
 
-    yella_settings_set_uint("agent", "max-spool-partition-size", 1024 * 1024);
-    yella_settings_set_uint("agent", "max-spool-partitions", 2);
+    yella_settings_set_uint(u"agent", u"max-spool-partition-size", 1024 * 1024);
+    yella_settings_set_uint(u"agent", u"max-spool-partitions", 2);
     sp = yella_create_spool();
     assert_non_null(sp);
     thr_arg.milliseconds_delay = 0;
@@ -329,9 +329,9 @@ static int clean_settings(void** arg)
 
 static int init_test(void **arg)
 {
-    yella_remove_all(yella_settings_get_text("agent", "spool-dir"));
-    yella_settings_set_uint("agent", "max-spool-partition-size", 1024 * 1024);
-    yella_settings_set_uint("agent", "max-spool-partitions", 100);
+    yella_remove_all(yella_settings_get_text(u"agent", u"spool-dir"));
+    yella_settings_set_uint(u"agent", u"max-spool-partition-size", 1024 * 1024);
+    yella_settings_set_uint(u"agent", u"max-spool-partitions", 100);
     return 0;
 }
 
@@ -345,7 +345,7 @@ static int init_settings(void** arg)
 "        chucho::pattern_formatter:\n"
 "            pattern: '%-5p %5r %b:%L] %m%n'\n");
     yella_initialize_settings();
-    yella_settings_set_text("agent", "spool-dir", "test-spool");
+    yella_settings_set_text(u"agent", u"spool-dir", u"test-spool");
     return 0;
 }
 

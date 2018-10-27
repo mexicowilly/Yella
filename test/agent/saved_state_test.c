@@ -11,7 +11,7 @@ static void load_new_and_save(void** targ)
     yella_saved_state* st2;
     yella_rc rc;
     int i;
-    chucho_logger_t* lgr;
+    chucho_logger_t* lgr = NULL;
 
     lgr = chucho_get_logger("saved_state");
     st = yella_load_saved_state(lgr);

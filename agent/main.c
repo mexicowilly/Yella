@@ -43,7 +43,7 @@ static void process_command_line(int argc, char* argv[])
         "yellad [options]",
         NULL
     };
-    char* utf16;
+    UChar* utf16;
 
     argparse_init(&parser, opts, usage, 0);
     argparse_describe(&parser, "\nA monitoring agent", "");
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
     install_signal_handler();
     yella_initialize_settings();
     process_command_line(argc, argv);
-    utf8 = yella_to_utf8(yella_settings_get_text("agent", "config-file"));
+    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"config-file"));
     chucho_cnf_set_file_name(utf8);
     free(utf8);
     CHUCHO_C_INFO("yella.agent",

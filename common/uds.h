@@ -82,8 +82,8 @@ struct __attribute__ ((packed)) udshdr64 {
 #define UDS_TYPE_64 4
 #define UDS_TYPE_MASK 7
 #define UDS_TYPE_BITS 3
-#define UDS_HDR_VAR(T,s) struct udshdr##T *sh = (void*)((s)-(sizeof(struct udshdr##T)));
-#define UDS_HDR(T,s) ((struct udshdr##T *)((s)-(sizeof(struct udshdr##T))))
+#define UDS_HDR_VAR(T,s) struct udshdr##T *sh = (void*)(((void*)s)-(sizeof(struct udshdr##T)));
+#define UDS_HDR(T,s) ((struct udshdr##T *)(((void*)s)-(sizeof(struct udshdr##T))))
 #define UDS_TYPE_5_LEN(f) ((f)>>UDS_TYPE_BITS)
 #define UDS_FLAGS(s) (*(((unsigned short*)s) - 1))
 
