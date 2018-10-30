@@ -23,7 +23,6 @@
 #include "agent/heartbeat.h"
 #include "common/settings.h"
 #include "common/message_header.h"
-#include "common/compression.h"
 #include "common/message_part.h"
 #include "common/file.h"
 #include "common/thread.h"
@@ -148,6 +147,7 @@ static void send_plugin_message(void* agent,
                                 const uint8_t* const msg,
                                 size_t sz)
 {
+    /*
     yella_agent* ag = (yella_agent*)agent;
     yella_message_part parts[2];
     size_t hdr_sz;
@@ -163,6 +163,7 @@ static void send_plugin_message(void* agent,
     yella_spool_push(ag->spool, parts, 2);
     free(parts[0].data);
     free(parts[1].data);
+     */
 }
 
 static void load_plugins(yella_agent* agent)
@@ -283,6 +284,7 @@ static void maybe_wait_for_router(yella_agent* ag)
 
 static void message_received(const yella_message_part* const hdr, const yella_message_part* const body, void* udata)
 {
+    /*
     in_handler to_find;
     in_handler* found;
     yella_message_header* mhdr;
@@ -326,6 +328,7 @@ static void message_received(const yella_message_part* const hdr, const yella_me
         }
     }
     yella_destroy_mhdr(mhdr);
+     */
 }
 
 static void plugin_api_dtor(void* p, void* udata)

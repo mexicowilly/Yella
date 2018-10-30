@@ -20,15 +20,9 @@
 #include "export.h"
 #include <unicode/ustring.h>
 
-extern const UChar* yella_nl;
+extern const UChar* YELLA_NL;
 
 YELLA_EXPORT UChar* yella_from_utf8(const char* const str);
 YELLA_EXPORT char* yella_to_utf8(const UChar* const str);
-
-/*
-YELLA_EXPORT char* yella_sprintf(const char* const fmt, ...);
-YELLA_EXPORT char* yella_text_dup(const char* const t);
-YELLA_EXPORT uintmax_t yella_text_to_int(const char* const t);
-*/
 
 #endif

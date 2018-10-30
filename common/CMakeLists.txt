@@ -35,8 +35,6 @@ ENDIF()
 
 ADD_LIBRARY(common SHARED
             calendar.h
-            compression.c
-            compression.h
             file.c
             file.h
             macro_util.h
@@ -48,11 +46,6 @@ ADD_LIBRARY(common SHARED
             ptr_vector.h
             return_code.c
             return_code.h
-#            sds.c
-#            sds.h
-#            sdsalloc.h
-#            sds_util.c
-#            sds_util.h
             settings.c
             settings.h
             sglib.h
@@ -80,7 +73,6 @@ TARGET_LINK_LIBRARIES(common
                       "${YELLA_FLATCC_LIB}"
                       "${YELLA_CHUCHO_LIB}"
                       "${YELLA_LIBYAML_LIB}"
-                      "${YELLA_LZ4_LIB}"
                       ICU::io
                       ICU::i18n
                       ICU::uc

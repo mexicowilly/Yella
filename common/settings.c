@@ -328,7 +328,7 @@ void yella_log_settings(void)
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
-        out = udscatprintf(udsempty(), u"Settinngs:%S%S", yella_nl, yella_nl);
+        out = udscatprintf(udsempty(), u"Settinngs:%S%S", YELLA_NL, YELLA_NL);
         yella_lock_mutex(guard);
         for (sct_elem = sglib_section_it_init(&sct_itor, sections);
              sct_elem != NULL;
@@ -336,7 +336,7 @@ void yella_log_settings(void)
         {
             udscatuds(out, sct_elem->key);
             udscatlen(out, ":", 1);
-            udscat(out, yella_nl);
+            udscat(out, YELLA_NL);
             for (set_elem = sglib_setting_it_init(&set_itor, sct_elem->settings);
                  set_elem != NULL;
                  set_elem = sglib_setting_it_next(&set_itor))
@@ -354,7 +354,7 @@ void yella_log_settings(void)
                 {
                     udscatprintf(out, u"%lld", set_elem->value.uint);
                 }
-                udscat(out, yella_nl);
+                udscat(out, YELLA_NL);
             }
         }
         yella_unlock_mutex(guard);

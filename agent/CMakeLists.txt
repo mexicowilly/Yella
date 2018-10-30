@@ -22,12 +22,14 @@ SET(YELLA_SOURCES
     agent.h
     argparse.c
     argparse.h
+    kafka.c
+    kafka.h
     heartbeat.c
     heartbeat.h
     mac_addresses.c
     mac_addresses.h
-    router.c
-    router.h
+#    router.c
+#    router.h
     runtime_link.h
     saved_state.c
     saved_state.h
@@ -68,7 +70,7 @@ YELLA_GEN_TARGET(agent
 
 TARGET_LINK_LIBRARIES(agent
                       plugin
-                      "${YELLA_ZEROMQ_LIB}"
+                      "${YELLA_RDKAFKA_LIB}"
                       m)
 IF(YELLA_MACINTOSH)
     TARGET_LINK_LIBRARIES(agent "-framework IOKit" "-framework CoreFoundation")
