@@ -34,6 +34,16 @@ static chucho_logger_t* lgr;
 SGLIB_DEFINE_RBTREE_PROTOTYPES(topic, left, right, color, YELLA_KEY_COMPARE);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(topic, left, right, color, YELLA_KEY_COMPARE);
 
+static void message_delivered(rd_kafka_t* rdk, const rd_kafka_message_t* msg, void* udata)
+{
+
+}
+
+static void message_received(rd_kafka_message_t* msg, void* udata)
+{
+
+}
+
 static void kafka_log(const rd_kafka_t *rk, int level, const char *fac, const char *buf)
 {
     chucho_level_t clvl;
@@ -60,20 +70,84 @@ static void kafka_log(const rd_kafka_t *rk, int level, const char *fac, const ch
         CHUCHO_C_FATAL(lgr, "(%s) %s", fac, buf);
 }
 
-kafka* create_kafka(void)
+kafka* create_kafka(const yella_uuid* const id)
 {
     kafka* result;
-    rd_kafka_conf_t* global_conf;
+    rd_kafka_conf_t* conf;
     char int_str[32];
+    char* utf8;
+    const UChar* st;
+    rd_kafka_conf_res_t res;
+    char err_msg[1024];
 
+    if (yella_settings_get_text(u"agent", u"brokers") == NULL)
+    {
+        CHUCHO_C_FATAL("yella.kafka", "No brokers have been set");
+        return NULL;
+    }
     result = calloc(1, sizeof(kafka));
     lgr = chucho_get_logger("yella.kafka");
-    global_conf = rd_kafka_conf_new();
+    conf = rd_kafka_conf_new();
     snprintf(int_str, sizeof(int_str), "%i", LOG_DEBUG);
-    rd_kafka_conf_set(global_conf, "log_level", int_str, NULL, 0);
-    rd_kafka_conf_set_log_cb(global_conf, kafka_log);
+    res = rd_kafka_conf_set(conf, "log_level", int_str, err_msg, sizeof(err_msg));
+    if (res != RD_KAFKA_CONF_OK)
+        CHUCHO_C_ERROR(lgr, "Unable to set log_level: %s", err_msg);
+    rd_kafka_conf_set_log_cb(conf, kafka_log);
+    st = yella_settings_get_text(u"agent", u"kafka-debug-contexts");
+    if (st != NULL)
+    {
+        utf8 = yella_to_utf8(st);
+        res = rd_kafka_conf_set(conf, "debug", utf8, err_msg, sizeof(err_msg));
+        if (res != RD_KAFKA_CONF_OK)
+            CHUCHO_C_ERROR(lgr, "Unable to set debug value '%s': %s", utf8, err_msg);
+        free(utf8);
+    }
     snprintf(int_str, sizeof(int_str), "%" PRIu64, *yella_settings_get_uint(u"agent", u"latency-milliseconds"));
-    rd_kafka_conf_set(global_conf, "queue.buffering.max.ms", int_str, NULL, 0);
-    rd_kafka_conf_set(global_conf, "compression.codec", "lz4", NULL, 0);
+    res = rd_kafka_conf_set(conf, "queue.buffering.max.ms", int_str, err_msg, sizeof(err_msg));
+    if (res != RD_KAFKA_CONF_OK)
+        CHUCHO_C_ERROR(lgr, "Unable to set queue.buffering.max.ms value '%s': %s", int_str, err_msg);
+    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"compression-type"));
+    res = rd_kafka_conf_set(conf, "compression.codec", utf8, err_msg, sizeof(err_msg));
+    if (res != RD_KAFKA_CONF_OK)
+        CHUCHO_C_ERROR(lgr, "Unable to set compression.codec value '%s': %s", utf8, err_msg);
+    free(utf8);
+    utf8 = yella_to_utf8(id->text);
+    res = rd_kafka_conf_set(conf, "group.id", utf8, err_msg, sizeof(err_msg));
+    if (res != RD_KAFKA_CONF_OK)
+        CHUCHO_C_ERROR(lgr, "Unable to set group.id value '%s': %s", utf8, err_msg);
+    free(utf8);
+    rd_kafka_conf_set_consume_cb(conf, message_received);
+    rd_kafka_conf_set_dr_msg_cb(conf, message_delivered);
+    rd_kafka_conf_set_opaque(conf, result);
+    result->consumer = rd_kafka_new(RD_KAFKA_CONSUMER, rd_kafka_conf_dup(conf), err_msg, sizeof(err_msg));
+    if (result->consumer == NULL)
+    {
+        CHUCHO_C_FATAL(lgr, "Unable to create Kafka consumer: %s", err_msg);
+        rd_kafka_conf_destroy(conf);
+        chucho_release_logger(lgr);
+        free(result);
+        return NULL;
+    }
+    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"brokers"));
+    rd_kafka_brokers_add(result->consumer, utf8);
+    free(utf8);
     return result;
+}
+
+void destroy_kafka(kafka* kf)
+{
+    struct sglib_topic_iterator titor;
+    topic* tpc;
+
+    for (tpc = sglib_topic_it_init(&titor, kf->topics);
+         tpc != NULL;
+         sglib_topic_it_next(&titor))
+    {
+        udsfree(tpc->key);
+        rd_kafka_topic_destroy(tpc->topic);
+        free(tpc);
+    }
+    rd_kafka_destroy(kf->consumer);
+    rd_kafka_destroy(kf->producer);
+    free(kf);
 }
