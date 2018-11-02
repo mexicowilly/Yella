@@ -3,12 +3,14 @@
 #include "common/uds.h"
 #include "common/settings.h"
 #include "common/text_util.h"
+#include "common/thread.h"
 #include <librdkafka/rdkafka.h>
 #include <unicode/ustring.h>
 #include <chucho/log.h>
 #include <syslog.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <stdatomic.h>
 
 typedef struct topic
 {
@@ -24,6 +26,10 @@ typedef struct kafka
     rd_kafka_t* consumer;
     rd_kafka_t* producer;
     topic* topics;
+    kafka_message_handler handler;
+    yella_thread* producer_thread;
+    yella_thread* consumer_thread;
+    atomic_bool should_stop;
 } kafka;
 
 // This has to be static, because the logger function doesn't have a user data parameter
@@ -34,17 +40,19 @@ static chucho_logger_t* lgr;
 SGLIB_DEFINE_RBTREE_PROTOTYPES(topic, left, right, color, YELLA_KEY_COMPARE);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(topic, left, right, color, YELLA_KEY_COMPARE);
 
-static void message_delivered(rd_kafka_t* rdk, const rd_kafka_message_t* msg, void* udata)
+static void consumer_main(void* udata)
 {
+    kafka* kf;
+    rd_kafka_message_t* msg;
 
+    kf = (kafka*)udata;
+    while (!kf->should_stop)
+    {
+        msg = rd_kafka_consumer_poll(kf->consumer, 500);
+    }
 }
 
-static void message_received(rd_kafka_message_t* msg, void* udata)
-{
-
-}
-
-static void kafka_log(const rd_kafka_t *rk, int level, const char *fac, const char *buf)
+static void kafka_log(const rd_kafka_t* rk, int level, const char* fac, const char* buf)
 {
     chucho_level_t clvl;
 
@@ -70,6 +78,21 @@ static void kafka_log(const rd_kafka_t *rk, int level, const char *fac, const ch
         CHUCHO_C_FATAL(lgr, "(%s) %s", fac, buf);
 }
 
+static void message_delivered(rd_kafka_t* rdk, const rd_kafka_message_t* msg, void* udata)
+{
+    if (msg->err)
+        CHUCHO_C_ERROR(lgr, "Message delivery failed: %s", rd_kafka_err2str(msg->err));
+}
+
+static void producer_main(void* udata)
+{
+    kafka* kf;
+
+    kf = (kafka*)udata;
+    while (!kf->should_stop)
+        rd_kafka_poll(kf->producer, 500);
+}
+
 kafka* create_kafka(const yella_uuid* const id)
 {
     kafka* result;
@@ -79,6 +102,8 @@ kafka* create_kafka(const yella_uuid* const id)
     const UChar* st;
     rd_kafka_conf_res_t res;
     char err_msg[1024];
+    rd_kafka_topic_partition_list_t* topics;
+    rd_kafka_resp_err_t rc;
 
     if (yella_settings_get_text(u"agent", u"brokers") == NULL)
     {
@@ -116,7 +141,6 @@ kafka* create_kafka(const yella_uuid* const id)
     if (res != RD_KAFKA_CONF_OK)
         CHUCHO_C_ERROR(lgr, "Unable to set group.id value '%s': %s", utf8, err_msg);
     free(utf8);
-    rd_kafka_conf_set_consume_cb(conf, message_received);
     rd_kafka_conf_set_dr_msg_cb(conf, message_delivered);
     rd_kafka_conf_set_opaque(conf, result);
     result->consumer = rd_kafka_new(RD_KAFKA_CONSUMER, rd_kafka_conf_dup(conf), err_msg, sizeof(err_msg));
@@ -128,9 +152,40 @@ kafka* create_kafka(const yella_uuid* const id)
         free(result);
         return NULL;
     }
+    rd_kafka_poll_set_consumer(result->consumer);
     utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"brokers"));
     rd_kafka_brokers_add(result->consumer, utf8);
     free(utf8);
+    topics = rd_kafka_topic_partition_list_new(1);
+    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"agent-topic"));
+    rd_kafka_topic_partition_list_add(topics, utf8, RD_KAFKA_PARTITION_UA);
+    rc = rd_kafka_subscribe(result->consumer, topics);
+    rd_kafka_topic_partition_list_destroy(topics);
+    if (rc != RD_KAFKA_RESP_ERR_NO_ERROR)
+    {
+        CHUCHO_C_FATAL(lgr, "Unable to subscribe to topic: %s", utf8);
+        free(utf8);
+        rd_kafka_destroy(result->consumer);
+        chucho_release_logger(lgr);
+        free(result);
+        return NULL;
+    }
+    free(utf8);
+    result->producer = rd_kafka_new(RD_KAFKA_PRODUCER, conf, err_msg, sizeof(err_msg));
+    if (result->producer == NULL)
+    {
+        CHUCHO_C_FATAL(lgr, "Unable to create Kafka producer: %s", err_msg);
+        rd_kafka_destroy(result->consumer);
+        rd_kafka_conf_destroy(conf);
+        chucho_release_logger(lgr);
+        free(result);
+        return NULL;
+    }
+    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"brokers"));
+    rd_kafka_brokers_add(result->producer, utf8);
+    free(utf8);
+    result->producer_thread = yella_create_thread(producer_main, result);
+    result->consumer_thread = yella_create_thread(consumer_main, result);
     return result;
 }
 
@@ -148,6 +203,68 @@ void destroy_kafka(kafka* kf)
         free(tpc);
     }
     rd_kafka_destroy(kf->consumer);
+    rd_kafka_flush(kf->producer, 500);
     rd_kafka_destroy(kf->producer);
+    kf->should_stop = true;
+    yella_join_thread(kf->producer_thread);
+    yella_destroy_thread(kf->producer_thread);
+    yella_join_thread(kf->consumer_thread);
+    yella_destroy_thread(kf->consumer_thread);
     free(kf);
 }
+
+bool send_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len)
+{
+    topic to_find;
+    topic* found;
+    char* utf8;
+    int rc;
+
+    to_find.key = (UChar*)tpc;
+    found = sglib_topic_find_member(kf->topics, &to_find);
+    if (found == NULL)
+    {
+        found = malloc(sizeof(topic));
+        found->key = udsnew(tpc);
+        utf8 = yella_to_utf8(tpc);
+        found->topic = rd_kafka_topic_new(kf->producer, utf8, NULL);
+        if (found->topic == NULL)
+        {
+            CHUCHO_C_ERROR(lgr, "Failed to create topic %s: %s", utf8, rd_kafka_err2str(rd_kafka_last_error()));
+            free(utf8);
+            return false;
+        }
+        sglib_topic_add(&kf->topics, found);
+    }
+    while (true)
+    {
+        rc = rd_kafka_produce(found->topic,
+                              RD_KAFKA_PARTITION_UA,
+                              RD_KAFKA_MSG_F_COPY,
+                              msg,
+                              len,
+                              NULL,
+                              0,
+                              kf);
+        if (rc == 0)
+        {
+            break;
+        }
+        else
+        {
+            CHUCHO_C_ERROR(lgr,
+                           "Error sending to topic %s: %s",
+                           rd_kafka_topic_name(found->topic),
+                           rd_kafka_err2str(rd_kafka_last_error()));
+            if (rd_kafka_last_error() != RD_KAFKA_RESP_ERR__QUEUE_FULL)
+                return false;
+        }
+    }
+    return true;
+}
+
+void set_kafka_message_handler(kafka* kf, kafka_message_handler hndlr)
+{
+    kf->handler = hndlr;
+}
+
