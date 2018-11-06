@@ -28,8 +28,8 @@ SET(YELLA_SOURCES
     heartbeat.h
     mac_addresses.c
     mac_addresses.h
-#    router.c
-#    router.h
+    router.c
+    router.h
     runtime_link.h
     saved_state.c
     saved_state.h

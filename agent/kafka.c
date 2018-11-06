@@ -49,6 +49,19 @@ static void consumer_main(void* udata)
     while (!kf->should_stop)
     {
         msg = rd_kafka_consumer_poll(kf->consumer, 500);
+        if (msg->err == RD_KAFKA_RESP_ERR_NO_ERROR)
+        {
+            if (kf->handler != NULL)
+                kf->handler(msg->payload, msg->len);
+        }
+        else if (msg->err != RD_KAFKA_RESP_ERR__PARTITION_EOF &&
+                 msg->err != RD_KAFKA_RESP_ERR__TIMED_OUT)
+        {
+            CHUCHO_C_ERROR(lgr,
+                           "Error consuming Kafka topic %s: %s",
+                           rd_kafka_topic_name(msg->rkt),
+                           (const char*)msg->payload);
+        }
     }
 }
 
@@ -81,7 +94,12 @@ static void kafka_log(const rd_kafka_t* rk, int level, const char* fac, const ch
 static void message_delivered(rd_kafka_t* rdk, const rd_kafka_message_t* msg, void* udata)
 {
     if (msg->err)
-        CHUCHO_C_ERROR(lgr, "Message delivery failed: %s", rd_kafka_err2str(msg->err));
+    {
+        CHUCHO_C_ERROR(lgr,
+                       "Message delivery failed to topic %s: %s",
+                       rd_kafka_topic_name(msg->rkt),
+                       rd_kafka_err2str(msg->err));
+    }
 }
 
 static void producer_main(void* udata)
@@ -194,6 +212,7 @@ void destroy_kafka(kafka* kf)
     struct sglib_topic_iterator titor;
     topic* tpc;
 
+    rd_kafka_flush(kf->producer, 500);
     for (tpc = sglib_topic_it_init(&titor, kf->topics);
          tpc != NULL;
          sglib_topic_it_next(&titor))
@@ -202,14 +221,13 @@ void destroy_kafka(kafka* kf)
         rd_kafka_topic_destroy(tpc->topic);
         free(tpc);
     }
-    rd_kafka_destroy(kf->consumer);
-    rd_kafka_flush(kf->producer, 500);
-    rd_kafka_destroy(kf->producer);
     kf->should_stop = true;
     yella_join_thread(kf->producer_thread);
     yella_destroy_thread(kf->producer_thread);
     yella_join_thread(kf->consumer_thread);
     yella_destroy_thread(kf->consumer_thread);
+    rd_kafka_destroy(kf->consumer);
+    rd_kafka_destroy(kf->producer);
     free(kf);
 }
 
@@ -234,6 +252,7 @@ bool send_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len
             free(utf8);
             return false;
         }
+        free(utf8);
         sglib_topic_add(&kf->topics, found);
     }
     while (true)
@@ -258,6 +277,8 @@ bool send_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len
                            rd_kafka_err2str(rd_kafka_last_error()));
             if (rd_kafka_last_error() != RD_KAFKA_RESP_ERR__QUEUE_FULL)
                 return false;
+            /* In case queue is full, let our poller run a litle and then retry. */
+            yella_sleep_this_thread(100);
         }
     }
     return true;

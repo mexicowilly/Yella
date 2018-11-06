@@ -1,0 +1,11 @@
+namespace yella.fb;
+
+table envelope
+{
+    seconds_since_epoch: ulong;
+    sender: string;
+    type: string;
+    message: [ubyte];
+}
+
+root_type envelope;

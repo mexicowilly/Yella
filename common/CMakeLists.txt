@@ -35,6 +35,8 @@ ENDIF()
 
 ADD_LIBRARY(common SHARED
             calendar.h
+            envelope.c
+            envelope.h
             file.c
             file.h
             macro_util.h
@@ -68,7 +70,8 @@ IF(DEFINED YELLA_SO_FLAGS)
                           COMPILE_FLAGS "${YELLA_SO_FLAGS}")
 ENDIF()
 YELLA_GEN_TARGET(common
-                 serialization/public/header.fbs)
+                 serialization/public/header.fbs
+                 serialization/public/envelope.fbs)
 TARGET_LINK_LIBRARIES(common
                       "${YELLA_FLATCC_LIB}"
                       "${YELLA_CHUCHO_LIB}"
