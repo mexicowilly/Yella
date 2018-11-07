@@ -24,7 +24,6 @@ static void simple(void** targ)
     env2 = yella_unpack_envelope(pack);
     free(pack);
     assert_non_null(env2);
-    assert_int_equal(env2->time, env->time);
     assert_true(u_strcmp(env2->sender, env->sender) == 0);
     assert_true(u_strcmp(env2->type, env->type) == 0);
     assert_int_equal(env2->len, env->len);

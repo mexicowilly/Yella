@@ -14,7 +14,6 @@ yella_envelope* yella_create_envelope(const UChar* const sender,
     yella_envelope* result;
 
     result = malloc(sizeof(yella_envelope));
-    result->time = time(NULL);
     result->sender = udsnew(sender);
     result->type = udsnew(type);
     result->message = malloc(len);
@@ -39,7 +38,6 @@ uint8_t* yella_pack_envelope(const yella_envelope* const env, size_t* len)
 
     flatcc_builder_init(&bld);
     yella_fb_envelope_start_as_root(&bld);
-    yella_fb_envelope_seconds_since_epoch_add(&bld, env->time);
     utf8 = yella_to_utf8(env->sender);
     yella_fb_envelope_sender_create_str(&bld, utf8);
     free(utf8);
@@ -61,12 +59,10 @@ yella_envelope* yella_unpack_envelope(const uint8_t* const bytes)
     UChar* utf16;
 
     tbl = yella_fb_envelope_as_root(bytes);
-    YELLA_REQUIRE_FLATB_FIELD(envelope, tbl, seconds_since_epoch, "yella.envelope", return NULL)
     YELLA_REQUIRE_FLATB_FIELD(envelope, tbl, sender, "yella.envelope", return NULL)
     YELLA_REQUIRE_FLATB_FIELD(envelope, tbl, type, "yella.envelope", return NULL)
     YELLA_REQUIRE_FLATB_FIELD(envelope, tbl, message, "yella.envelope", return NULL)
     result = malloc(sizeof(yella_envelope));
-    result->time = yella_fb_envelope_seconds_since_epoch(tbl);
     utf16 = yella_from_utf8(yella_fb_envelope_sender(tbl));
     result->sender = udsnew(utf16);
     free(utf16);

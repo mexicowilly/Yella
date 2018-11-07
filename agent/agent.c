@@ -59,7 +59,6 @@ typedef struct plugin_api
 typedef struct yella_agent
 {
     yella_saved_state* state;
-    yella_router* router;
     yella_spool* spool;
     yella_ptr_vector* plugins;
     yella_thread* heartbeat;
@@ -94,7 +93,7 @@ static void heartbeat_thr(void* udata)
     uint32_t minor_seq;
 
     minor_seq = 0;
-    sndr = yella_create_sender(ag->router);
+    //sndr = yella_create_sender(ag->router);
     next = 0;
     do
     {
@@ -106,40 +105,40 @@ static void heartbeat_thr(void* udata)
         }
         if (ag->should_stop)
             break;
-        if (yella_router_get_state(ag->router) == YELLA_ROUTER_CONNECTED)
-        {
-            plugins = yella_create_ptr_vector();
-            yella_set_ptr_vector_destructor(plugins, plugin_dtor, NULL);
-            for (i = 0; i < yella_ptr_vector_size(ag->plugins); i++)
-            {
-                api = (plugin_api*)yella_ptr_vector_at(ag->plugins, i);
-                yella_push_back_ptr_vector(plugins, api->status_func());
-            }
-            parts[1].data = create_heartbeat(ag->state->id->text, plugins, &parts[1].size);
-            yella_destroy_ptr_vector(plugins);
-            mhdr = yella_create_mhdr();
-            mhdr->time = time(NULL);
-            mhdr->sender = udsnew(ag->state->id->text);
-            mhdr->recipient = udsnew(yella_settings_get_text(u"agent", u"router"));
-            mhdr->type = udsnew(u"yella.heartbeat");
-            mhdr->cmp = YELLA_COMPRESSION_NONE;
-            mhdr->seq.major = ag->state->boot_count;
-            mhdr->seq.minor = ++minor_seq;
-            parts[0].data = yella_pack_mhdr(mhdr, &parts[0].size);
-            yella_destroy_mhdr(mhdr);
-            if (yella_send(sndr, parts, 2))
-                CHUCHO_C_INFO_L(ag->lgr, "Sent heartbeat");
-            else
-                CHUCHO_C_INFO_L(ag->lgr, "Error sending heartbeat");
-        }
-        else
-        {
-            CHUCHO_C_INFO_L(ag->lgr,
-                            "Not sending heartbeat because there is no router connection");
-        }
+//        if (yella_router_get_state(ag->router) == YELLA_ROUTER_CONNECTED)
+//        {
+//            plugins = yella_create_ptr_vector();
+//            yella_set_ptr_vector_destructor(plugins, plugin_dtor, NULL);
+//            for (i = 0; i < yella_ptr_vector_size(ag->plugins); i++)
+//            {
+//                api = (plugin_api*)yella_ptr_vector_at(ag->plugins, i);
+//                yella_push_back_ptr_vector(plugins, api->status_func());
+//            }
+//            parts[1].data = create_heartbeat(ag->state->id->text, plugins, &parts[1].size);
+//            yella_destroy_ptr_vector(plugins);
+//            mhdr = yella_create_mhdr();
+//            mhdr->time = time(NULL);
+//            mhdr->sender = udsnew(ag->state->id->text);
+//            mhdr->recipient = udsnew(yella_settings_get_text(u"agent", u"router"));
+//            mhdr->type = udsnew(u"yella.heartbeat");
+//            mhdr->cmp = YELLA_COMPRESSION_NONE;
+//            mhdr->seq.major = ag->state->boot_count;
+//            mhdr->seq.minor = ++minor_seq;
+//            parts[0].data = yella_pack_mhdr(mhdr, &parts[0].size);
+//            yella_destroy_mhdr(mhdr);
+//            if (yella_send(sndr, parts, 2))
+//                CHUCHO_C_INFO_L(ag->lgr, "Sent heartbeat");
+//            else
+//                CHUCHO_C_INFO_L(ag->lgr, "Error sending heartbeat");
+//        }
+//        else
+//        {
+//            CHUCHO_C_INFO_L(ag->lgr,
+//                            "Not sending heartbeat because there is no router connection");
+//        }
         next = time(NULL) + to_wait;
     } while (true);
-    yella_destroy_sender(sndr);
+//    yella_destroy_sender(sndr);
 }
 
 static void send_plugin_message(void* agent,
@@ -272,14 +271,14 @@ static void maybe_wait_for_router(yella_agent* ag)
 {
     time_t stop;
 
-    stop = time(NULL) + *yella_settings_get_uint(u"agent", u"start-connection-seconds");
-    while (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED && time(NULL) < stop)
-    {
-        CHUCHO_C_INFO_L(ag->lgr, "Waiting for router connection");
-        yella_sleep_this_thread(250);
-    }
-    if (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED)
-        CHUCHO_C_INFO_L(ag->lgr, "Initial router connection failed");
+//    stop = time(NULL) + *yella_settings_get_uint(u"agent", u"start-connection-seconds");
+//    while (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED && time(NULL) < stop)
+//    {
+//        CHUCHO_C_INFO_L(ag->lgr, "Waiting for router connection");
+//        yella_sleep_this_thread(250);
+//    }
+//    if (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED)
+//        CHUCHO_C_INFO_L(ag->lgr, "Initial router connection failed");
 }
 
 static void message_received(const yella_message_part* const hdr, const yella_message_part* const body, void* udata)
@@ -379,34 +378,34 @@ static void spool_thr(void* udata)
     yella_sender* sndr;
     int i;
 
-    ag = (yella_agent*)udata;
-    sndr = yella_create_sender(ag->router);
-    while (!ag->should_stop)
-    {
-        while (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED)
-        {
-            yella_sleep_this_thread(250);
-            if (ag->should_stop)
-                goto get_out;
-        }
-        rc = yella_spool_pop(ag->spool,
-                             500,
-                             &popped,
-                             &num_popped);
-        if (rc == YELLA_NO_ERROR)
-        {
-            yella_send(sndr, popped, num_popped);
-            for (i = 0; i < num_popped; i++)
-                free(popped[i].data);
-            free(popped);
-        }
-        else if (rc != YELLA_TIMED_OUT)
-        {
-            // TODO: error
-        }
-    }
-get_out:
-    yella_destroy_sender(sndr);
+//    ag = (yella_agent*)udata;
+//    sndr = yella_create_sender(ag->router);
+//    while (!ag->should_stop)
+//    {
+//        while (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED)
+//        {
+//            yella_sleep_this_thread(250);
+//            if (ag->should_stop)
+//                goto get_out;
+//        }
+//        rc = yella_spool_pop(ag->spool,
+//                             500,
+//                             &popped,
+//                             &num_popped);
+//        if (rc == YELLA_NO_ERROR)
+//        {
+//            yella_send(sndr, popped, num_popped);
+//            for (i = 0; i < num_popped; i++)
+//                free(popped[i].data);
+//            free(popped);
+//        }
+//        else if (rc != YELLA_TIMED_OUT)
+//        {
+//            // TODO: error
+//        }
+//    }
+//get_out:
+//    yella_destroy_sender(sndr);
 }
 
 yella_agent* yella_create_agent(void)
@@ -453,7 +452,7 @@ yella_agent* yella_create_agent(void)
         free(result);
         return NULL;
     }
-    result->router = yella_create_router(result->state->id);
+//    result->router = yella_create_router(result->state->id);
     maybe_wait_for_router(result);
     result->plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(result->plugins, plugin_api_dtor, NULL);
@@ -461,7 +460,7 @@ yella_agent* yella_create_agent(void)
     yella_destroy_settings_doc();
     result->spool_consumer = yella_create_thread(spool_thr, result);
     result->heartbeat = yella_create_thread(heartbeat_thr, result);
-    yella_set_router_message_received_callback(result->router, message_received, result);
+//    yella_set_router_message_received_callback(result->router, message_received, result);
     return result;
 }
 
@@ -484,7 +483,7 @@ void yella_destroy_agent(yella_agent* agent)
     }
     yella_destroy_ptr_vector(agent->plugins);
     yella_destroy_saved_state(agent->state);
-    yella_destroy_router(agent->router);
+//    yella_destroy_router(agent->router);
     yella_destroy_spool(agent->spool);
     chucho_release_logger(agent->lgr);
     free(agent);

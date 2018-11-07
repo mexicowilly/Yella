@@ -14,7 +14,7 @@
 #    limitations under the License.
 #
 
-INCLUDE_DIRECTORIES("${YELLA_ZEROMQ_INCLUDE_DIR}"
+INCLUDE_DIRECTORIES("${YELLA_RDKAFKA_INCLUDE_DIR}"
                     "${YELLA_FLATCC_INCLUDE_DIR}")
 
 SET(YELLA_SOURCES
@@ -28,8 +28,6 @@ SET(YELLA_SOURCES
     heartbeat.h
     mac_addresses.c
     mac_addresses.h
-    router.c
-    router.h
     runtime_link.h
     saved_state.c
     saved_state.h

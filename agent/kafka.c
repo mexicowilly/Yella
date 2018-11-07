@@ -93,8 +93,12 @@ static void kafka_log(const rd_kafka_t* rk, int level, const char* fac, const ch
 
 static void message_delivered(rd_kafka_t* rdk, const rd_kafka_message_t* msg, void* udata)
 {
-    if (msg->err)
+    if (msg->err != RD_KAFKA_RESP_ERR_NO_ERROR)
     {
+        if (msg->err == RD_KAFKA_RESP_ERR__ALL_BROKERS_DOWN)
+        {
+
+        }
         CHUCHO_C_ERROR(lgr,
                        "Message delivery failed to topic %s: %s",
                        rd_kafka_topic_name(msg->rkt),

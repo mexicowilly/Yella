@@ -43,7 +43,7 @@ typedef struct yella_spool_stats
 
 yella_spool* yella_create_spool(void);
 void yella_destroy_spool(yella_spool* sp);
-yella_spool_stats yella_spool_get_stats(yella_spool * sp);
+yella_spool_stats yella_spool_get_stats(yella_spool* sp);
 yella_rc yella_spool_pop(yella_spool* sp,
                          size_t milliseconds_to_wait,
                          yella_message_part** parts,

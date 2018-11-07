@@ -2,11 +2,9 @@
 #define YELLA_ENVELOPE_H__
 
 #include "common/uds.h"
-#include <time.h>
 
 typedef struct yella_envelope
 {
-    time_t time;
     uds sender;
     uds type;
     uint8_t* message;
