@@ -42,7 +42,6 @@ ADD_LIBRARY(common SHARED
             macro_util.h
             message_header.c
             message_header.h
-            message_part.h
             process.h
             ptr_vector.c
             ptr_vector.h

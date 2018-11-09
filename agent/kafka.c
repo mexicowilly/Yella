@@ -1,4 +1,5 @@
 #include "agent/kafka.h"
+#include "agent/spool.h"
 #include "common/sglib.h"
 #include "common/uds.h"
 #include "common/settings.h"
@@ -9,8 +10,6 @@
 #include <chucho/log.h>
 #include <syslog.h>
 #include <stdlib.h>
-#include <inttypes.h>
-#include <stdatomic.h>
 
 typedef struct topic
 {
@@ -29,7 +28,12 @@ typedef struct kafka
     kafka_message_handler handler;
     yella_thread* producer_thread;
     yella_thread* consumer_thread;
-    atomic_bool should_stop;
+    bool should_stop;
+    spool* sp;
+    yella_thread* spool_thread;
+    bool spool_should_stop;
+    bool disconnected;
+    yella_mutex* guard;
 } kafka;
 
 // This has to be static, because the logger function doesn't have a user data parameter
@@ -40,13 +44,23 @@ static chucho_logger_t* lgr;
 SGLIB_DEFINE_RBTREE_PROTOTYPES(topic, left, right, color, YELLA_KEY_COMPARE);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(topic, left, right, color, YELLA_KEY_COMPARE);
 
+static bool kafka_should_stop(kafka* kf)
+{
+    bool result;
+
+    yella_lock_mutex(kf->guard);
+    result = kf->should_stop;
+    yella_unlock_mutex(kf->guard);
+    return result;
+}
+
 static void consumer_main(void* udata)
 {
     kafka* kf;
     rd_kafka_message_t* msg;
 
     kf = (kafka*)udata;
-    while (!kf->should_stop)
+    while (!kafka_should_stop(kf))
     {
         msg = rd_kafka_consumer_poll(kf->consumer, 500);
         if (msg->err == RD_KAFKA_RESP_ERR_NO_ERROR)
@@ -111,131 +125,11 @@ static void producer_main(void* udata)
     kafka* kf;
 
     kf = (kafka*)udata;
-    while (!kf->should_stop)
+    while (!kafka_should_stop(kf))
         rd_kafka_poll(kf->producer, 500);
 }
 
-kafka* create_kafka(const yella_uuid* const id)
-{
-    kafka* result;
-    rd_kafka_conf_t* conf;
-    char int_str[32];
-    char* utf8;
-    const UChar* st;
-    rd_kafka_conf_res_t res;
-    char err_msg[1024];
-    rd_kafka_topic_partition_list_t* topics;
-    rd_kafka_resp_err_t rc;
-
-    if (yella_settings_get_text(u"agent", u"brokers") == NULL)
-    {
-        CHUCHO_C_FATAL("yella.kafka", "No brokers have been set");
-        return NULL;
-    }
-    result = calloc(1, sizeof(kafka));
-    lgr = chucho_get_logger("yella.kafka");
-    conf = rd_kafka_conf_new();
-    snprintf(int_str, sizeof(int_str), "%i", LOG_DEBUG);
-    res = rd_kafka_conf_set(conf, "log_level", int_str, err_msg, sizeof(err_msg));
-    if (res != RD_KAFKA_CONF_OK)
-        CHUCHO_C_ERROR(lgr, "Unable to set log_level: %s", err_msg);
-    rd_kafka_conf_set_log_cb(conf, kafka_log);
-    st = yella_settings_get_text(u"agent", u"kafka-debug-contexts");
-    if (st != NULL)
-    {
-        utf8 = yella_to_utf8(st);
-        res = rd_kafka_conf_set(conf, "debug", utf8, err_msg, sizeof(err_msg));
-        if (res != RD_KAFKA_CONF_OK)
-            CHUCHO_C_ERROR(lgr, "Unable to set debug value '%s': %s", utf8, err_msg);
-        free(utf8);
-    }
-    snprintf(int_str, sizeof(int_str), "%" PRIu64, *yella_settings_get_uint(u"agent", u"latency-milliseconds"));
-    res = rd_kafka_conf_set(conf, "queue.buffering.max.ms", int_str, err_msg, sizeof(err_msg));
-    if (res != RD_KAFKA_CONF_OK)
-        CHUCHO_C_ERROR(lgr, "Unable to set queue.buffering.max.ms value '%s': %s", int_str, err_msg);
-    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"compression-type"));
-    res = rd_kafka_conf_set(conf, "compression.codec", utf8, err_msg, sizeof(err_msg));
-    if (res != RD_KAFKA_CONF_OK)
-        CHUCHO_C_ERROR(lgr, "Unable to set compression.codec value '%s': %s", utf8, err_msg);
-    free(utf8);
-    utf8 = yella_to_utf8(id->text);
-    res = rd_kafka_conf_set(conf, "group.id", utf8, err_msg, sizeof(err_msg));
-    if (res != RD_KAFKA_CONF_OK)
-        CHUCHO_C_ERROR(lgr, "Unable to set group.id value '%s': %s", utf8, err_msg);
-    free(utf8);
-    rd_kafka_conf_set_dr_msg_cb(conf, message_delivered);
-    rd_kafka_conf_set_opaque(conf, result);
-    result->consumer = rd_kafka_new(RD_KAFKA_CONSUMER, rd_kafka_conf_dup(conf), err_msg, sizeof(err_msg));
-    if (result->consumer == NULL)
-    {
-        CHUCHO_C_FATAL(lgr, "Unable to create Kafka consumer: %s", err_msg);
-        rd_kafka_conf_destroy(conf);
-        chucho_release_logger(lgr);
-        free(result);
-        return NULL;
-    }
-    rd_kafka_poll_set_consumer(result->consumer);
-    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"brokers"));
-    rd_kafka_brokers_add(result->consumer, utf8);
-    free(utf8);
-    topics = rd_kafka_topic_partition_list_new(1);
-    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"agent-topic"));
-    rd_kafka_topic_partition_list_add(topics, utf8, RD_KAFKA_PARTITION_UA);
-    rc = rd_kafka_subscribe(result->consumer, topics);
-    rd_kafka_topic_partition_list_destroy(topics);
-    if (rc != RD_KAFKA_RESP_ERR_NO_ERROR)
-    {
-        CHUCHO_C_FATAL(lgr, "Unable to subscribe to topic: %s", utf8);
-        free(utf8);
-        rd_kafka_destroy(result->consumer);
-        chucho_release_logger(lgr);
-        free(result);
-        return NULL;
-    }
-    free(utf8);
-    result->producer = rd_kafka_new(RD_KAFKA_PRODUCER, conf, err_msg, sizeof(err_msg));
-    if (result->producer == NULL)
-    {
-        CHUCHO_C_FATAL(lgr, "Unable to create Kafka producer: %s", err_msg);
-        rd_kafka_destroy(result->consumer);
-        rd_kafka_conf_destroy(conf);
-        chucho_release_logger(lgr);
-        free(result);
-        return NULL;
-    }
-    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"brokers"));
-    rd_kafka_brokers_add(result->producer, utf8);
-    free(utf8);
-    result->producer_thread = yella_create_thread(producer_main, result);
-    result->consumer_thread = yella_create_thread(consumer_main, result);
-    return result;
-}
-
-void destroy_kafka(kafka* kf)
-{
-    struct sglib_topic_iterator titor;
-    topic* tpc;
-
-    rd_kafka_flush(kf->producer, 500);
-    for (tpc = sglib_topic_it_init(&titor, kf->topics);
-         tpc != NULL;
-         sglib_topic_it_next(&titor))
-    {
-        udsfree(tpc->key);
-        rd_kafka_topic_destroy(tpc->topic);
-        free(tpc);
-    }
-    kf->should_stop = true;
-    yella_join_thread(kf->producer_thread);
-    yella_destroy_thread(kf->producer_thread);
-    yella_join_thread(kf->consumer_thread);
-    yella_destroy_thread(kf->consumer_thread);
-    rd_kafka_destroy(kf->consumer);
-    rd_kafka_destroy(kf->producer);
-    free(kf);
-}
-
-bool send_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len)
+bool send_kafka_message_impl(kafka* kf, const UChar* const tpc, void* msg, size_t len)
 {
     topic to_find;
     topic* found;
@@ -286,6 +180,168 @@ bool send_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len
         }
     }
     return true;
+}
+
+kafka* create_kafka(const yella_uuid* const id)
+{
+    kafka* result;
+    rd_kafka_conf_t* conf;
+    char int_str[32];
+    char* utf8;
+    const UChar* st;
+    rd_kafka_conf_res_t res;
+    char err_msg[1024];
+    rd_kafka_topic_partition_list_t* topics;
+    rd_kafka_resp_err_t rc;
+
+    if (yella_settings_get_text(u"agent", u"brokers") == NULL)
+    {
+        CHUCHO_C_FATAL("yella.kafka", "No brokers have been set");
+        return NULL;
+    }
+    result = calloc(1, sizeof(kafka));
+    lgr = chucho_get_logger("yella.kafka");
+    result->sp = create_spool();
+    if (result->sp == NULL)
+    {
+        CHUCHO_C_FATAL(lgr, "Unable to create spool");
+        chucho_release_logger(lgr);
+        free(result);
+        return NULL;
+    }
+    conf = rd_kafka_conf_new();
+    snprintf(int_str, sizeof(int_str), "%i", LOG_DEBUG);
+    res = rd_kafka_conf_set(conf, "log_level", int_str, err_msg, sizeof(err_msg));
+    if (res != RD_KAFKA_CONF_OK)
+        CHUCHO_C_ERROR(lgr, "Unable to set log_level: %s", err_msg);
+    rd_kafka_conf_set_log_cb(conf, kafka_log);
+    st = yella_settings_get_text(u"agent", u"kafka-debug-contexts");
+    if (st != NULL)
+    {
+        utf8 = yella_to_utf8(st);
+        res = rd_kafka_conf_set(conf, "debug", utf8, err_msg, sizeof(err_msg));
+        if (res != RD_KAFKA_CONF_OK)
+            CHUCHO_C_ERROR(lgr, "Unable to set debug value '%s': %s", utf8, err_msg);
+        free(utf8);
+    }
+    snprintf(int_str, sizeof(int_str), "%" PRIu64, *yella_settings_get_uint(u"agent", u"latency-milliseconds"));
+    res = rd_kafka_conf_set(conf, "queue.buffering.max.ms", int_str, err_msg, sizeof(err_msg));
+    if (res != RD_KAFKA_CONF_OK)
+        CHUCHO_C_ERROR(lgr, "Unable to set queue.buffering.max.ms value '%s': %s", int_str, err_msg);
+    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"compression-type"));
+    res = rd_kafka_conf_set(conf, "compression.codec", utf8, err_msg, sizeof(err_msg));
+    if (res != RD_KAFKA_CONF_OK)
+        CHUCHO_C_ERROR(lgr, "Unable to set compression.codec value '%s': %s", utf8, err_msg);
+    free(utf8);
+    utf8 = yella_to_utf8(id->text);
+    res = rd_kafka_conf_set(conf, "group.id", utf8, err_msg, sizeof(err_msg));
+    if (res != RD_KAFKA_CONF_OK)
+        CHUCHO_C_ERROR(lgr, "Unable to set group.id value '%s': %s", utf8, err_msg);
+    free(utf8);
+    rd_kafka_conf_set_dr_msg_cb(conf, message_delivered);
+    rd_kafka_conf_set_opaque(conf, result);
+    result->consumer = rd_kafka_new(RD_KAFKA_CONSUMER, rd_kafka_conf_dup(conf), err_msg, sizeof(err_msg));
+    if (result->consumer == NULL)
+    {
+        CHUCHO_C_FATAL(lgr, "Unable to create Kafka consumer: %s", err_msg);
+        rd_kafka_conf_destroy(conf);
+        destroy_spool(result->sp);
+        chucho_release_logger(lgr);
+        free(result);
+        return NULL;
+    }
+    rd_kafka_poll_set_consumer(result->consumer);
+    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"brokers"));
+    rd_kafka_brokers_add(result->consumer, utf8);
+    free(utf8);
+    topics = rd_kafka_topic_partition_list_new(1);
+    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"agent-topic"));
+    rd_kafka_topic_partition_list_add(topics, utf8, RD_KAFKA_PARTITION_UA);
+    rc = rd_kafka_subscribe(result->consumer, topics);
+    rd_kafka_topic_partition_list_destroy(topics);
+    if (rc != RD_KAFKA_RESP_ERR_NO_ERROR)
+    {
+        CHUCHO_C_FATAL(lgr, "Unable to subscribe to topic: %s", utf8);
+        free(utf8);
+        rd_kafka_destroy(result->consumer);
+        destroy_spool(result->sp);
+        chucho_release_logger(lgr);
+        free(result);
+        return NULL;
+    }
+    free(utf8);
+    result->producer = rd_kafka_new(RD_KAFKA_PRODUCER, conf, err_msg, sizeof(err_msg));
+    if (result->producer == NULL)
+    {
+        CHUCHO_C_FATAL(lgr, "Unable to create Kafka producer: %s", err_msg);
+        rd_kafka_destroy(result->consumer);
+        rd_kafka_conf_destroy(conf);
+        destroy_spool(result->sp);
+        chucho_release_logger(lgr);
+        free(result);
+        return NULL;
+    }
+    utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"brokers"));
+    rd_kafka_brokers_add(result->producer, utf8);
+    free(utf8);
+    result->guard = yella_create_mutex();
+    result->producer_thread = yella_create_thread(producer_main, result);
+    result->consumer_thread = yella_create_thread(consumer_main, result);
+    return result;
+}
+
+void destroy_kafka(kafka* kf)
+{
+    struct sglib_topic_iterator titor;
+    topic* tpc;
+
+    rd_kafka_flush(kf->producer, 500);
+    for (tpc = sglib_topic_it_init(&titor, kf->topics);
+         tpc != NULL;
+         sglib_topic_it_next(&titor))
+    {
+        udsfree(tpc->key);
+        rd_kafka_topic_destroy(tpc->topic);
+        free(tpc);
+    }
+    yella_lock_mutex(kf->guard);
+    kf->should_stop = true;
+    yella_unlock_mutex(kf->guard);
+    yella_join_thread(kf->producer_thread);
+    yella_destroy_thread(kf->producer_thread);
+    yella_join_thread(kf->consumer_thread);
+    yella_destroy_thread(kf->consumer_thread);
+    rd_kafka_destroy(kf->consumer);
+    rd_kafka_destroy(kf->producer);
+    destroy_spool(kf->sp);
+    yella_destroy_mutex(kf->guard);
+    free(kf);
+    chucho_release_logger(lgr);
+}
+
+bool send_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len)
+{
+    message_part parts[2];
+    bool result;
+
+    result = true;
+    yella_lock_mutex(kf->guard);
+    if (!spool_empty_of_messages(kf->sp) || kf->disconnected)
+    {
+        // TODO maybe create the spool thread
+        parts[0].data = (uint8_t*)tpc;
+        parts[0].size = u_strlen(tpc) * sizeof(UChar);
+        parts[1].data = msg;
+        parts[1].size = len;
+        result = spool_push(kf->sp, parts, 2) == YELLA_NO_ERROR;
+        yella_unlock_mutex(kf->guard);
+    }
+    else
+    {
+        yella_unlock_mutex(kf->guard);
+        result = send_kafka_message_impl(kf, tpc, msg, len);
+    }
+    return result;
 }
 
 void set_kafka_message_handler(kafka* kf, kafka_message_handler hndlr)

@@ -17,14 +17,14 @@
 #if !defined(SPOOL_H__)
 #define SPOOL_H__
 
-#include "common/message_part.h"
 #include "common/return_code.h"
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdint.h>
 
-typedef struct yella_spool yella_spool;
+typedef struct spool spool;
 
-typedef struct yella_spool_stats
+typedef struct spool_stats
 {
     size_t max_partition_size;
     size_t max_partitions;
@@ -39,15 +39,22 @@ typedef struct yella_spool_stats
     size_t largest_event_size;
     size_t average_event_size;
     size_t cull_events;
-} yella_spool_stats;
+} spool_stats;
 
-yella_spool* yella_create_spool(void);
-void yella_destroy_spool(yella_spool* sp);
-yella_spool_stats yella_spool_get_stats(yella_spool* sp);
-yella_rc yella_spool_pop(yella_spool* sp,
-                         size_t milliseconds_to_wait,
-                         yella_message_part** parts,
-                         size_t* count);
-yella_rc yella_spool_push(yella_spool* sp, const yella_message_part* msgs, size_t count);
+typedef struct message_part
+{
+    uint8_t* data;
+    size_t size;
+} message_part;
+
+spool* create_spool(void);
+void destroy_spool(spool* sp);
+bool spool_empty_of_messages(spool * sp);
+spool_stats spool_get_stats(spool* sp);
+yella_rc spool_pop(spool* sp,
+                   size_t milliseconds_to_wait,
+                   message_part** parts,
+                   size_t* count);
+yella_rc spool_push(spool* sp, const message_part* msgs, size_t count);
 
 #endif

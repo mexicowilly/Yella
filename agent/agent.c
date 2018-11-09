@@ -59,7 +59,6 @@ typedef struct plugin_api
 typedef struct yella_agent
 {
     yella_saved_state* state;
-    yella_spool* spool;
     yella_ptr_vector* plugins;
     yella_thread* heartbeat;
     atomic_bool should_stop;
@@ -436,15 +435,15 @@ yella_agent* yella_create_agent(void)
     result->lgr = chucho_get_logger("yella.agent");
     result->state = yella_load_saved_state(result->lgr);
     yella_save_saved_state(result->state, result->lgr);
-    result->spool = yella_create_spool();
-    if (result->spool == NULL)
-    {
-        CHUCHO_C_ERROR_L(result->lgr, "Unable to create spool");
-        chucho_release_logger(result->lgr);
-        yella_destroy_saved_state(result->state);
-        free(result);
-        return NULL;
-    }
+//    result->spool = yella_create_spool();
+//    if (result->spool == NULL)
+//    {
+//        CHUCHO_C_ERROR_L(result->lgr, "Unable to create spool");
+//        chucho_release_logger(result->lgr);
+//        yella_destroy_saved_state(result->state);
+//        free(result);
+//        return NULL;
+//    }
     if (yella_settings_get_text(u"agent", u"router") == NULL)
     {
         chucho_release_logger(result->lgr);
@@ -484,7 +483,7 @@ void yella_destroy_agent(yella_agent* agent)
     yella_destroy_ptr_vector(agent->plugins);
     yella_destroy_saved_state(agent->state);
 //    yella_destroy_router(agent->router);
-    yella_destroy_spool(agent->spool);
+//    yella_destroy_spool(agent->spool);
     chucho_release_logger(agent->lgr);
     free(agent);
 }
