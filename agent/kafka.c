@@ -31,7 +31,6 @@ typedef struct kafka
     bool should_stop;
     spool* sp;
     yella_thread* spool_thread;
-    bool spool_should_stop;
     bool disconnected;
     yella_mutex* guard;
 } kafka;
@@ -129,6 +128,17 @@ static void producer_main(void* udata)
         rd_kafka_poll(kf->producer, 500);
 }
 
+static void spool_main(void* udata)
+{
+    kafka* kf;
+
+    kf = (kafka*)udata;
+    while (!kafka_should_stop(kf))
+    {
+
+    }
+}
+
 bool send_kafka_message_impl(kafka* kf, const UChar* const tpc, void* msg, size_t len)
 {
     topic to_find;
@@ -137,6 +147,7 @@ bool send_kafka_message_impl(kafka* kf, const UChar* const tpc, void* msg, size_
     int rc;
 
     to_find.key = (UChar*)tpc;
+    yella_lock_mutex(kf->guard);
     found = sglib_topic_find_member(kf->topics, &to_find);
     if (found == NULL)
     {
@@ -153,6 +164,7 @@ bool send_kafka_message_impl(kafka* kf, const UChar* const tpc, void* msg, size_
         free(utf8);
         sglib_topic_add(&kf->topics, found);
     }
+    yella_unlock_mutex(kf->guard);
     while (true)
     {
         rc = rd_kafka_produce(found->topic,
@@ -287,6 +299,7 @@ kafka* create_kafka(const yella_uuid* const id)
     result->guard = yella_create_mutex();
     result->producer_thread = yella_create_thread(producer_main, result);
     result->consumer_thread = yella_create_thread(consumer_main, result);
+    result->spool_thread = yella_create_thread(spool_main, result);
     return result;
 }
 
@@ -307,6 +320,8 @@ void destroy_kafka(kafka* kf)
     yella_lock_mutex(kf->guard);
     kf->should_stop = true;
     yella_unlock_mutex(kf->guard);
+    yella_join_thread(kf->spool_thread);
+    yella_destroy_thread(kf->spool_thread);
     yella_join_thread(kf->producer_thread);
     yella_destroy_thread(kf->producer_thread);
     yella_join_thread(kf->consumer_thread);
