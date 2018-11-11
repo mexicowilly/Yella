@@ -8,8 +8,10 @@
 #include <librdkafka/rdkafka.h>
 #include <unicode/ustring.h>
 #include <chucho/log.h>
+#include <cjson/cJSON.h>
 #include <syslog.h>
 #include <stdlib.h>
+#include <assert.h>
 
 typedef struct topic
 {
@@ -104,13 +106,67 @@ static void kafka_log(const rd_kafka_t* rk, int level, const char* fac, const ch
         CHUCHO_C_FATAL(lgr, "(%s) %s", fac, buf);
 }
 
+static void log_kafka_conf(rd_kafka_conf_t* conf)
+{
+    const char** arr;
+    size_t sz;
+    size_t i;
+    int32_t longest;
+    int32_t cur_len;
+    int32_t diff;
+    int32_t j;
+    UChar** uarr;
+    uds log;
+    char* utf8_log;
+
+    if (chucho_logger_permits(lgr, CHUCHO_INFO))
+    {
+        longest = 0;
+        arr = rd_kafka_conf_dump(conf, &sz);
+        uarr = malloc(sizeof(UChar) * sz);
+        for (i = 0; i < sz; i++)
+        {
+            uarr[i] = yella_from_utf8(arr[i]);
+            cur_len = u_strlen(uarr[i]);
+            if (cur_len > longest)
+                longest = cur_len;
+        }
+        log = udsnew(u"Kafka configuration:");
+        log = udscat(log, YELLA_NL);
+        for (i = 0; i < sz; i += 2)
+        {
+            log = udscat(log, u"  ");
+            log = udscat(log, uarr[i]);
+            cur_len = u_strlen(uarr[i]);
+            diff = longest - cur_len;
+            for (j = 0; j < diff; j++)
+                log = udscat(log, u" ");
+            log = udscatprintf(log, u": %S%S", uarr[i + 1], YELLA_NL);
+        }
+        cur_len = u_strlen(YELLA_NL);
+        udsrange(log, 0, -cur_len);
+        utf8_log = yella_to_utf8(log);
+        CHUCHO_C_INFO(lgr, utf8_log);
+        free(utf8_log);
+        udsfree(log);
+        for (i = 0; i < sz; i++)
+            free(uarr[i]);
+        rd_kafka_conf_dump_free(arr, sz);
+    }
+}
+
 static void message_delivered(rd_kafka_t* rdk, const rd_kafka_message_t* msg, void* udata)
 {
+    kafka* kf;
+
     if (msg->err != RD_KAFKA_RESP_ERR_NO_ERROR)
     {
         if (msg->err == RD_KAFKA_RESP_ERR__ALL_BROKERS_DOWN)
         {
-
+            kf = (kafka*)udata;
+            yella_lock_mutex(kf->guard);
+            kf->disconnected = true;
+            yella_unlock_mutex(kf->guard);
         }
         CHUCHO_C_ERROR(lgr,
                        "Message delivery failed to topic %s: %s",
@@ -128,18 +184,7 @@ static void producer_main(void* udata)
         rd_kafka_poll(kf->producer, 500);
 }
 
-static void spool_main(void* udata)
-{
-    kafka* kf;
-
-    kf = (kafka*)udata;
-    while (!kafka_should_stop(kf))
-    {
-
-    }
-}
-
-bool send_kafka_message_impl(kafka* kf, const UChar* const tpc, void* msg, size_t len)
+static bool send_kafka_message_impl(kafka* kf, const UChar* const tpc, void* msg, size_t len)
 {
     topic to_find;
     topic* found;
@@ -192,6 +237,83 @@ bool send_kafka_message_impl(kafka* kf, const UChar* const tpc, void* msg, size_
         }
     }
     return true;
+}
+
+static void spool_main(void* udata)
+{
+    kafka* kf;
+    message_part* popped;
+    size_t count_popped;
+    yella_rc rc;
+    int i;
+
+    kf = (kafka*)udata;
+    while (!kafka_should_stop(kf))
+    {
+        if (spool_pop(kf->sp, 500, &popped, &count_popped) == YELLA_NO_ERROR)
+        {
+            assert(count_popped == 2);
+            send_kafka_message_impl(kf, (UChar*)popped[0].data, popped[1].data, popped[1].size);
+            for (i = 0; i < count_popped; i++)
+                free(popped[i].data);
+            free(popped);
+        }
+    }
+}
+
+static int statistics_delivered(rd_kafka_t* rdk, char* buf, size_t len, void* udata)
+{
+    cJSON* json;
+    cJSON* brokers;
+    cJSON* broker;
+    cJSON* state;
+    char* val;
+    kafka* kf;
+
+    kf = (kafka*)udata;
+    assert(buf[len] == 0);
+    json = cJSON_Parse(buf);
+    if (json == NULL)
+    {
+        CHUCHO_C_ERROR(lgr, "Unparseable statistics: %s", buf);
+    }
+    else
+    {
+        brokers = cJSON_GetObjectItemCaseSensitive(json, "brokers");
+        if (brokers == NULL)
+        {
+            CHUCHO_C_ERROR(lgr, "No 'brokers' found in statistics: %s", buf);
+        }
+        else
+        {
+            cJSON_ArrayForEach(broker, brokers)
+            {
+                state = cJSON_GetObjectItemCaseSensitive(broker, "state");
+                if (state == NULL)
+                {
+                    CHUCHO_C_ERROR(lgr, "No 'state' found in broker %s: %s", cJSON_GetStringValue(broker), buf);
+                }
+                else
+                {
+                    val = cJSON_GetStringValue(state);
+                    if (val == NULL)
+                    {
+                        CHUCHO_C_ERROR(lgr, "'state' is not a string in broker %s: %s", cJSON_GetStringValue(broker),
+                                       buf);
+                    }
+                    else if (strcmp(val, "UP") == 0)
+                    {
+                        yella_lock_mutex(kf->guard);
+                        kf->disconnected = false;
+                        yella_unlock_mutex(kf->guard);
+                        break;
+                    }
+                }
+            }
+        }
+        cJSON_Delete(json);
+    }
+    return 0;
 }
 
 kafka* create_kafka(const yella_uuid* const id)
@@ -251,7 +373,13 @@ kafka* create_kafka(const yella_uuid* const id)
         CHUCHO_C_ERROR(lgr, "Unable to set group.id value '%s': %s", utf8, err_msg);
     free(utf8);
     rd_kafka_conf_set_dr_msg_cb(conf, message_delivered);
+    snprintf(int_str, sizeof(int_str), "%" PRIu64, *yella_settings_get_uint(u"agent", u"connection-interval-seconds") * 1000);
+    res = rd_kafka_conf_set(conf, "statistics.interval.ms", int_str, err_msg, sizeof(err_msg));
+    if (res != RD_KAFKA_CONF_OK)
+        CHUCHO_C_ERROR(lgr, "Unable to set statistics.interval.ms value '%s': %s", int_str, err_msg);
+    rd_kafka_conf_set_stats_cb(conf, statistics_delivered);
     rd_kafka_conf_set_opaque(conf, result);
+    log_kafka_conf(conf);
     result->consumer = rd_kafka_new(RD_KAFKA_CONSUMER, rd_kafka_conf_dup(conf), err_msg, sizeof(err_msg));
     if (result->consumer == NULL)
     {
@@ -297,8 +425,8 @@ kafka* create_kafka(const yella_uuid* const id)
     rd_kafka_brokers_add(result->producer, utf8);
     free(utf8);
     result->guard = yella_create_mutex();
-    result->producer_thread = yella_create_thread(producer_main, result);
     result->consumer_thread = yella_create_thread(consumer_main, result);
+    result->producer_thread = yella_create_thread(producer_main, result);
     result->spool_thread = yella_create_thread(spool_main, result);
     return result;
 }
@@ -320,12 +448,12 @@ void destroy_kafka(kafka* kf)
     yella_lock_mutex(kf->guard);
     kf->should_stop = true;
     yella_unlock_mutex(kf->guard);
+    yella_join_thread(kf->consumer_thread);
+    yella_destroy_thread(kf->consumer_thread);
     yella_join_thread(kf->spool_thread);
     yella_destroy_thread(kf->spool_thread);
     yella_join_thread(kf->producer_thread);
     yella_destroy_thread(kf->producer_thread);
-    yella_join_thread(kf->consumer_thread);
-    yella_destroy_thread(kf->consumer_thread);
     rd_kafka_destroy(kf->consumer);
     rd_kafka_destroy(kf->producer);
     destroy_spool(kf->sp);
@@ -343,9 +471,8 @@ bool send_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len
     yella_lock_mutex(kf->guard);
     if (!spool_empty_of_messages(kf->sp) || kf->disconnected)
     {
-        // TODO maybe create the spool thread
         parts[0].data = (uint8_t*)tpc;
-        parts[0].size = u_strlen(tpc) * sizeof(UChar);
+        parts[0].size = (u_strlen(tpc) + 1) * sizeof(UChar);
         parts[1].data = msg;
         parts[1].size = len;
         result = spool_push(kf->sp, parts, 2) == YELLA_NO_ERROR;

@@ -15,7 +15,8 @@
 #
 
 INCLUDE_DIRECTORIES("${YELLA_RDKAFKA_INCLUDE_DIR}"
-                    "${YELLA_FLATCC_INCLUDE_DIR}")
+                    "${YELLA_FLATCC_INCLUDE_DIR}"
+                    "${YELLA_CJSON_INCLUDE_DIR}")
 
 SET(YELLA_SOURCES
     agent.c
@@ -69,6 +70,7 @@ YELLA_GEN_TARGET(agent
 TARGET_LINK_LIBRARIES(agent
                       plugin
                       "${YELLA_RDKAFKA_LIB}"
+                      "${YELLA_CJSON_LIB}"
                       m)
 IF(YELLA_MACINTOSH)
     TARGET_LINK_LIBRARIES(agent "-framework IOKit" "-framework CoreFoundation")
