@@ -1,12 +1,13 @@
 #include "plugin/plugin.h"
 #include "common/thread.h"
 #include "common/settings.h"
-#include "common/sds_util.h"
+#include "common/text_util.h"
 #include "hello_reader.h"
 #include "hello_builder.h"
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <time.h>
 
 static bool should_stop;
 static yella_thread* thr;
@@ -15,17 +16,19 @@ static yella_condition_variable* work_cond;
 static unsigned interval_secs;
 static yella_agent_api agent_api;
 static uint32_t minor_seq;
-static uds recipient;
 static void* agent;
 static time_t next;
 static yella_plugin* hello_desc;
 static chucho_logger_t* lgr;
+static uds topic;
 
-static yella_rc set_interval_handler(const yella_message_header* const mhdr, const uint8_t* const msg, size_t sz)
+static yella_rc set_interval_handler(const uint8_t* const msg, size_t sz)
 {
+    UChar* utf16;
+
     yella_fb_hello_set_interval_table_t tbl;
     yella_fb_plugin_config_table_t cfg;
-    yella_ptr_vector* cfg_v;
+//    yella_ptr_vector* cfg_v;
 
     tbl = yella_fb_hello_set_interval_as_root(msg);
     yella_lock_mutex(guard);
@@ -33,15 +36,18 @@ static yella_rc set_interval_handler(const yella_message_header* const mhdr, con
     {
         cfg = yella_fb_hello_set_interval_config(tbl);
         yella_log_plugin_config(lgr, cfg);
-        cfg_v = ((yella_plugin_in_cap*)yella_ptr_vector_at(hello_desc->in_caps, 0))->configs;
-        yella_clear_ptr_vector(cfg_v);
-        yella_push_back_ptr_vector(cfg_v, sdsnew(yella_fb_plugin_config_name(cfg)));
+        utf16 = yella_from_utf8(yella_fb_plugin_config_topic_get(cfg));
+        udsfree(topic);
+        topic = udsnew(utf16);
+        free(utf16);
+//        cfg_v = ((yella_plugin_in_cap*)yella_ptr_vector_at(hello_desc->in_caps, 0))->configs;
+//        yella_clear_ptr_vector(cfg_v);
+//        yella_push_back_ptr_vector(cfg_v, sdsnew(yella_fb_plugin_config_name(cfg)));
     }
     if (yella_fb_hello_set_interval_seconds_is_present(tbl))
     {
         interval_secs = yella_fb_hello_set_interval_seconds(tbl);
         next = time(NULL) + interval_secs;
-        recipient = sdsnew(mhdr->sender);
     }
     yella_unlock_mutex(guard);
     return YELLA_NO_ERROR;
@@ -54,7 +60,6 @@ static void thr_main(void* uarg)
     char buf[256];
     uint8_t* raw;
     size_t raw_size;
-    yella_message_header* mhdr;
 
     yella_lock_mutex(guard);
     while (true)
@@ -72,12 +77,7 @@ static void thr_main(void* uarg)
         yella_fb_hello_hello_end_as_root(&bld);
         raw = flatcc_builder_finalize_buffer(&bld, &raw_size);
         flatcc_builder_clear(&bld);
-        mhdr = yella_create_mhdr();
-        mhdr->type = sdsnew(((yella_plugin_out_cap*)yella_ptr_vector_at(hello_desc->out_caps, 0))->name);
-        mhdr->recipient = udsnew(recipient);
-        mhdr->seq.minor = ++minor_seq;
-        agent_api.send_message(agent, mhdr, raw, raw_size);
-        yella_destroy_mhdr(mhdr);
+        agent_api.send_message(agent, topic, raw, raw_size);
         free(raw);
     }
     yella_unlock_mutex(guard);
@@ -119,7 +119,7 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     should_stop = false;
     minor_seq = 0;
     agent = agnt;
-    recipient = NULL;
+    topic = udsempty();
     retrieve_hello_settings();
     guard = yella_create_mutex();
     work_cond = yella_create_condition_variable();
@@ -157,6 +157,6 @@ YELLA_EXPORT yella_rc plugin_stop(void)
     yella_destroy_mutex(guard);
     yella_destroy_plugin(hello_desc);
     chucho_release_logger(lgr);
-    free(recipient);
+    udsfree(topic);
     return YELLA_NO_ERROR;
 }

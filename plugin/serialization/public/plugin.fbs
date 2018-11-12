@@ -10,4 +10,5 @@ table config
 {
     action: config_action;
     name: string;
+    topic: string;
 }
