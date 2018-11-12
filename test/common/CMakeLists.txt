@@ -17,7 +17,4 @@
 YELLA_TEST(settings-test)
 YELLA_TEST(file-test)
 YELLA_TEST(ptr-vector-test)
-YELLA_TEST(message-header-test)
-YELLA_TEST(compression-test)
 YELLA_TEST(process-test)
-YELLA_TEST(envelope-test)

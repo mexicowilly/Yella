@@ -23,6 +23,8 @@ SET(YELLA_SOURCES
     agent.h
     argparse.c
     argparse.h
+    envelope.c
+    envelope.h
     kafka.c
     kafka.h
     heartbeat.c
@@ -64,8 +66,9 @@ ENDIF()
 ADD_LIBRARY(agent SHARED ${YELLA_SOURCES})
 
 YELLA_GEN_TARGET(agent
-                 serialization/private/saved_state.fbs
-                 serialization/public/heartbeat.fbs)
+                 serialization/public/envelope.fbs
+                 serialization/public/heartbeat.fbs
+                 serialization/private/saved_state.fbs)
 
 TARGET_LINK_LIBRARIES(agent
                       plugin

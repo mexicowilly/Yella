@@ -1,4 +1,4 @@
-#include "common/envelope.h"
+#include "agent/envelope.h"
 #include "common/text_util.h"
 #include "common/macro_util.h"
 #include "envelope_reader.h"

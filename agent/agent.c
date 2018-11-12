@@ -20,8 +20,8 @@
 #include "agent/saved_state.h"
 #include "agent/runtime_link.h"
 #include "agent/heartbeat.h"
+#include "agent/envelope.h"
 #include "common/settings.h"
-#include "common/envelope.h"
 #include "common/file.h"
 #include "common/thread.h"
 #include "common/macro_util.h"
@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <chucho/log.h>
 #include <stdatomic.h>
+#include <time.h>
 
 static const uint64_t YELLA_MEGABYTE = 1024 * 1024;
 static const uint64_t YELLA_GIGABYTE = 1024 * 1024 * 1024;
@@ -129,7 +130,7 @@ static void send_plugin_message(void* agent,
     yella_agent* ag;
 
     ag = (yella_agent*)agent;
-    send_kafka_message(ag->kf, tpc, msg, len);
+    send_kafka_message(ag->kf, tpc, (void*)msg, sz);
 }
 
 static void load_plugins(yella_agent* agent)
@@ -238,13 +239,15 @@ static void message_received(void* msg, size_t len, void* udata)
 {
     yella_agent* ag;
     in_handler to_find;
-    in_handler* found;
+    in_handler* hndlr;
     yella_envelope* env;
+    char* utf8;
+    yella_rc rc;
 
     ag = (yella_agent*)udata;
-    env = yella_unpack_envelope(msg, len);
-    hndlr_to_find.key = env->type;
-    hndlr = sglib_in_handler_find_member(ag->in_handlers, &hndlr_to_find);
+    env = yella_unpack_envelope(msg);
+    to_find.key = env->type;
+    hndlr = sglib_in_handler_find_member(ag->in_handlers, &to_find);
     if (hndlr == NULL)
     {
         utf8 = yella_to_utf8(env->type);
@@ -253,53 +256,14 @@ static void message_received(void* msg, size_t len, void* udata)
     }
     else
     {
-        
-    }
-    /*
-    in_handler to_find;
-    in_handler* found;
-    yella_message_header* mhdr;
-    yella_agent* ag;
-    uint8_t* decmp;
-    size_t decmp_sz;
-    in_handler* hndlr;
-    in_handler hndlr_to_find;
-    yella_rc rc;
-    char* utf8;
-
-    mhdr = yella_unpack_mhdr(hdr->data);
-    ag = (yella_agent*)udata;
-    yella_log_mhdr(mhdr, ag->lgr);
-    hndlr_to_find.key = mhdr->type;
-    hndlr = sglib_in_handler_find_member(ag->in_handlers, &hndlr_to_find);
-    if (hndlr == NULL)
-    {
-        utf8 = yella_to_utf8(mhdr->type);
-        CHUCHO_C_ERROR_L(ag->lgr, "This message type is not registered: %s", utf8);
-        free(utf8);
-    }
-    else
-    {
-        if (mhdr->cmp == YELLA_COMPRESSION_LZ4)
-        {
-            decmp_sz = body->size;
-            decmp = yella_lz4_decompress(body->data, &decmp_sz);
-            rc = hndlr->func(mhdr, decmp, decmp_sz);
-            free(decmp);
-        }
-        else
-        {
-            rc = hndlr->func(mhdr, body->data, body->size);
-        }
+        rc = hndlr->func(msg, len);
         if (rc != YELLA_NO_ERROR)
         {
-            utf8 = yella_to_utf8(mhdr->type);
+            utf8 = yella_to_utf8(env->type);
             CHUCHO_C_ERROR_L(ag->lgr, "Error handling message %s: %s", utf8, yella_strerror(rc));
             free(utf8);
         }
     }
-    yella_destroy_mhdr(mhdr);
-     */
 }
 
 static void plugin_api_dtor(void* p, void* udata)

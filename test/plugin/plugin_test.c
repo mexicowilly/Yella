@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <cmocka.h>
 
-yella_rc in_cap_handler(const yella_message_header* const mhdr, const uint8_t* const msg, size_t sz)
+yella_rc in_cap_handler(const uint8_t* const msg, size_t sz)
 {
     return YELLA_NO_ERROR;
 }

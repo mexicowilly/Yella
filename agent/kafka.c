@@ -66,18 +66,21 @@ static void consumer_main(void* udata)
     while (!kafka_should_stop(kf))
     {
         msg = rd_kafka_consumer_poll(kf->consumer, 500);
-        if (msg->err == RD_KAFKA_RESP_ERR_NO_ERROR)
+        if (msg != NULL)
         {
-            if (kf->handler != NULL)
-                kf->handler(msg->payload, msg->len, kf->handler_udata);
-        }
-        else if (msg->err != RD_KAFKA_RESP_ERR__PARTITION_EOF &&
-                 msg->err != RD_KAFKA_RESP_ERR__TIMED_OUT)
-        {
-            CHUCHO_C_ERROR(lgr,
-                           "Error consuming Kafka topic %s: %s",
-                           rd_kafka_topic_name(msg->rkt),
-                           (const char*)msg->payload);
+            if (msg->err == RD_KAFKA_RESP_ERR_NO_ERROR)
+            {
+                if (kf->handler != NULL)
+                    kf->handler(msg->payload, msg->len, kf->handler_udata);
+            } else if (msg->err != RD_KAFKA_RESP_ERR__PARTITION_EOF &&
+                       msg->err != RD_KAFKA_RESP_ERR__TIMED_OUT)
+            {
+                CHUCHO_C_ERROR(lgr,
+                               "Error consuming Kafka topic %s: %s",
+                               rd_kafka_topic_name(msg->rkt),
+                               (const char *) msg->payload);
+            }
+            rd_kafka_message_destroy(msg);
         }
     }
 }

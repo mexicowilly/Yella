@@ -20,7 +20,7 @@
 #include "export.h"
 #include <unicode/ustring.h>
 
-extern const UChar* YELLA_NL;
+YELLA_EXPORT extern const UChar* YELLA_NL;
 
 YELLA_EXPORT UChar* yella_from_utf8(const char* const str);
 YELLA_EXPORT char* yella_to_utf8(const UChar* const str);
