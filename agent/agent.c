@@ -15,22 +15,20 @@
  */
 
 #include "agent/agent.h"
-#include "agent/router.h"
+#include "agent/kafka.h"
 #include "agent/yella_uuid.h"
 #include "agent/saved_state.h"
-#include "agent/spool.h"
 #include "agent/runtime_link.h"
 #include "agent/heartbeat.h"
 #include "common/settings.h"
-#include "common/message_header.h"
-#include "common/message_part.h"
+#include "common/envelope.h"
 #include "common/file.h"
 #include "common/thread.h"
 #include "common/macro_util.h"
 #include "common/text_util.h"
 #include "plugin/plugin.h"
 #include "common/sglib.h"
-#include <lz4.h>
+#include "spool.h"
 #include <stdlib.h>
 #include <chucho/log.h>
 #include <stdatomic.h>
@@ -62,9 +60,9 @@ typedef struct yella_agent
     yella_ptr_vector* plugins;
     yella_thread* heartbeat;
     atomic_bool should_stop;
-    yella_thread* spool_consumer;
     in_handler* in_handlers;
     chucho_logger_t* lgr;
+    kafka* kf;
 } yella_agent;
 
 #define YELLA_KEY_COMPARE(x, y) u_strcmp((x->key), (y->key))
@@ -86,13 +84,11 @@ static void heartbeat_thr(void* udata)
     yella_plugin* plg;
     int i;
     yella_ptr_vector* plugins;
-    yella_sender* sndr;
-    yella_message_part parts[2];
-    yella_message_header* mhdr;
-    uint32_t minor_seq;
+    yella_envelope* env;
+    message_part part;
+    message_part env_part;
+    const UChar* heartbeat_topic = yella_settings_get_text(u"agent", u"heartbeat-topic");
 
-    minor_seq = 0;
-    //sndr = yella_create_sender(ag->router);
     next = 0;
     do
     {
@@ -104,64 +100,36 @@ static void heartbeat_thr(void* udata)
         }
         if (ag->should_stop)
             break;
-//        if (yella_router_get_state(ag->router) == YELLA_ROUTER_CONNECTED)
-//        {
-//            plugins = yella_create_ptr_vector();
-//            yella_set_ptr_vector_destructor(plugins, plugin_dtor, NULL);
-//            for (i = 0; i < yella_ptr_vector_size(ag->plugins); i++)
-//            {
-//                api = (plugin_api*)yella_ptr_vector_at(ag->plugins, i);
-//                yella_push_back_ptr_vector(plugins, api->status_func());
-//            }
-//            parts[1].data = create_heartbeat(ag->state->id->text, plugins, &parts[1].size);
-//            yella_destroy_ptr_vector(plugins);
-//            mhdr = yella_create_mhdr();
-//            mhdr->time = time(NULL);
-//            mhdr->sender = udsnew(ag->state->id->text);
-//            mhdr->recipient = udsnew(yella_settings_get_text(u"agent", u"router"));
-//            mhdr->type = udsnew(u"yella.heartbeat");
-//            mhdr->cmp = YELLA_COMPRESSION_NONE;
-//            mhdr->seq.major = ag->state->boot_count;
-//            mhdr->seq.minor = ++minor_seq;
-//            parts[0].data = yella_pack_mhdr(mhdr, &parts[0].size);
-//            yella_destroy_mhdr(mhdr);
-//            if (yella_send(sndr, parts, 2))
-//                CHUCHO_C_INFO_L(ag->lgr, "Sent heartbeat");
-//            else
-//                CHUCHO_C_INFO_L(ag->lgr, "Error sending heartbeat");
-//        }
-//        else
-//        {
-//            CHUCHO_C_INFO_L(ag->lgr,
-//                            "Not sending heartbeat because there is no router connection");
-//        }
+        plugins = yella_create_ptr_vector();
+        yella_set_ptr_vector_destructor(plugins, plugin_dtor, NULL);
+        for (i = 0; i < yella_ptr_vector_size(ag->plugins); i++)
+        {
+            api = (plugin_api*)yella_ptr_vector_at(ag->plugins, i);
+            yella_push_back_ptr_vector(plugins, api->status_func());
+        }
+        part.data = create_heartbeat(ag->state->id->text, plugins, &part.size);
+        env = yella_create_envelope(ag->state->id->text, heartbeat_topic, part.data, part.size);
+        env_part.data = yella_pack_envelope(env, &env_part.size);
+        yella_destroy_envelope(env);
+        yella_destroy_ptr_vector(plugins);
+        if (send_transient_kafka_message(ag->kf, u"yella.heartbeat", env_part.data, env_part.size))
+            CHUCHO_C_INFO_L(ag->lgr, "Sent heartbeat");
+        else
+            CHUCHO_C_INFO_L(ag->lgr, "Error sending heartbeat");
+        free(env_part.data);
         next = time(NULL) + to_wait;
     } while (true);
-//    yella_destroy_sender(sndr);
 }
 
 static void send_plugin_message(void* agent,
-                                yella_message_header* mhdr,
+                                const UChar* const tpc,
                                 const uint8_t* const msg,
                                 size_t sz)
 {
-    /*
-    yella_agent* ag = (yella_agent*)agent;
-    yella_message_part parts[2];
-    size_t hdr_sz;
+    yella_agent* ag;
 
-    mhdr->time = time(NULL);
-    mhdr->sender = udsnew(ag->state->id->text);
-    mhdr->cmp = YELLA_COMPRESSION_LZ4;
-    mhdr->seq.major = ag->state->boot_count;
-    parts[0].data = yella_pack_mhdr(mhdr, &hdr_sz);
-    parts[0].size = hdr_sz;
-    parts[1].data = yella_lz4_compress(msg, &sz);
-    parts[1].size = sz;
-    yella_spool_push(ag->spool, parts, 2);
-    free(parts[0].data);
-    free(parts[1].data);
-     */
+    ag = (yella_agent*)agent;
+    send_kafka_message(ag->kf, tpc, msg, len);
 }
 
 static void load_plugins(yella_agent* agent)
@@ -266,22 +234,27 @@ static void load_plugins(yella_agent* agent)
     yella_destroy_directory_iterator(itor);
 }
 
-static void maybe_wait_for_router(yella_agent* ag)
+static void message_received(void* msg, size_t len, void* udata)
 {
-    time_t stop;
+    yella_agent* ag;
+    in_handler to_find;
+    in_handler* found;
+    yella_envelope* env;
 
-//    stop = time(NULL) + *yella_settings_get_uint(u"agent", u"start-connection-seconds");
-//    while (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED && time(NULL) < stop)
-//    {
-//        CHUCHO_C_INFO_L(ag->lgr, "Waiting for router connection");
-//        yella_sleep_this_thread(250);
-//    }
-//    if (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED)
-//        CHUCHO_C_INFO_L(ag->lgr, "Initial router connection failed");
-}
-
-static void message_received(const yella_message_part* const hdr, const yella_message_part* const body, void* udata)
-{
+    ag = (yella_agent*)udata;
+    env = yella_unpack_envelope(msg, len);
+    hndlr_to_find.key = env->type;
+    hndlr = sglib_in_handler_find_member(ag->in_handlers, &hndlr_to_find);
+    if (hndlr == NULL)
+    {
+        utf8 = yella_to_utf8(env->type);
+        CHUCHO_C_ERROR_L(ag->lgr, "This message type is not registered: %s", utf8);
+        free(utf8);
+    }
+    else
+    {
+        
+    }
     /*
     in_handler to_find;
     in_handler* found;
@@ -350,61 +323,29 @@ static void retrieve_agent_settings(void)
         { u"data-dir", YELLA_SETTING_VALUE_TEXT },
         { u"plugin-dir", YELLA_SETTING_VALUE_TEXT },
         { u"spool-dir", YELLA_SETTING_VALUE_TEXT },
-        { u"router", YELLA_SETTING_VALUE_TEXT },
         { u"max-spool-partitions", YELLA_SETTING_VALUE_UINT },
         { u"max-spool-partition-size", YELLA_SETTING_VALUE_UINT },
         { u"reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
         { u"poll-milliseconds", YELLA_SETTING_VALUE_UINT },
         { u"heartbeat-seconds", YELLA_SETTING_VALUE_UINT },
-        { u"start-connection-seconds", YELLA_SETTING_VALUE_UINT }
+        { u"brokers", YELLA_SETTING_VALUE_TEXT },
+        { u"kafka-debug-contexts", YELLA_SETTING_VALUE_TEXT },
+        { u"latency-milliseconds", YELLA_SETTING_VALUE_UINT },
+        { u"compression-type", YELLA_SETTING_VALUE_TEXT },
+        { u"connection-interval-seconds", YELLA_SETTING_VALUE_UINT },
+        { u"agent-topic", YELLA_SETTING_VALUE_TEXT },
+        { u"heartbeat-topic", YELLA_SETTING_VALUE_TEXT }
     };
 
     yella_settings_set_uint(u"agent", u"max-spool-partitions", 1000);
     yella_settings_set_uint(u"agent", u"max-spool-partition-size", 2 * YELLA_MEGABYTE);
     yella_settings_set_uint(u"agent", u"reconnect-timeout-seconds", 5);
-    yella_settings_set_uint(u"agent", u"poll-milliseconds", 500);
     yella_settings_set_uint(u"agent", u"heartbeat-seconds", 30);
-    yella_settings_set_uint(u"agent", u"start-connection-seconds", 2);
+    yella_settings_set_text(u"agent", u"compression-type", u"lz4");
+    yella_settings_set_uint(u"agent", u"connection-interval-seconds", 15);
+    yella_settings_set_text(u"agent", u"agent-topic", u"yella.agent");
+    yella_settings_set_text(u"agent", u"heartbeat-topic", u"yella.heartbeat");
     yella_retrieve_settings(u"agent", descs, YELLA_ARRAY_SIZE(descs));
-}
-
-static void spool_thr(void* udata)
-{
-    yella_agent* ag;
-    yella_message_part* popped;
-    size_t num_popped;
-    yella_rc rc;
-    yella_sender* sndr;
-    int i;
-
-//    ag = (yella_agent*)udata;
-//    sndr = yella_create_sender(ag->router);
-//    while (!ag->should_stop)
-//    {
-//        while (yella_router_get_state(ag->router) != YELLA_ROUTER_CONNECTED)
-//        {
-//            yella_sleep_this_thread(250);
-//            if (ag->should_stop)
-//                goto get_out;
-//        }
-//        rc = yella_spool_pop(ag->spool,
-//                             500,
-//                             &popped,
-//                             &num_popped);
-//        if (rc == YELLA_NO_ERROR)
-//        {
-//            yella_send(sndr, popped, num_popped);
-//            for (i = 0; i < num_popped; i++)
-//                free(popped[i].data);
-//            free(popped);
-//        }
-//        else if (rc != YELLA_TIMED_OUT)
-//        {
-//            // TODO: error
-//        }
-//    }
-//get_out:
-//    yella_destroy_sender(sndr);
 }
 
 yella_agent* yella_create_agent(void)
@@ -435,15 +376,6 @@ yella_agent* yella_create_agent(void)
     result->lgr = chucho_get_logger("yella.agent");
     result->state = yella_load_saved_state(result->lgr);
     yella_save_saved_state(result->state, result->lgr);
-//    result->spool = yella_create_spool();
-//    if (result->spool == NULL)
-//    {
-//        CHUCHO_C_ERROR_L(result->lgr, "Unable to create spool");
-//        chucho_release_logger(result->lgr);
-//        yella_destroy_saved_state(result->state);
-//        free(result);
-//        return NULL;
-//    }
     if (yella_settings_get_text(u"agent", u"router") == NULL)
     {
         chucho_release_logger(result->lgr);
@@ -451,15 +383,13 @@ yella_agent* yella_create_agent(void)
         free(result);
         return NULL;
     }
-//    result->router = yella_create_router(result->state->id);
-    maybe_wait_for_router(result);
+    result->kf = create_kafka(result->state->id);
     result->plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(result->plugins, plugin_api_dtor, NULL);
     load_plugins(result);
     yella_destroy_settings_doc();
-    result->spool_consumer = yella_create_thread(spool_thr, result);
     result->heartbeat = yella_create_thread(heartbeat_thr, result);
-//    yella_set_router_message_received_callback(result->router, message_received, result);
+    set_kafka_message_handler(result->kf, message_received, result);
     return result;
 }
 
@@ -471,8 +401,6 @@ void yella_destroy_agent(yella_agent* agent)
     agent->should_stop = true;
     yella_join_thread(agent->heartbeat);
     yella_destroy_thread(agent->heartbeat);
-    yella_join_thread(agent->spool_consumer);
-    yella_destroy_thread(agent->spool_consumer);
     for (hndlr = sglib_in_handler_it_init(&itor, agent->in_handlers);
          hndlr != NULL;
          hndlr = sglib_in_handler_it_next(&itor))
@@ -482,8 +410,7 @@ void yella_destroy_agent(yella_agent* agent)
     }
     yella_destroy_ptr_vector(agent->plugins);
     yella_destroy_saved_state(agent->state);
-//    yella_destroy_router(agent->router);
-//    yella_destroy_spool(agent->spool);
+    destroy_kafka(agent->kf);
     chucho_release_logger(agent->lgr);
     free(agent);
 }

@@ -35,6 +35,8 @@ typedef struct kafka
     yella_thread* spool_thread;
     bool disconnected;
     yella_mutex* guard;
+    yella_condition_variable* conn_condition;
+    void* handler_udata;
 } kafka;
 
 // This has to be static, because the logger function doesn't have a user data parameter
@@ -67,7 +69,7 @@ static void consumer_main(void* udata)
         if (msg->err == RD_KAFKA_RESP_ERR_NO_ERROR)
         {
             if (kf->handler != NULL)
-                kf->handler(msg->payload, msg->len);
+                kf->handler(msg->payload, msg->len, kf->handler_udata);
         }
         else if (msg->err != RD_KAFKA_RESP_ERR__PARTITION_EOF &&
                  msg->err != RD_KAFKA_RESP_ERR__TIMED_OUT)
@@ -184,61 +186,6 @@ static void producer_main(void* udata)
         rd_kafka_poll(kf->producer, 500);
 }
 
-static bool send_kafka_message_impl(kafka* kf, const UChar* const tpc, void* msg, size_t len)
-{
-    topic to_find;
-    topic* found;
-    char* utf8;
-    int rc;
-
-    to_find.key = (UChar*)tpc;
-    yella_lock_mutex(kf->guard);
-    found = sglib_topic_find_member(kf->topics, &to_find);
-    if (found == NULL)
-    {
-        found = malloc(sizeof(topic));
-        found->key = udsnew(tpc);
-        utf8 = yella_to_utf8(tpc);
-        found->topic = rd_kafka_topic_new(kf->producer, utf8, NULL);
-        if (found->topic == NULL)
-        {
-            CHUCHO_C_ERROR(lgr, "Failed to create topic %s: %s", utf8, rd_kafka_err2str(rd_kafka_last_error()));
-            free(utf8);
-            return false;
-        }
-        free(utf8);
-        sglib_topic_add(&kf->topics, found);
-    }
-    yella_unlock_mutex(kf->guard);
-    while (true)
-    {
-        rc = rd_kafka_produce(found->topic,
-                              RD_KAFKA_PARTITION_UA,
-                              RD_KAFKA_MSG_F_COPY,
-                              msg,
-                              len,
-                              NULL,
-                              0,
-                              kf);
-        if (rc == 0)
-        {
-            break;
-        }
-        else
-        {
-            CHUCHO_C_ERROR(lgr,
-                           "Error sending to topic %s: %s",
-                           rd_kafka_topic_name(found->topic),
-                           rd_kafka_err2str(rd_kafka_last_error()));
-            if (rd_kafka_last_error() != RD_KAFKA_RESP_ERR__QUEUE_FULL)
-                return false;
-            /* In case queue is full, let our poller run a litle and then retry. */
-            yella_sleep_this_thread(100);
-        }
-    }
-    return true;
-}
-
 static void spool_main(void* udata)
 {
     kafka* kf;
@@ -246,17 +193,28 @@ static void spool_main(void* udata)
     size_t count_popped;
     yella_rc rc;
     int i;
+    bool ready;
 
     kf = (kafka*)udata;
     while (!kafka_should_stop(kf))
     {
-        if (spool_pop(kf->sp, 500, &popped, &count_popped) == YELLA_NO_ERROR)
+        yella_lock_mutex(kf->guard);
+        if (!kf->disconnected || yella_wait_milliseconds_for_condition_variable(kf->conn_condition, kf->guard, 500))
         {
-            assert(count_popped == 2);
-            send_kafka_message_impl(kf, (UChar*)popped[0].data, popped[1].data, popped[1].size);
-            for (i = 0; i < count_popped; i++)
-                free(popped[i].data);
-            free(popped);
+            ready = !kf->disconnected;
+            yella_unlock_mutex(kf->guard);
+            if (ready && spool_pop(kf->sp, 500, &popped, &count_popped) == YELLA_NO_ERROR)
+            {
+                assert(count_popped == 2);
+                send_transient_kafka_message(kf, (UChar *) popped[0].data, popped[1].data, popped[1].size);
+                for (i = 0; i < count_popped; i++)
+                    free(popped[i].data);
+                free(popped);
+            }
+        }
+        else
+        {
+            yella_unlock_mutex(kf->guard);
         }
     }
 }
@@ -305,6 +263,7 @@ static int statistics_delivered(rd_kafka_t* rdk, char* buf, size_t len, void* ud
                     {
                         yella_lock_mutex(kf->guard);
                         kf->disconnected = false;
+                        yella_signal_condition_variable(kf->conn_condition);
                         yella_unlock_mutex(kf->guard);
                         break;
                     }
@@ -425,6 +384,7 @@ kafka* create_kafka(const yella_uuid* const id)
     rd_kafka_brokers_add(result->producer, utf8);
     free(utf8);
     result->guard = yella_create_mutex();
+    result->conn_condition = yella_create_condition_variable();
     result->consumer_thread = yella_create_thread(consumer_main, result);
     result->producer_thread = yella_create_thread(producer_main, result);
     result->spool_thread = yella_create_thread(spool_main, result);
@@ -457,6 +417,7 @@ void destroy_kafka(kafka* kf)
     rd_kafka_destroy(kf->consumer);
     rd_kafka_destroy(kf->producer);
     destroy_spool(kf->sp);
+    yella_destroy_condition_variable(kf->conn_condition);
     yella_destroy_mutex(kf->guard);
     free(kf);
     chucho_release_logger(lgr);
@@ -481,13 +442,69 @@ bool send_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len
     else
     {
         yella_unlock_mutex(kf->guard);
-        result = send_kafka_message_impl(kf, tpc, msg, len);
+        result = send_transient_kafka_message(kf, tpc, msg, len);
     }
     return result;
 }
 
-void set_kafka_message_handler(kafka* kf, kafka_message_handler hndlr)
+bool send_transient_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len)
+{
+    topic to_find;
+    topic* found;
+    char* utf8;
+    int rc;
+
+    to_find.key = (UChar*)tpc;
+    yella_lock_mutex(kf->guard);
+    found = sglib_topic_find_member(kf->topics, &to_find);
+    if (found == NULL)
+    {
+        found = malloc(sizeof(topic));
+        found->key = udsnew(tpc);
+        utf8 = yella_to_utf8(tpc);
+        found->topic = rd_kafka_topic_new(kf->producer, utf8, NULL);
+        if (found->topic == NULL)
+        {
+            CHUCHO_C_ERROR(lgr, "Failed to create topic %s: %s", utf8, rd_kafka_err2str(rd_kafka_last_error()));
+            free(utf8);
+            return false;
+        }
+        free(utf8);
+        sglib_topic_add(&kf->topics, found);
+    }
+    yella_unlock_mutex(kf->guard);
+    while (true)
+    {
+        rc = rd_kafka_produce(found->topic,
+                              RD_KAFKA_PARTITION_UA,
+                              RD_KAFKA_MSG_F_COPY,
+                              msg,
+                              len,
+                              NULL,
+                              0,
+                              kf);
+        if (rc == 0)
+        {
+            break;
+        }
+        else
+        {
+            CHUCHO_C_ERROR(lgr,
+                           "Error sending to topic %s: %s",
+                           rd_kafka_topic_name(found->topic),
+                           rd_kafka_err2str(rd_kafka_last_error()));
+            if (rd_kafka_last_error() != RD_KAFKA_RESP_ERR__QUEUE_FULL)
+                return false;
+            /* In case queue is full, let our poller run a litle and then retry. */
+            yella_sleep_this_thread(100);
+        }
+    }
+    return true;
+}
+
+void set_kafka_message_handler(kafka* kf, kafka_message_handler hndlr, void* udata)
 {
     kf->handler = hndlr;
+    kf->handler_udata = udata;
 }
 
