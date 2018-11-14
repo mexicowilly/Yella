@@ -334,31 +334,25 @@ void yella_log_settings(void)
              sct_elem != NULL;
              sct_elem = sglib_section_it_next(&sct_itor))
         {
-            udscatuds(out, sct_elem->key);
-            udscatlen(out, ":", 1);
-            udscat(out, YELLA_NL);
+            out = udscatprintf(out, u"%S:%S", sct_elem->key, YELLA_NL);
             for (set_elem = sglib_setting_it_init(&set_itor, sct_elem->settings);
                  set_elem != NULL;
                  set_elem = sglib_setting_it_next(&set_itor))
             {
-                udscatlen(out, "  ", 2);
-                udscatuds(out, set_elem->key);
-                udscatlen(out, "=", 1);
+                out = udscatprintf(out, u"  %S=", set_elem->key);
                 if (set_elem->type == YELLA_SETTING_VALUE_TEXT)
                 {
-                    udscatlen(out, "'", 1);
-                    udscatuds(out, set_elem->value.text);
-                    udscatlen(out, "'", 1);
+                    out = udscatprintf(out, u"'%S'", set_elem->value.text);
                 }
                 else
                 {
-                    udscatprintf(out, u"%lld", set_elem->value.uint);
+                    out = udscatprintf(out, u"%lld", set_elem->value.uint);
                 }
-                udscat(out, YELLA_NL);
+                out = udscat(out, YELLA_NL);
             }
         }
         yella_unlock_mutex(guard);
-        udstrim(out, u"\n\r");
+        out = udstrim(out, u"\n\r");
         utf8 = yella_to_utf8(out);
         CHUCHO_C_INFO_L(lgr, "%s", utf8);
         free(utf8);

@@ -219,7 +219,7 @@ yella_rc yella_ensure_dir_exists(const UChar* const name)
     if (name == NULL || name[0] == 0)
         return YELLA_LOGIC_ERROR;
     dirs = yella_get_dirs(name);
-    if (u_strcmp(yella_ptr_vector_at(dirs, 0), u".") == 0)
+    if (yella_ptr_vector_size(dirs) > 0 && u_strcmp(yella_ptr_vector_at(dirs, 0), u".") == 0)
         yella_pop_front_ptr_vector(dirs);
     yella_push_back_ptr_vector(dirs, udsnew(name));
     for (i = 0; i < yella_ptr_vector_size(dirs); i++)

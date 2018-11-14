@@ -111,6 +111,16 @@ static void kafka_log(const rd_kafka_t* rk, int level, const char* fac, const ch
         CHUCHO_C_FATAL(lgr, "(%s) %s", fac, buf);
 }
 
+static int qsort_compare(const void* p1, const void* p2)
+{
+    const UChar** u1;
+    const UChar** u2;
+
+    u1 = (const UChar**)p1;
+    u2 = (const UChar**)p2;
+    return u_strcmp(*u1, *u2);
+}
+
 static void log_kafka_conf(rd_kafka_conf_t* conf)
 {
     const char** arr;
@@ -129,13 +139,15 @@ static void log_kafka_conf(rd_kafka_conf_t* conf)
         longest = 0;
         arr = rd_kafka_conf_dump(conf, &sz);
         uarr = malloc(sizeof(UChar) * sz);
-        for (i = 0; i < sz; i++)
+        for (i = 0; i < sz; i += 2)
         {
             uarr[i] = yella_from_utf8(arr[i]);
             cur_len = u_strlen(uarr[i]);
             if (cur_len > longest)
                 longest = cur_len;
+            uarr[i + 1] = yella_from_utf8(arr[i + 1]);
         }
+        qsort(uarr, sz / 2, sizeof(UChar*) * 2, qsort_compare);
         log = udsnew(u"Kafka configuration:");
         log = udscat(log, YELLA_NL);
         for (i = 0; i < sz; i += 2)
@@ -149,7 +161,7 @@ static void log_kafka_conf(rd_kafka_conf_t* conf)
             log = udscatprintf(log, u": %S%S", uarr[i + 1], YELLA_NL);
         }
         cur_len = u_strlen(YELLA_NL);
-        udsrange(log, 0, -cur_len);
+        udsrange(log, 0, -cur_len - 1);
         utf8_log = yella_to_utf8(log);
         CHUCHO_C_INFO(lgr, utf8_log);
         free(utf8_log);
@@ -402,7 +414,7 @@ void destroy_kafka(kafka* kf)
     rd_kafka_flush(kf->producer, 500);
     for (tpc = sglib_topic_it_init(&titor, kf->topics);
          tpc != NULL;
-         sglib_topic_it_next(&titor))
+         tpc = sglib_topic_it_next(&titor))
     {
         udsfree(tpc->key);
         rd_kafka_topic_destroy(tpc->topic);
