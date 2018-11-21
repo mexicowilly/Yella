@@ -4,11 +4,32 @@
 #include <chucho/log.h>
 #include <chucho/configuration.h>
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
+
+static void how_fast(void** arg)
+{
+    kafka* kf;
+    yella_uuid* id;
+    int i;
+    char int_str[32];
+    int len;
+
+    id = yella_create_uuid();
+    kf = create_kafka(id);
+    yella_sleep_this_thread(5000);
+    for (i = 0; i < 1000000; i++)
+    {
+        len = snprintf(int_str, sizeof(int_str), "%i", i);
+        assert_true(send_kafka_message(kf, u"kafka.test", int_str, len + 1));
+    }
+    destroy_kafka(kf);
+    yella_destroy_uuid(id);
+}
 
 static void simple(void** arg)
 {
@@ -17,8 +38,8 @@ static void simple(void** arg)
 
     id = yella_create_uuid();
     kf = create_kafka(id);
-    assert_true(send_kafka_message(kf, u"kafka.test", "hello", 6));
     yella_sleep_this_thread(5000);
+    assert_true(send_kafka_message(kf, u"kafka.test", "goodbye", 7));
     destroy_kafka(kf);
     yella_destroy_uuid(id);
 }
@@ -57,6 +78,7 @@ int main()
 {
     const struct CMUnitTest tests[] =
     {
+//        cmocka_unit_test(how_fast)
         cmocka_unit_test(simple)
     };
 

@@ -440,7 +440,7 @@ void destroy_kafka(kafka* kf)
     struct sglib_topic_iterator titor;
     topic* tpc;
 
-    rd_kafka_flush(kf->producer, 500);
+    rd_kafka_flush(kf->producer, 5000);
     for (tpc = sglib_topic_it_init(&titor, kf->topics);
          tpc != NULL;
          tpc = sglib_topic_it_next(&titor))
@@ -540,7 +540,7 @@ bool send_transient_kafka_message(kafka* kf, const UChar* const tpc, void* msg, 
             if (rd_kafka_last_error() != RD_KAFKA_RESP_ERR__QUEUE_FULL)
                 return false;
             /* In case queue is full, let our poller run a litle and then retry. */
-            yella_sleep_this_thread(100);
+            yella_sleep_this_thread(250);
         }
     }
     return true;
