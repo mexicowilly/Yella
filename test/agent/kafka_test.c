@@ -11,6 +11,29 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
+static void message_handler(void* msg, size_t len, void* udata)
+{
+    printf("Got message '%s'\n", (char*)msg);
+    assert_string_equal((char*)msg, (char*)udata);
+}
+
+static void consume(void** arg)
+{
+    kafka* kf;
+    yella_uuid* id;
+
+    id = yella_create_uuid();
+    kf = create_kafka(id);
+    set_kafka_message_handler(kf, message_handler, "consume-test");
+    yella_sleep_this_thread(5000);
+    assert_true(send_kafka_message(kf, u"kafka.test", "consume-test", 13));
+    printf("Just sent messasge 'consume-test'\n");
+    yella_sleep_this_thread(5000);
+    destroy_kafka(kf);
+    yella_destroy_uuid(id);
+
+}
+
 static void how_fast(void** arg)
 {
     kafka* kf;
@@ -31,7 +54,7 @@ static void how_fast(void** arg)
     yella_destroy_uuid(id);
 }
 
-static void simple(void** arg)
+static void produce(void **arg)
 {
     kafka* kf;
     yella_uuid* id;
@@ -79,7 +102,8 @@ int main()
     const struct CMUnitTest tests[] =
     {
 //        cmocka_unit_test(how_fast)
-        cmocka_unit_test(simple)
+//        cmocka_unit_test(produce)
+        cmocka_unit_test(consume)
     };
 
     return cmocka_run_group_tests(tests, set_up, tear_down);
