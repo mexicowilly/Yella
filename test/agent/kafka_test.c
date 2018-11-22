@@ -103,7 +103,7 @@ int main()
     {
 //        cmocka_unit_test(how_fast)
 //        cmocka_unit_test(produce)
-        cmocka_unit_test(consume)
+//        cmocka_unit_test(consume)
     };
 
     return cmocka_run_group_tests(tests, set_up, tear_down);

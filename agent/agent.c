@@ -113,7 +113,7 @@ static void heartbeat_thr(void* udata)
         env_part.data = yella_pack_envelope(env, &env_part.size);
         yella_destroy_envelope(env);
         yella_destroy_ptr_vector(plugins);
-        if (send_transient_kafka_message(ag->kf, u"yella.heartbeat", env_part.data, env_part.size))
+        if (send_transient_kafka_message(ag->kf, heartbeat_topic, env_part.data, env_part.size))
             CHUCHO_C_INFO_L(ag->lgr, "Sent heartbeat");
         else
             CHUCHO_C_INFO_L(ag->lgr, "Error sending heartbeat");
@@ -289,8 +289,6 @@ static void retrieve_agent_settings(void)
         { u"spool-dir", YELLA_SETTING_VALUE_TEXT },
         { u"max-spool-partitions", YELLA_SETTING_VALUE_UINT },
         { u"max-spool-partition-size", YELLA_SETTING_VALUE_UINT },
-        { u"reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
-        { u"poll-milliseconds", YELLA_SETTING_VALUE_UINT },
         { u"heartbeat-seconds", YELLA_SETTING_VALUE_UINT },
         { u"brokers", YELLA_SETTING_VALUE_TEXT },
         { u"kafka-debug-contexts", YELLA_SETTING_VALUE_TEXT },
@@ -307,8 +305,8 @@ static void retrieve_agent_settings(void)
     yella_settings_set_uint(u"agent", u"heartbeat-seconds", 30);
     yella_settings_set_text(u"agent", u"compression-type", u"lz4");
     yella_settings_set_uint(u"agent", u"connection-interval-seconds", 15);
-    yella_settings_set_text(u"agent", u"agent-topic", u"yella.agent");
-    yella_settings_set_text(u"agent", u"heartbeat-topic", u"yella.heartbeat");
+    yella_settings_set_text(u"agent", u"agent-topic", u"yella-agent");
+    yella_settings_set_text(u"agent", u"heartbeat-topic", u"yella-heartbeat");
     yella_retrieve_settings(u"agent", descs, YELLA_ARRAY_SIZE(descs));
 }
 
@@ -348,6 +346,13 @@ yella_agent* yella_create_agent(void)
         return NULL;
     }
     result->kf = create_kafka(result->state->id);
+    if (result->kf == NULL)
+    {
+        chucho_release_logger(result->lgr);
+        yella_destroy_saved_state(result->state);
+        free(result);
+        return NULL;
+    }
     result->plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(result->plugins, plugin_api_dtor, NULL);
     load_plugins(result);
@@ -365,6 +370,7 @@ void yella_destroy_agent(yella_agent* agent)
     agent->should_stop = true;
     yella_join_thread(agent->heartbeat);
     yella_destroy_thread(agent->heartbeat);
+    destroy_kafka(agent->kf);
     for (hndlr = sglib_in_handler_it_init(&itor, agent->in_handlers);
          hndlr != NULL;
          hndlr = sglib_in_handler_it_next(&itor))
@@ -374,7 +380,6 @@ void yella_destroy_agent(yella_agent* agent)
     }
     yella_destroy_ptr_vector(agent->plugins);
     yella_destroy_saved_state(agent->state);
-    destroy_kafka(agent->kf);
     chucho_release_logger(agent->lgr);
     free(agent);
 }

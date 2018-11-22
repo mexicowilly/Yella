@@ -108,7 +108,8 @@ void yella_destroy_plugin(yella_plugin* plug)
 void yella_log_plugin_config(chucho_logger_t* lgr, yella_fb_plugin_config_table_t cfg)
 {
     CHUCHO_C_INFO_L(lgr,
-                    "yella.fb.plugin.config: name = %s, action = %s",
+                    "yella.fb.plugin.config: name = %s, topic = %s, action = %s",
                     yella_fb_plugin_config_name(cfg),
+                    yella_fb_plugin_config_topic(cfg),
                     yella_fb_plugin_config_action_name(yella_fb_plugin_config_action(cfg)));
 }
