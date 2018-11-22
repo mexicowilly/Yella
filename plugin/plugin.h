@@ -2,7 +2,6 @@
 #define YELLA_PLUGIN_H__
 
 #include "common/return_code.h"
-#include "common/message_header.h"
 #include "common/ptr_vector.h"
 #include "common/uds.h"
 #include "plugin_reader.h"
@@ -10,10 +9,10 @@
 
 typedef struct yella_agent_api
 {
-    void (*send_message)(void* agent, yella_message_header* mhdr, const uint8_t* const msg, size_t sz);
+    void (*send_message)(void* agent, const UChar* const tpc, const uint8_t* const msg, size_t sz);
 } yella_agent_api;
 
-typedef yella_rc (*yella_in_cap_handler)(const yella_message_header* const mhdr, const uint8_t* const msg, size_t sz);
+typedef yella_rc (*yella_in_cap_handler)(const uint8_t* const msg, size_t sz);
 
 typedef struct yella_plugin_in_cap
 {

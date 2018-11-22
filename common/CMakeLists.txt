@@ -35,24 +35,14 @@ ENDIF()
 
 ADD_LIBRARY(common SHARED
             calendar.h
-            compression.c
-            compression.h
             file.c
             file.h
             macro_util.h
-            message_header.c
-            message_header.h
-            message_part.h
             process.h
             ptr_vector.c
             ptr_vector.h
             return_code.c
             return_code.h
-#            sds.c
-#            sds.h
-#            sdsalloc.h
-#            sds_util.c
-#            sds_util.h
             settings.c
             settings.h
             sglib.h
@@ -74,13 +64,10 @@ IF(DEFINED YELLA_SO_FLAGS)
     SET_TARGET_PROPERTIES(common PROPERTIES
                           COMPILE_FLAGS "${YELLA_SO_FLAGS}")
 ENDIF()
-YELLA_GEN_TARGET(common
-                 serialization/public/header.fbs)
 TARGET_LINK_LIBRARIES(common
                       "${YELLA_FLATCC_LIB}"
                       "${YELLA_CHUCHO_LIB}"
                       "${YELLA_LIBYAML_LIB}"
-                      "${YELLA_LZ4_LIB}"
                       ICU::io
                       ICU::i18n
                       ICU::uc

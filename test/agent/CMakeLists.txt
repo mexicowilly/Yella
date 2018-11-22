@@ -16,8 +16,9 @@
 
 CONFIGURE_FILE(test-agent.yaml.in ${CMAKE_BINARY_DIR}/test/agent/test-agent.yaml)
 
-YELLA_TEST(router-test)
 YELLA_TEST(spool-test)
 YELLA_TEST(mac-addresses-test)
 YELLA_TEST(saved-state-test)
 YELLA_TEST(heartbeat-test)
+YELLA_TEST(envelope-test)
+YELLA_TEST(kafka-test)

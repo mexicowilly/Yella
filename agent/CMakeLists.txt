@@ -14,20 +14,23 @@
 #    limitations under the License.
 #
 
-INCLUDE_DIRECTORIES("${YELLA_ZEROMQ_INCLUDE_DIR}"
-                    "${YELLA_FLATCC_INCLUDE_DIR}")
+INCLUDE_DIRECTORIES("${YELLA_RDKAFKA_INCLUDE_DIR}"
+                    "${YELLA_FLATCC_INCLUDE_DIR}"
+                    "${YELLA_CJSON_INCLUDE_DIR}")
 
 SET(YELLA_SOURCES
     agent.c
     agent.h
     argparse.c
     argparse.h
+    envelope.c
+    envelope.h
+    kafka.c
+    kafka.h
     heartbeat.c
     heartbeat.h
     mac_addresses.c
     mac_addresses.h
-    router.c
-    router.h
     runtime_link.h
     saved_state.c
     saved_state.h
@@ -63,12 +66,14 @@ ENDIF()
 ADD_LIBRARY(agent SHARED ${YELLA_SOURCES})
 
 YELLA_GEN_TARGET(agent
-                 serialization/private/saved_state.fbs
-                 serialization/public/heartbeat.fbs)
+                 serialization/public/envelope.fbs
+                 serialization/public/heartbeat.fbs
+                 serialization/private/saved_state.fbs)
 
 TARGET_LINK_LIBRARIES(agent
                       plugin
-                      "${YELLA_ZEROMQ_LIB}"
+                      "${YELLA_RDKAFKA_LIB}"
+                      "${YELLA_CJSON_LIB}"
                       m)
 IF(YELLA_MACINTOSH)
     TARGET_LINK_LIBRARIES(agent "-framework IOKit" "-framework CoreFoundation")

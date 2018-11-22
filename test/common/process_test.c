@@ -25,7 +25,7 @@ static void one_shot(void** arg)
     while (fgets(buf, sizeof(buf), f) != NULL)
     {
         utf16 = yella_from_utf8(buf);
-        udscat(theirs, utf16);
+        theirs = udscat(theirs, utf16);
         free(utf16);
     }
     pclose(f);
@@ -37,7 +37,7 @@ static void one_shot(void** arg)
     while (fgets(buf, sizeof(buf), yella_process_get_reader(proc)) != NULL)
     {
         utf16 = yella_from_utf8(buf);
-        udscat(mine, utf16);
+        mine = udscat(mine, utf16);
         free(utf16);
     }
     yella_destroy_process(proc);

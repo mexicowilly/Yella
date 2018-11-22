@@ -16,6 +16,8 @@
 
 #include "common/text_util.h"
 #include <chucho/log.h>
+#include <string.h>
+#include <stdlib.h>
 
 UChar* yella_from_utf8(const char* const str)
 {
