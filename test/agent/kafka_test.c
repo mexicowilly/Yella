@@ -21,12 +21,14 @@ static void consume(void** arg)
 {
     kafka* kf;
     yella_uuid* id;
+    char* msg;
 
     id = yella_create_uuid();
     kf = create_kafka(id);
     set_kafka_message_handler(kf, message_handler, "consume-test");
     yella_sleep_this_thread(5000);
-    assert_true(send_kafka_message(kf, u"kafka.test", "consume-test", 13));
+    msg = strdup("consume-test");
+    assert_true(send_kafka_message(kf, u"kafka.test", msg, strlen(msg) + 1));
     printf("Just sent messasge 'consume-test'\n");
     yella_sleep_this_thread(5000);
     destroy_kafka(kf);
@@ -41,6 +43,7 @@ static void how_fast(void** arg)
     int i;
     char int_str[32];
     int len;
+    char* msg;
 
     id = yella_create_uuid();
     kf = create_kafka(id);
@@ -48,7 +51,8 @@ static void how_fast(void** arg)
     for (i = 0; i < 1000000; i++)
     {
         len = snprintf(int_str, sizeof(int_str), "%i", i);
-        assert_true(send_kafka_message(kf, u"kafka.test", int_str, len + 1));
+        msg = strdup(int_str);
+        assert_true(send_kafka_message(kf, u"kafka.test", msg, strlen(msg) + 1));
     }
     destroy_kafka(kf);
     yella_destroy_uuid(id);
@@ -58,11 +62,13 @@ static void produce(void **arg)
 {
     kafka* kf;
     yella_uuid* id;
+    char* msg;
 
     id = yella_create_uuid();
     kf = create_kafka(id);
     yella_sleep_this_thread(5000);
-    assert_true(send_kafka_message(kf, u"kafka.test", "goodbye", 7));
+    msg = strdup("goodbye");
+    assert_true(send_kafka_message(kf, u"kafka.test", msg, strlen(msg) + 1));
     destroy_kafka(kf);
     yella_destroy_uuid(id);
 }

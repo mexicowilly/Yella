@@ -521,7 +521,7 @@ bool send_transient_kafka_message(kafka* kf, const UChar* const tpc, void* msg, 
     {
         rc = rd_kafka_produce(found->topic,
                               RD_KAFKA_PARTITION_UA,
-                              RD_KAFKA_MSG_F_COPY,
+                              RD_KAFKA_MSG_F_FREE,
                               msg,
                               len,
                               NULL,
@@ -538,7 +538,10 @@ bool send_transient_kafka_message(kafka* kf, const UChar* const tpc, void* msg, 
                            rd_kafka_topic_name(found->topic),
                            rd_kafka_err2str(rd_kafka_last_error()));
             if (rd_kafka_last_error() != RD_KAFKA_RESP_ERR__QUEUE_FULL)
+            {
+                free(msg);
                 return false;
+            }
             /* In case queue is full, let our poller run a litle and then retry. */
             yella_sleep_this_thread(250);
         }

@@ -41,6 +41,7 @@ typedef struct in_handler
 {
     uds key;
     yella_in_cap_handler func;
+    void* udata;
     char color;
     struct in_handler* left;
     struct in_handler* right;
@@ -53,6 +54,7 @@ typedef struct plugin_api
     yella_plugin_start_func start_func;
     yella_plugin_status_func status_func;
     yella_plugin_stop_func stop_func;
+    void* udata;
 } plugin_api;
 
 typedef struct yella_agent
@@ -85,9 +87,8 @@ static void heartbeat_thr(void* udata)
     yella_plugin* plg;
     int i;
     yella_ptr_vector* plugins;
-    yella_envelope* env;
-    message_part part;
-    message_part env_part;
+    uint8_t* hb;
+    size_t sz;
     const UChar* heartbeat_topic = yella_settings_get_text(u"agent", u"heartbeat-topic");
 
     next = 0;
@@ -106,18 +107,14 @@ static void heartbeat_thr(void* udata)
         for (i = 0; i < yella_ptr_vector_size(ag->plugins); i++)
         {
             api = (plugin_api*)yella_ptr_vector_at(ag->plugins, i);
-            yella_push_back_ptr_vector(plugins, api->status_func());
+            yella_push_back_ptr_vector(plugins, api->status_func(api->udata));
         }
-        part.data = create_heartbeat(ag->state->id->text, plugins, &part.size);
-        env = yella_create_envelope(ag->state->id->text, heartbeat_topic, part.data, part.size);
-        env_part.data = yella_pack_envelope(env, &env_part.size);
-        yella_destroy_envelope(env);
+        hb = create_heartbeat(ag->state->id->text, plugins, &sz);
         yella_destroy_ptr_vector(plugins);
-        if (send_transient_kafka_message(ag->kf, heartbeat_topic, env_part.data, env_part.size))
+        if (send_transient_kafka_message(ag->kf, heartbeat_topic, hb, sz))
             CHUCHO_C_INFO_L(ag->lgr, "Sent heartbeat");
         else
             CHUCHO_C_INFO_L(ag->lgr, "Error sending heartbeat");
-        free(env_part.data);
         next = time(NULL) + to_wait;
     } while (true);
 }
@@ -149,6 +146,7 @@ static void load_plugins(yella_agent* agent)
     char* utf8_n;
     char* utf8_v;
 
+    agent_api.agent_id = udsnew(agent->state->id->text);
     agent_api.send_message = send_plugin_message;
     itor = yella_create_directory_iterator(yella_settings_get_text(u"agent", u"plugin-dir"));
     cur = yella_directory_iterator_next(itor);
@@ -169,6 +167,7 @@ static void load_plugins(yella_agent* agent)
                     api->start_func = start;
                     api->status_func = shared_object_symbol(so, u"plugin_status", agent->lgr);
                     api->stop_func = shared_object_symbol(so, u"plugin_stop", agent->lgr);
+                    api->udata = plugin->udata;
                     if (api->status_func && api->stop_func)
                     {
                         yella_push_back_ptr_vector(agent->plugins, api);
@@ -184,6 +183,7 @@ static void load_plugins(yella_agent* agent)
                                 sglib_in_handler_add(&agent->in_handlers, hndlr_found);
                             }
                             hndlr_found->func = in_cap->handler;
+                            hndlr_found->udata = in_cap->udata;
                         }
                         utf8_n = yella_to_utf8(plugin->name);
                         utf8_v = yella_to_utf8(plugin->version);
@@ -233,6 +233,7 @@ static void load_plugins(yella_agent* agent)
         cur = yella_directory_iterator_next(itor);
     }
     yella_destroy_directory_iterator(itor);
+    udsfree(agent_api.agent_id);
 }
 
 static void message_received(void* msg, size_t len, void* udata)
@@ -240,12 +241,12 @@ static void message_received(void* msg, size_t len, void* udata)
     yella_agent* ag;
     in_handler to_find;
     in_handler* hndlr;
-    yella_envelope* env;
+    envelope* env;
     char* utf8;
     yella_rc rc;
 
     ag = (yella_agent*)udata;
-    env = yella_unpack_envelope(msg);
+    env = unpack_envelope(msg);
     to_find.key = env->type;
     hndlr = sglib_in_handler_find_member(ag->in_handlers, &to_find);
     if (hndlr == NULL)
@@ -256,7 +257,7 @@ static void message_received(void* msg, size_t len, void* udata)
     }
     else
     {
-        rc = hndlr->func(msg, len);
+        rc = hndlr->func(env->message, env->len, hndlr->udata);
         if (rc != YELLA_NO_ERROR)
         {
             utf8 = yella_to_utf8(env->type);
@@ -264,6 +265,7 @@ static void message_received(void* msg, size_t len, void* udata)
             free(utf8);
         }
     }
+    destroy_envelope(env);
 }
 
 static void plugin_api_dtor(void* p, void* udata)
@@ -274,7 +276,7 @@ static void plugin_api_dtor(void* p, void* udata)
     utf8 = yella_to_utf8(w->name);
     CHUCHO_C_INFO("yella.agent", "Closing plugin %s", utf8);
     free(utf8);
-    w->stop_func();
+    w->stop_func(w->udata);
     udsfree(w->name);
     close_shared_object(w->shared_object);
     free(w);

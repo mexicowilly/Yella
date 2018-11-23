@@ -22,7 +22,7 @@ static yella_plugin* hello_desc;
 static chucho_logger_t* lgr;
 static uds topic;
 
-static yella_rc set_interval_handler(const uint8_t* const msg, size_t sz)
+static yella_rc set_interval_handler(const uint8_t* const msg, size_t sz, void* udata)
 {
     UChar* utf16;
 
@@ -126,7 +126,7 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     interval_secs = 0;
     /* fifty years from now */
     next = time(NULL) + (60 * 60 * 24 * 365 * 50);
-    hello_desc = yella_create_plugin(u"hello", u"1");
+    hello_desc = yella_create_plugin(u"hello", u"1", NULL);
     yella_push_back_ptr_vector(hello_desc->in_caps,
                                yella_create_plugin_in_cap(u"yella.fb.hello.set_interval", 1, set_interval_handler));
     yella_push_back_ptr_vector(hello_desc->out_caps,
@@ -135,7 +135,7 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     return yella_copy_plugin(hello_desc);
 }
 
-YELLA_EXPORT yella_plugin* plugin_status(void)
+YELLA_EXPORT yella_plugin* plugin_status(void* udata)
 {
     yella_plugin* result;
 
@@ -145,7 +145,7 @@ YELLA_EXPORT yella_plugin* plugin_status(void)
     return result;
 }
 
-YELLA_EXPORT yella_rc plugin_stop(void)
+YELLA_EXPORT yella_rc plugin_stop(void* udata)
 {
     yella_lock_mutex(guard);
     should_stop = true;
