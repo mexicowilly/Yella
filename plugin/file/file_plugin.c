@@ -1,5 +1,6 @@
 #include "plugin/plugin.h"
 #include "common/thread.h"
+#include "plugin/file/attribute.h"
 #include <chucho/logger.h>
 
 typedef struct file_plugin

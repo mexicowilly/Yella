@@ -1,5 +1,9 @@
 INCLUDE_DIRECTORIES("${YELLA_SQLITE3_INCLUDE_DIR}")
 ADD_LIBRARY(file SHARED
+            attribute.c
+            attribute.h
+            element.c
+            element.h
             file_plugin.c
             job.c
             job.h
