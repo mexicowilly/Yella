@@ -1,6 +1,7 @@
 #ifndef YELLA_ATTRIUTE_H__
 #define YELLA_ATTRIUTE_H__
 
+#include "file_builder.h"
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -24,5 +25,6 @@ typedef struct attribute
 
 int compare_attributes(const attribute* const lhs, const attribute* const rhs);
 void destroy_attribute(attribute* attr);
+yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_builder_t* bld);
 
 #endif

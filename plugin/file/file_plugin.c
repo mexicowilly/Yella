@@ -1,5 +1,8 @@
 #include "plugin/plugin.h"
 #include "common/thread.h"
+#include "common/settings.h"
+#include "common/macro_util.h"
+#include "common/file.h"
 #include "plugin/file/attribute.h"
 #include <chucho/logger.h>
 
@@ -18,8 +21,27 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
 
 }
 
+static void retrieve_file_settings(void)
+{
+    uds data_dir;
+
+    yella_setting_desc descs[] =
+    {
+        { u"data-dir", YELLA_SETTING_VALUE_TEXT }
+    };
+
+    data_dir = udsnew(yella_settings_get_text(u"agent", u"data-dir"));
+    data_dir = udscat(data_dir, YELLA_DIR_SEP);
+    data_dir = udscat(data_dir, u"file");
+    yella_settings_set_text(u"file", u"data-dir", data_dir);
+    udsfree(data_dir);
+
+    yella_retrieve_settings(u"file", descs, YELLA_ARRAY_SIZE(descs));
+}
+
 YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
 {
+    retrieve_file_settings();
     fplg = malloc(sizeof(file_plugin));
     fplg->lgr = chucho_get_logger("yella.file");
     fplg->guard = yella_create_mutex();

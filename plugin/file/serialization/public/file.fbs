@@ -39,29 +39,21 @@ table state
     config_name: string;
     cond: condition = ADDED;
     file_name: string;
-    attrs: [attr];
+    attrs: attr_array;
 }
 
 //
 // Attribute definitions
 //
 
-union attr_value
+// This is used to store attributes in the database
+table attr_array
 {
-    byte_array
+    attrs: [attr];
 }
 
 table attr
 {
     type: attr_type = SHA256;
-    value: attr_value;
-}
-
-//
-// Attribute data types
-//
-
-table byte_array
-{
     bytes: [ubyte];
 }

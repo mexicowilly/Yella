@@ -14,6 +14,7 @@ typedef struct job
     const yella_agent_api* agent_api;
 } job;
 
+job* copy_job(const job* const j);
 job* create_job(const uds cfg, const yella_agent_api* api);
 void destroy_job(job* j);
 

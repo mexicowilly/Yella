@@ -1,6 +1,7 @@
 #include "plugin/file/element.h"
 #include "common/sglib.h"
 #include "common/uds.h"
+#include "file_builder.h"
 
 typedef struct attr_list
 {
@@ -74,4 +75,32 @@ void destroy_element(element* elem)
         free(al);
     }
     free(elem);
+}
+
+const UChar* element_name(const element* const elem)
+{
+    return elem->name;
+}
+
+uint8_t* pack_element_attributes(const element* const elem, size_t* sz)
+{
+    flatcc_builder_t bld;
+    uint8_t* result;
+    attr_list* al;
+    struct sglib_attr_list_iterator itor;
+
+    flatcc_builder_init(&bld);
+    yella_fb_file_attr_array_start_as_root(&bld);
+    yella_fb_file_attr_array_attrs_start(&bld);
+    for (al = sglib_attr_list_it_init(&itor, elem->attrs);
+         al != NULL;
+         al = sglib_attr_list_it_next(&itor))
+    {
+        yella_fb_file_attr_array_attrs_push(&bld, pack_attribute(al->attr, &bld));
+    }
+    yella_fb_file_attr_array_attrs_end(&bld);
+    yella_fb_file_attr_array_end_as_root(&bld);
+    result = flatcc_builder_finalize_buffer(&bld, sz);
+    flatcc_builder_clear(&bld);
+    return result;
 }
