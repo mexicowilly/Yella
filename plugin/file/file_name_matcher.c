@@ -53,8 +53,12 @@ static bool file_name_matches_impl(const UChar *name, const UChar *pattern)
             }
             if (*pattern == 0)
             {
-                if (!match_slash && u_strchr(name, YELLA_DIR_SEP[0]) != NULL)
-                    return false;
+                if (!match_slash)
+                {
+                    if (u_strchr(name, YELLA_DIR_SEP[0]) != NULL)
+                        return false;
+                }
+                return true;
             }
             else if (!match_slash && *pattern == YELLA_DIR_SEP[0])
             {
