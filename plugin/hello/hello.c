@@ -128,7 +128,7 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     next = time(NULL) + (60 * 60 * 24 * 365 * 50);
     hello_desc = yella_create_plugin(u"hello", u"1", NULL);
     yella_push_back_ptr_vector(hello_desc->in_caps,
-                               yella_create_plugin_in_cap(u"yella.fb.hello.set_interval", 1, set_interval_handler));
+                               yella_create_plugin_in_cap(u"yella.fb.hello.set_interval", 1, set_interval_handler, NULL));
     yella_push_back_ptr_vector(hello_desc->out_caps,
                                yella_create_plugin_out_cap(u"yella.fb.hello.hello", 1));
     thr = yella_create_thread(thr_main, NULL);

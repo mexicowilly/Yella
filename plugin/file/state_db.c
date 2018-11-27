@@ -145,7 +145,7 @@ uint8_t* get_attributes_from_state_db(state_db* st, const UChar* const elem_name
     else
     {
         utf8 = yella_to_utf8(elem_name);
-        CHUCHO_C_ERROR("Error getting attributes for '%s': %s", utf8, sqlite3_errmsg(st->db));
+        CHUCHO_C_DEBUG("Error getting attributes for '%s': %s", utf8, sqlite3_errmsg(st->db));
         free(utf8);
         attrs = NULL;
     }

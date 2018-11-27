@@ -5,13 +5,15 @@ ADD_LIBRARY(file SHARED
             attribute.h
             element.c
             element.h
+            file_name_matcher.c
+            file_name_matcher.h
             file_plugin.c
             job.c
             job.h
             ../plugin.h
             state_db.c
             state_db.h)
-TARGET_LINK_LIBRARIES(file ${YELLA_SQSLITE3_LIB} OpenSSL::Crypto plugin)
+TARGET_LINK_LIBRARIES(file ${YELLA_SQLITE3_LIB} OpenSSL::Crypto plugin)
 SET_TARGET_PROPERTIES(file PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins)
 ADD_DEPENDENCIES(all-targets file)
 

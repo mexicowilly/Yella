@@ -32,6 +32,11 @@ INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}"
                     "${YELLA_CHUCHO_INCLUDE_DIR}"
                     "${YELLA_GEN_DIR}")
 
+OPTION(YELLA_PRIV_EXPORT "Whether private functions are visible" OFF)
+IF(YELLA_PRIV_EXPORT)
+    ADD_DEFINITIONS(-DYELLA_PRIV_EXPORT=YELLA_EXPORT)
+ENDIF()
+
 SET(YELLA_COMMON_GEN
     "${YELLA_GEN_DIR}/flatbuffers_common_builder.h"
     "${YELLA_GEN_DIR}/flatbuffers_common_reader.h")

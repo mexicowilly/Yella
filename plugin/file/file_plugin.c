@@ -18,7 +18,7 @@ file_plugin* fplg;
 
 static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata)
 {
-
+    return YELLA_NO_ERROR;
 }
 
 static void retrieve_file_settings(void)
@@ -76,4 +76,5 @@ YELLA_EXPORT yella_rc plugin_stop(void* udata)
     yella_destroy_agent_api(fplg->agent_api);
     chucho_release_logger(fplg->lgr);
     free(fplg);
+    return YELLA_NO_ERROR;
 }
