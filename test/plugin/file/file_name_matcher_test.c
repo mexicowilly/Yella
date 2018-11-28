@@ -1,5 +1,6 @@
 #include "plugin/file/file_name_matcher.h"
 #include "common/macro_util.h"
+#include "common/text_util.h"
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
@@ -13,6 +14,27 @@ typedef struct expected
     bool result;
 } expected;
 
+static void check_it(const expected* ex, size_t sz)
+{
+    int i;
+    char* utf8_n;
+    char* utf8_p;
+    const char* b;
+
+    for (i = 0; i < sz; i++)
+    {
+        if (file_name_matches(ex[i].name, ex[i].pattern) != ex[i].result)
+        {
+            utf8_n = yella_to_utf8(ex[i].name);
+            utf8_p = yella_to_utf8(ex[i].pattern);
+            b = ex[i].result ? "true" : "false";
+            fail_msg("'%s' '%s' != %s", utf8_n, utf8_p, b);
+            free(utf8_p);
+            free(utf8_n);
+        }
+    }
+}
+
 static void question(void** arg)
 {
     int i;
@@ -24,13 +46,11 @@ static void question(void** arg)
         { u"/my/dog", u"?my/dog", false },
         { u"/my/dog", u"/my/do?", true },
         { u"/my/dog", u"?my/do?", false },
-        { u"/my/dog", u"/??/???", true },
-        { u"/my/dog", u"???????", false }
+        { u"/my/dog", u"/?\?/?\??", true },
+        { u"/my/dog", u"?\??\??\??", false }
     };
 
-    for (i = 0; i < YELLA_ARRAY_SIZE(tests); i++)
-        assert_true(file_name_matches(tests[i].name, tests[i].pattern) == tests[i].result);
-
+    check_it(tests, YELLA_ARRAY_SIZE(tests));
 }
 
 static void simple(void** arg)
@@ -48,8 +68,7 @@ static void simple(void** arg)
         { u"/my/dog", u"/your/dog", false }
     };
 
-    for (i = 0; i < YELLA_ARRAY_SIZE(tests); i++)
-        assert_true(file_name_matches(tests[i].name, tests[i].pattern) == tests[i].result);
+    check_it(tests, YELLA_ARRAY_SIZE(tests));
 }
 
 static void star(void** arg)
@@ -72,8 +91,7 @@ static void star(void** arg)
         { u"/my/dog/has", u"/my/*/has not", false }
     };
 
-    for (i = 0; i < YELLA_ARRAY_SIZE(tests); i++)
-        assert_true(file_name_matches(tests[i].name, tests[i].pattern) == tests[i].result);
+    check_it(tests, YELLA_ARRAY_SIZE(tests));
 }
 
 static void star_star(void** arg)
@@ -81,22 +99,21 @@ static void star_star(void** arg)
     int i;
     expected tests[] =
     {
-//        { u"/my/dog", u"**", true },
-//        { u"/my/dog/has/fleas", u"/my/**", true }
+        { u"/my/dog", u"**", true },
+        { u"/my/dog/has/fleas", u"/my/**", true },
         { u"/my/dog/has/fleas", u"/my/**/fleas", true }
     };
 
-    for (i = 0; i < YELLA_ARRAY_SIZE(tests); i++)
-        assert_true(file_name_matches(tests[i].name, tests[i].pattern) == tests[i].result);
+    check_it(tests, YELLA_ARRAY_SIZE(tests));
 }
 
 int main()
 {
     const struct CMUnitTest tests[] =
     {
-//        cmocka_unit_test(question),
-//        cmocka_unit_test(simple),
-//        cmocka_unit_test(star)
+        cmocka_unit_test(question),
+        cmocka_unit_test(simple),
+        cmocka_unit_test(star),
         cmocka_unit_test(star_star)
     };
 
