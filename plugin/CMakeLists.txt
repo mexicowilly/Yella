@@ -9,3 +9,4 @@ YELLA_GEN_TARGET(plugin
 SET(YELLA_FLATCC_INCLUDE_DIRS plugin/serialization/public)
 
 ADD_SUBDIRECTORY(hello)
+ADD_SUBDIRECTORY(file)

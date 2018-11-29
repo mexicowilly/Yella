@@ -51,4 +51,8 @@
 #define YELLA_NO_EXPORT
 #endif
 
+#if !defined(YELLA_PRIV_EXPORT)
+#define YELLA_PRIV_EXPORT
+#endif
+
 #endif

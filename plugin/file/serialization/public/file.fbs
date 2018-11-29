@@ -1,0 +1,59 @@
+include "plugin.fbs";
+
+namespace yella.fb.file;
+
+//
+// Attribute types
+//
+enum attr_type : ushort
+{
+    SHA256 = 1
+}
+
+//
+// Incoming requests
+//
+
+table monitor_request
+{
+    config: yella.fb.plugin.config;
+    includes: [string];
+    excludes: [string];
+    attr_types: [ushort];
+}
+
+//
+// Outgoing data
+//
+
+enum condition : byte
+{
+    ADDED = 1,
+    CHANGED,
+    REMOVED
+}
+
+table state
+{
+    sender: string;
+    config_name: string;
+    cond: condition = ADDED;
+    file_name: string;
+    attrs: attr_array;
+}
+
+//
+// Attribute definitions
+//
+
+// This is used to store attributes in the database
+table attr_array
+{
+    attrs: [attr];
+}
+
+table attr
+{
+    type: attr_type = SHA256;
+    bytes: [ubyte];
+}

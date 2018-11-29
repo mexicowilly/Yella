@@ -11,6 +11,8 @@ static void* in_cap_copier(void* p, void* udata)
     result = malloc(sizeof(yella_plugin_in_cap));
     result->name = udsnew(in->name);
     result->version = in->version;
+    result->handler = in->handler;
+    result->udata = in->udata;
     result->configs = yella_copy_ptr_vector(in->configs);
     return result;
 }
@@ -46,6 +48,16 @@ static void out_cap_destructor(void* p, void* udata)
     free(in);
 }
 
+yella_agent_api* yella_copy_agent_api(const yella_agent_api* const api)
+{
+    yella_agent_api* result;
+
+    result = malloc(sizeof(yella_agent_api));
+    result->agent_id = udsdup(api->agent_id);
+    result->send_message = api->send_message;
+    return result;
+}
+
 yella_plugin* yella_copy_plugin(const yella_plugin* const plug)
 {
     yella_plugin* result;
@@ -58,7 +70,7 @@ yella_plugin* yella_copy_plugin(const yella_plugin* const plug)
     return result;
 }
 
-yella_plugin* yella_create_plugin(const UChar* const name, const UChar* const version)
+yella_plugin* yella_create_plugin(const UChar* const name, const UChar* const version, void* udata)
 {
     yella_plugin* plug;
 
@@ -71,10 +83,11 @@ yella_plugin* yella_create_plugin(const UChar* const name, const UChar* const ve
     plug->out_caps = yella_create_ptr_vector();
     yella_set_ptr_vector_copier(plug->out_caps, out_cap_copier, NULL);
     yella_set_ptr_vector_destructor(plug->out_caps, out_cap_destructor, NULL);
+    plug->udata = udata;
     return plug;
 }
 
-yella_plugin_in_cap* yella_create_plugin_in_cap(const UChar* const name, int version, yella_in_cap_handler handler)
+yella_plugin_in_cap* yella_create_plugin_in_cap(const UChar* const name, int version, yella_in_cap_handler handler, void* udata)
 {
     yella_plugin_in_cap* result;
 
@@ -82,6 +95,7 @@ yella_plugin_in_cap* yella_create_plugin_in_cap(const UChar* const name, int ver
     result->name = udsnew(name);
     result->version = version;
     result->handler = handler;
+    result->udata = udata;
     result->configs = yella_create_uds_ptr_vector();
     return result;
 }
@@ -94,6 +108,12 @@ yella_plugin_out_cap* yella_create_plugin_out_cap(const UChar* const name, int v
     result->name = udsnew(name);
     result->version = version;
     return result;
+}
+
+void yella_destroy_agent_api(yella_agent_api* api)
+{
+    udsfree(api->agent_id);
+    free(api);
 }
 
 void yella_destroy_plugin(yella_plugin* plug)
