@@ -5,7 +5,6 @@
 static bool file_name_matches_impl(const UChar *name, const UChar *pattern)
 {
     UChar p_ch;
-    bool matched;
     bool match_slash;
     UChar n_ch;
     const UChar* prev_p;
@@ -19,6 +18,7 @@ static bool file_name_matches_impl(const UChar *name, const UChar *pattern)
         {
         case u'\\':
             p_ch = *++pattern;
+            /* fall through */
 
         default:
             if (n_ch != p_ch)
@@ -38,7 +38,7 @@ static bool file_name_matches_impl(const UChar *name, const UChar *pattern)
                 if ((prev_p < pattern || *prev_p == YELLA_DIR_SEP[0]) &&
                     (*pattern == 0 || *pattern == YELLA_DIR_SEP[0] || (*pattern == u'\\' && pattern[1] == YELLA_DIR_SEP[0])))
                 {
-                    if (*pattern == YELLA_DIR_SEP[0] && file_name_matches_impl(pattern + 1, name))
+                    if (*pattern == YELLA_DIR_SEP[0] && file_name_matches_impl(name, pattern + 1))
                         return true;
                     match_slash = true;
                 }
@@ -84,16 +84,10 @@ static bool file_name_matches_impl(const UChar *name, const UChar *pattern)
                     if (n_ch != p_ch)
                         return false;
                 }
-                matched = file_name_matches_impl(name, pattern);
-                if (matched)
-                {
-                    if (!match_slash)
-                        return true;
-                }
+                if (file_name_matches_impl(name, pattern))
+                    return true;
                 else if (!match_slash && n_ch == YELLA_DIR_SEP[0])
-                {
                     return false;
-                }
                 n_ch = *++name;
             }
             return false;

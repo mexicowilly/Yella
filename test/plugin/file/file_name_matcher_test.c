@@ -35,6 +35,20 @@ static void check_it(const expected* ex, size_t sz)
     }
 }
 
+static void escaped(void** arg)
+{
+    int i;
+    expected tests[] =
+    {
+        { u"/my/d?g", u"/my/d\\?g", true },
+        { u"/my/*g", u"/my/\\*g", true },
+        { u"/my/*g", u"/my/\\*?", true },
+        { u"/my/\\og", u"/my/\\\\og", true }
+    };
+
+    check_it(tests, YELLA_ARRAY_SIZE(tests));
+}
+
 static void question(void** arg)
 {
     int i;
@@ -88,7 +102,8 @@ static void star(void** arg)
         { u"/my/dog", u"*/dog", false },
         { u"/my/dog/has", u"/my/*/has", true },
         { u"/my/dog/has", u"/my/*", false },
-        { u"/my/dog/has", u"/my/*/has not", false }
+        { u"/my/dog/has", u"/my/*/has not", false },
+        { u"", u"*", true }
     };
 
     check_it(tests, YELLA_ARRAY_SIZE(tests));
@@ -101,7 +116,15 @@ static void star_star(void** arg)
     {
         { u"/my/dog", u"**", true },
         { u"/my/dog/has/fleas", u"/my/**", true },
-        { u"/my/dog/has/fleas", u"/my/**/fleas", true }
+        { u"/my/dog/has/fleas", u"/my/**/fleas", true },
+        { u"/my/dog/has/fleas", u"**/fleas", true },
+        { u"/my/dog/has/fleas", u"/my**/fleas", true },
+        { u"/my/dog/has/fleas", u"/my/**/*", true },
+        { u"/my/dog/has/fleas", u"/my/**/*s", true },
+        { u"/my/dog/has/fleas", u"**fleas", false },
+        { u"/my/dog/has/fleas", u"/**fleas", false },
+        { u"/my/dog/has/fleas", u"/**/f?ea*", true },
+        { u"/my/dog/has/fleas", u"/m?/**/f?ea*", true }
     };
 
     check_it(tests, YELLA_ARRAY_SIZE(tests));
@@ -111,6 +134,7 @@ int main()
 {
     const struct CMUnitTest tests[] =
     {
+        cmocka_unit_test(escaped),
         cmocka_unit_test(question),
         cmocka_unit_test(simple),
         cmocka_unit_test(star),
