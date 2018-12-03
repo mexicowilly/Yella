@@ -18,11 +18,10 @@
 #define PTR_VECTOR_H__
 
 #include "export.h"
+#include "common/ptr_helper.h"
 #include <stddef.h>
 
 typedef struct yella_ptr_vector yella_ptr_vector;
-typedef void (*yella_ptr_destructor)(void* elem, void* udata);
-typedef void* (*yella_ptr_copier)(void* elem, void* udate);
 
 YELLA_EXPORT yella_ptr_vector* yella_copy_ptr_vector(const yella_ptr_vector* const v);
 YELLA_EXPORT yella_ptr_vector* yella_create_ptr_vector(void);

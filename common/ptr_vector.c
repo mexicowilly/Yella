@@ -18,16 +18,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static void default_ptr_destructor(void* elem, void* udata)
-{
-    free(elem);
-}
-
-static void* default_ptr_copier(void* elem, void* udata)
-{
-    return elem;
-}
-
 struct yella_ptr_vector
 {
     void** data;
@@ -62,8 +52,10 @@ yella_ptr_vector* yella_create_ptr_vector(void)
     result->capacity = 20;
     result->size = 0;
     result->data = malloc(sizeof(void*) * result->capacity);
-    result->destructor = default_ptr_destructor;
+    result->destructor = yella_default_ptr_destructor;
     result->destructor_udata = NULL;
+    result->copier = yella_default_ptr_copier;
+    result->copier_udata = NULL;
     return result;
 }
 
