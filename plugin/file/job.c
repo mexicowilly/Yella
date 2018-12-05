@@ -32,3 +32,8 @@ void destroy_job(job* j)
     udsfree(j->config_name);
     free(j);
 }
+
+void run_job(const job* const j)
+{
+
+}

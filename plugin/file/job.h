@@ -17,5 +17,6 @@ typedef struct job
 job* copy_job(const job* const j);
 job* create_job(const uds cfg, const yella_agent_api* api);
 void destroy_job(job* j);
+void run_job(const job* const j);
 
 #endif
