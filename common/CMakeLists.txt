@@ -39,6 +39,8 @@ ADD_LIBRARY(common SHARED
             file.h
             macro_util.h
             process.h
+            ptr_helper.c
+            ptr_helper.h
             ptr_vector.c
             ptr_vector.h
             return_code.c

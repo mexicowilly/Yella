@@ -10,6 +10,8 @@ ADD_LIBRARY(file SHARED
             file_plugin.c
             job.c
             job.h
+            job_queue.c
+            job_queue.h
             ../plugin.h
             state_db.c
             state_db.h)
