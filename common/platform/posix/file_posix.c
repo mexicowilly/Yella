@@ -37,6 +37,35 @@ struct yella_directory_iterator
     uds fqn;
 };
 
+static yella_rc stat_impl(const UChar* const name, struct stat* info)
+{
+    int err;
+    yella_rc yrc;
+    char* utf8;
+
+    utf8 = yella_to_utf8(name);
+    if (lstat(utf8, info) == 0)
+    {
+        yrc = YELLA_NO_ERROR;
+    }
+    else
+    {
+        err = errno;
+        if (err == EACCES)
+            yrc = YELLA_NO_PERMISSION;
+        else if (err == ENOENT)
+            yrc = YELLA_DOES_NOT_EXIST;
+        else
+            yrc = YELLA_FILE_SYSTEM_ERROR;
+        CHUCHO_C_ERROR("yella.common",
+                       "Could not get information about %s: %s",
+                       utf8,
+                       strerror(err));
+    }
+    free(utf8);
+    return yrc;
+}
+
 static yella_ptr_vector* yella_get_dirs(const UChar* const fqpath)
 {
     uds cur;
@@ -250,39 +279,47 @@ bool yella_file_exists(const UChar* const name)
 yella_rc yella_file_size(const UChar* const name, size_t* sz)
 {
     struct stat info;
-    int err;
-    yella_rc yrc;
-    char* utf8;
-    int rc;
+    yella_rc result;
 
-    utf8 = yella_to_utf8(name);
-    rc = stat(utf8, &info);
-    if (rc == 0)
-    {
+    result = stat_impl(name, &info);
+    if (result == YELLA_NO_ERROR)
         *sz = info.st_size;
-        yrc = YELLA_NO_ERROR;
-    }
-    else
-    {
-        err = errno;
-        if (err == EACCES)
-            yrc = YELLA_NO_PERMISSION;
-        else if (err == ENOENT)
-            yrc = YELLA_DOES_NOT_EXIST;
-        else
-            yrc = YELLA_FILE_SYSTEM_ERROR;
-        CHUCHO_C_ERROR("yella.common",
-                       "Could not get information about %s: %s",
-                       utf8,
-                       strerror(err));
-    }
-    free(utf8);
-    return yrc;
+    return result;
 }
 
 const UChar* yella_getcwd(void)
 {
     return yella_from_utf8(getcwd(NULL, 0));
+}
+
+yella_rc yella_get_file_type(const UChar* const name, yella_file_type* tp)
+{
+    struct stat info;
+    yella_rc result;
+
+    result = stat_impl(name, &info);
+    if (result == YELLA_NO_ERROR)
+    {
+        if (S_ISREG(info.st_mode))
+            *tp = YELLA_FILE_TYPE_REGULAR;
+        else if (S_ISDIR(info.st_mode))
+            *tp = YELLA_FILE_TYPE_DIRECTORY;
+        else if (S_ISLNK(info.st_mode))
+            *tp = YELLA_FILE_TYPE_SYMBOLIC_LINK;
+        else if (S_ISSOCK(info.st_mode))
+            *tp = YELLA_FILE_TYPE_SOCKET;
+        else if (S_ISFIFO(info.st_mode))
+            *tp = YELLA_FILE_TYPE_FIFO;
+        else if (S_ISCHR(info.st_mode))
+            *tp = YELLA_FILE_TYPE_CHARACTER_SPECIAL;
+        else if (S_ISBLK(info.st_mode))
+            *tp = YELLA_FILE_TYPE_BLOCK_SPECIAL;
+#if defined(S_ISWHT)
+        else if (S_ISWHT(info.st_mode))
+            *tp = YELLA_FILE_TYPE_WHITEOUT;
+#endif
+    }
+    return result;
 }
 
 static yella_rc remove_all_impl(const UChar* const name)

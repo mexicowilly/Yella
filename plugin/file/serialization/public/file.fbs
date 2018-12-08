@@ -7,7 +7,8 @@ namespace yella.fb.file;
 //
 enum attr_type : ushort
 {
-    SHA256 = 1
+    FILE_TYPE = 1,          // ftype field in attr
+    SHA_256                 // bytes field in attr
 }
 
 //
@@ -33,7 +34,19 @@ enum condition : byte
     REMOVED
 }
 
-table state
+enum file_type : byte
+{
+    BLOCK_SPECIAL = 1,
+    CHARACTER_SPECIAL,
+    DIRECTORY,
+    FIFO,
+    SYMBOLIC_LINK,
+    REGULAR,
+    SOCKET,
+    WHITEOUT
+}
+
+table file_state
 {
     sender: string;
     config_name: string;
@@ -54,6 +67,7 @@ table attr_array
 
 table attr
 {
-    type: attr_type = SHA256;
+    type: attr_type = FILE_TYPE;
     bytes: [ubyte];
+    ftype: file_type = REGULAR;
 }

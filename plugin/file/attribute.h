@@ -7,6 +7,7 @@
 
 typedef enum
 {
+    ATTR_TYPE_FILE_TYPE,
     ATTR_TYPE_SHA256
 } attribute_type;
 
@@ -15,6 +16,7 @@ typedef struct attribute
     attribute_type type;
     union
     {
+        int int_type;
         struct
         {
             uint8_t* mem;

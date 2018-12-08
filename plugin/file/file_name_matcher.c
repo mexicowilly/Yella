@@ -100,3 +100,48 @@ bool file_name_matches(const UChar* name, const UChar* pattern)
 {
     return file_name_matches_impl(name, pattern);
 }
+
+const UChar* first_unescaped_special_char(const UChar* const pattern)
+{
+    UChar* first;
+    UChar* slash;
+    size_t num;
+
+    first = (UChar*)pattern;
+    while (true)
+    {
+        first = u_strpbrk(first, u"*?");
+        if (first == NULL)
+            break;
+        slash = first;
+        num = 0;
+        while (slash > pattern && *(--slash) == u'\\')
+            ++num;
+        if ((num & 1) == 0)
+            break;
+        ++first;
+    }
+    return first;
+}
+
+uds unescape_pattern(const UChar* const pattern)
+{
+    uds result;
+    const UChar* cur;
+
+    if (u_strchr(pattern, u'\\') == NULL)
+    {
+        result = udsnew(pattern);
+    }
+    else
+    {
+        result = udsempty();
+        for (cur = pattern; *cur != 0; cur++)
+        {
+            if (*cur == u'\\')
+                ++cur;
+            result = udscatlen(result, cur, 1);
+        }
+    }
+    return result;
+}
