@@ -90,13 +90,13 @@ state_db* create_state_db(const UChar* const config_name)
     return st;
 }
 
-bool delete_from_state_db(state_db* st, const element* const elem)
+bool delete_from_state_db(state_db* st, const UChar* const elem_name)
 {
     int rc;
     bool result;
     char* utf8;
 
-    sqlite3_bind_text16(st->stmts[STMT_DELETE], 1, element_name(elem), -1, SQLITE_STATIC);
+    sqlite3_bind_text16(st->stmts[STMT_DELETE], 1, elem_name, -1, SQLITE_STATIC);
     rc = sqlite3_step(st->stmts[STMT_DELETE]);
     if (rc == SQLITE_DONE)
     {
@@ -104,7 +104,7 @@ bool delete_from_state_db(state_db* st, const element* const elem)
     }
     else
     {
-        utf8 = yella_to_utf8(element_name(elem));
+        utf8 = yella_to_utf8(elem_name);
         CHUCHO_C_ERROR("Error deleting '%s': %s", utf8, sqlite3_errmsg(st->db));
         free(utf8);
         result = false;

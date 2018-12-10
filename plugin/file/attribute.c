@@ -46,7 +46,7 @@ int compare_attributes(const attribute* const lhs, const attribute* const rhs)
         switch (lhs->type)
         {
         case ATTR_TYPE_FILE_TYPE:
-            rc = lhs->value.int_type - rhs->value.int_type;
+            rc = lhs->value.int_value - rhs->value.int_value;
             break;
         case ATTR_TYPE_SHA256:
             rc = (int)lhs->value.byte_array.sz - (int)rhs->value.byte_array.sz;
@@ -89,7 +89,7 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
     switch (attr->type)
     {
     case ATTR_TYPE_FILE_TYPE:
-        yella_fb_file_attr_ftype_add(bld, file_type_to_fb(attr->value.int_type));
+        yella_fb_file_attr_ftype_add(bld, file_type_to_fb(attr->value.int_value));
         break;
     case ATTR_TYPE_SHA256:
         yella_fb_file_attr_bytes_start(bld);

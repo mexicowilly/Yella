@@ -40,6 +40,9 @@ typedef enum
     YELLA_FILE_TYPE_WHITEOUT
 } yella_file_type;
 
+YELLA_EXPORT yella_rc yella_apply_function_to_file_contents(const UChar* const name,
+                                                            void(*func)(const uint8_t* const, size_t, void*),
+                                                            void* udata);
 YELLA_EXPORT uds yella_base_name(const UChar* const path);
 YELLA_EXPORT yella_rc yella_create_directory(const UChar* const name);
 YELLA_EXPORT uds yella_dir_name(const UChar* const path);

@@ -16,7 +16,7 @@ typedef struct attribute
     attribute_type type;
     union
     {
-        int int_type;
+        int int_value;
         struct
         {
             uint8_t* mem;

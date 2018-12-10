@@ -27,6 +27,7 @@
 #include <limits.h>
 #include <dirent.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 const UChar* YELLA_DIR_SEP = u"/";
 
@@ -99,6 +100,54 @@ static const UChar* yella_last_not(const UChar* const str, UChar c)
     while (result >= str && *result == c)
         result--;
     return (result < str) ? NULL : result;
+}
+
+yella_rc yella_apply_function_to_file_contents(const UChar* const name,
+                                               void(*func)(const uint8_t* const, size_t, void*),
+                                               void* udata)
+{
+    uint8_t buf[BUFSIZ];
+    int fd;
+    char* utf8;
+    ssize_t num_read;
+    yella_rc yrc;
+
+    utf8 = yella_to_utf8(name);
+    fd = open(utf8, O_RDONLY | O_NOFOLLOW);
+    if (fd == -1)
+    {
+        if (errno == EACCES)
+            yrc = YELLA_NO_PERMISSION;
+        else if (errno == ENOENT)
+            yrc = YELLA_DOES_NOT_EXIST;
+        else
+            yrc = YELLA_FILE_SYSTEM_ERROR;
+        CHUCHO_C_ERROR("yella.common",
+                       "Could open %s for reading: %s",
+                       utf8,
+                       strerror(errno));
+    }
+    else
+    {
+        while (true)
+        {
+            num_read = read(fd, buf, sizeof(buf));
+            if (num_read <= 0)
+                break;
+            func(buf, num_read, udata);
+        };
+        if (num_read < 0)
+        {
+            yrc = YELLA_FILE_SYSTEM_ERROR;
+            CHUCHO_C_ERROR("yella.common",
+                           "Could read from %s: %s",
+                           utf8,
+                           strerror(errno));
+        }
+        close(fd);
+    }
+    free(utf8);
+    return yrc;
 }
 
 uds yella_base_name(const UChar* const path)
