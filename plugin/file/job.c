@@ -1,6 +1,7 @@
 #include "plugin/file/job.h"
 #include "plugin/file/file_name_matcher.h"
 #include "plugin/file/collect_attributes.h"
+#include "plugin/file/state_db_pool.h"
 #include "common/file.h"
 #include "common/uds_util.h"
 #include <unicode/ustring.h>
@@ -57,9 +58,9 @@ static void run_one_include(const UChar* const incl, const job* const j)
         unescaped = unescape_pattern(incl);
         if (!matches_excludes(unescaped, j->excludes))
             existing_elem = collect_attributes(unescaped, j->attr_types, j->attr_type_count);
+        udsfree(unescaped);
         if (existing_elem != NULL)
             destroy_element(existing_elem);
-        udsfree(unescaped);
     }
     else
     {
@@ -83,18 +84,20 @@ job* copy_job(const job* const j)
 
     result = malloc(sizeof(job));
     result->config_name = udsdup(j->config_name);
+    result->db = j->db;
     result->includes = yella_copy_ptr_vector(j->includes);
     result->excludes = yella_copy_ptr_vector(j->excludes);
     result->agent_api = j->agent_api;
     return result;
 }
 
-job* create_job(const UChar* const cfg, const yella_agent_api* api)
+job* create_job(const UChar* const cfg, const yella_agent_api* api, state_db* db)
 {
     job* result;
 
     result = calloc(1, sizeof(job));
     result->config_name = udsnew(cfg);
+    result->db = db;
     result->includes = yella_create_uds_ptr_vector();
     result->excludes = yella_create_uds_ptr_vector();
     result->agent_api = api;

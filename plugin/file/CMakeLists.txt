@@ -16,7 +16,9 @@ ADD_LIBRARY(file SHARED
             job_queue.h
             ../plugin.h
             state_db.c
-            state_db.h)
+            state_db.h
+            state_db_pool.c
+            state_db_pool.h)
 TARGET_LINK_LIBRARIES(file ${YELLA_SQLITE3_LIB} OpenSSL::Crypto plugin)
 SET_TARGET_PROPERTIES(file PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins)
 ADD_DEPENDENCIES(all-targets file)

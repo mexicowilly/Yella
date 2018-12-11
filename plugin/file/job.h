@@ -2,6 +2,7 @@
 #define YELLA_JOB_H__
 
 #include "plugin/file/attribute.h"
+#include "plugin/file/state_db.h"
 #include "common/ptr_vector.h"
 #include "common/uds.h"
 #include "plugin/plugin.h"
@@ -9,6 +10,7 @@
 typedef struct job
 {
     uds config_name;
+    state_db* db;
     /* These are both vectors of uds */
     yella_ptr_vector* includes;
     yella_ptr_vector* excludes;
@@ -18,7 +20,8 @@ typedef struct job
 } job;
 
 job* copy_job(const job* const j);
-job* create_job(const UChar* const cfg, const yella_agent_api* api);
+/* Ownership of state_db* is not transferred */
+job* create_job(const UChar* const cfg, const yella_agent_api* api, state_db* db);
 void destroy_job(job* j);
 void run_job(const job* const j);
 

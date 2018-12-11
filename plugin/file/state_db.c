@@ -22,6 +22,7 @@ struct state_db
     chucho_logger_t* lgr;
     sqlite3* db;
     sqlite3_stmt* stmts[4];
+    uds name;
 };
 
 state_db* create_state_db(const UChar* const config_name)
@@ -87,6 +88,7 @@ state_db* create_state_db(const UChar* const config_name)
             return NULL;
         }
     }
+    st->name = udsnew(config_name);
     return st;
 }
 
@@ -123,6 +125,7 @@ void destroy_state_db(state_db* st)
         sqlite3_finalize(st->stmts[i]);
     sqlite3_close(st->db);
     chucho_release_logger(st->lgr);
+    udsfree(st->name);
     free(st);
 }
 
@@ -211,4 +214,9 @@ bool update_into_state_db(state_db* st, const element* const elem)
     sqlite3_clear_bindings(st->stmts[STMT_UPDATE]);
     sqlite3_reset(st->stmts[STMT_UPDATE]);
     return result;
+}
+
+const UChar* state_db_name(const state_db* const sdb)
+{
+    return sdb->name;
 }
