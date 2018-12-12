@@ -18,7 +18,7 @@ static bool matches_excludes(const UChar* const name, const yella_ptr_vector* ex
     return false;
 }
 
-static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const job* const j)
+static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const job* const j, state_db* db)
 {
     yella_directory_iterator* itor;
     const UChar* cur;
@@ -36,13 +36,13 @@ static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const
         if (yella_get_file_type(cur, &ftype) == YELLA_NO_ERROR &&
             ftype == YELLA_FILE_TYPE_DIRECTORY)
         {
-            crawl_dir(cur, cur_incl, j);
+            crawl_dir(cur, cur_incl, j, db);
         }
         cur = yella_directory_iterator_next(itor);
     }
 }
 
-static void run_one_include(const UChar* const incl, const job* const j)
+static void run_one_include(const UChar* const incl, const job* const j, state_db* db)
 {
     const UChar* special;
     uds unescaped;
@@ -51,7 +51,6 @@ static void run_one_include(const UChar* const incl, const job* const j)
     uds top_dir;
     yella_file_type ftype;
 
-    existing_elem = NULL;
     special = first_unescaped_special_char(incl);
     if (special == NULL)
     {
@@ -71,33 +70,19 @@ static void run_one_include(const UChar* const incl, const job* const j)
             if (yella_get_file_type(top_dir, &ftype) == YELLA_NO_ERROR &&
                 ftype == YELLA_FILE_TYPE_DIRECTORY)
             {
-                crawl_dir(top_dir, incl, j);
+                crawl_dir(top_dir, incl, j, db);
             }
             udsfree(top_dir);
         }
     }
 }
 
-job* copy_job(const job* const j)
-{
-    job* result;
-
-    result = malloc(sizeof(job));
-    result->config_name = udsdup(j->config_name);
-    result->db = j->db;
-    result->includes = yella_copy_ptr_vector(j->includes);
-    result->excludes = yella_copy_ptr_vector(j->excludes);
-    result->agent_api = j->agent_api;
-    return result;
-}
-
-job* create_job(const UChar* const cfg, const yella_agent_api* api, state_db* db)
+job* create_job(const UChar* const cfg, const yella_agent_api* api)
 {
     job* result;
 
     result = calloc(1, sizeof(job));
     result->config_name = udsnew(cfg);
-    result->db = db;
     result->includes = yella_create_uds_ptr_vector();
     result->excludes = yella_create_uds_ptr_vector();
     result->agent_api = api;
@@ -113,10 +98,15 @@ void destroy_job(job* j)
     free(j);
 }
 
-void run_job(const job* const j)
+void run_job(const job* const j, state_db_pool* db_pool)
 {
     int i;
+    state_db* db;
 
-    for (i = 0; i < yella_ptr_vector_size(j->includes); i++)
-        run_one_include(yella_ptr_vector_at(j->includes, i), j);
+    db = get_state_db_from_pool(db_pool, j->config_name);
+    if (db != NULL)
+    {
+        for (i = 0; i < yella_ptr_vector_size(j->includes); i++)
+            run_one_include(yella_ptr_vector_at(j->includes, i), j, db);
+    }
 }
