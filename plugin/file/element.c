@@ -114,10 +114,7 @@ void diff_elements(element* elem1, element* elem2)
     {
         found = sglib_attr_node_find_member(elem1->attrs, an);
         if (found == NULL)
-        {
             yella_push_back_ptr_vector(to_delete2, an);
-            sglib_attr_node_add(&elem1->attrs, an);
-        }
     }
     for (i = 0; i < yella_ptr_vector_size(to_delete1); i++)
     {
@@ -125,6 +122,8 @@ void diff_elements(element* elem1, element* elem2)
         sglib_attr_node_delete(&elem1->attrs, an);
         destroy_attribute(an->attr);
     }
+    for (i = 0; i < yella_ptr_vector_size(to_delete2); i++)
+        sglib_attr_node_add(&elem1->attrs, yella_ptr_vector_at(to_delete2, i));
     yella_destroy_ptr_vector(to_delete1);
     yella_destroy_ptr_vector(to_delete2);
 }
