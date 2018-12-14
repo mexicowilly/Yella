@@ -26,6 +26,7 @@ typedef struct attribute
 } attribute;
 
 int compare_attributes(const attribute* const lhs, const attribute* const rhs);
+attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl);
 void destroy_attribute(attribute* attr);
 yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_builder_t* bld);
 

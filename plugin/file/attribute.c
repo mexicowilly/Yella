@@ -1,6 +1,41 @@
 #include "plugin/file/attribute.h"
 #include "common/file.h"
+#include "attribute.h"
 #include <string.h>
+
+static yella_file_type fb_to_file_type(yella_fb_file_attr_type_enum_t fbt)
+{
+    yella_file_type result;
+
+    switch (fbt)
+    {
+    case yella_fb_file_file_type_BLOCK_SPECIAL:
+        result = YELLA_FILE_TYPE_BLOCK_SPECIAL;
+        break;
+    case yella_fb_file_file_type_CHARACTER_SPECIAL:
+        result = YELLA_FILE_TYPE_CHARACTER_SPECIAL;
+        break;
+    case yella_fb_file_file_type_DIRECTORY:
+        result = YELLA_FILE_TYPE_DIRECTORY;
+        break;
+    case yella_fb_file_file_type_FIFO:
+        result = YELLA_FILE_TYPE_FIFO;
+        break;
+    case yella_fb_file_file_type_SYMBOLIC_LINK:
+        result = YELLA_FILE_TYPE_SYMBOLIC_LINK;
+        break;
+    case yella_fb_file_file_type_REGULAR:
+        result = YELLA_FILE_TYPE_REGULAR;
+        break;
+    case yella_fb_file_file_type_SOCKET:
+        result = YELLA_FILE_TYPE_SOCKET;
+        break;
+    case yella_fb_file_file_type_WHITEOUT:
+        result = YELLA_FILE_TYPE_WHITEOUT;
+        break;
+    }
+    return result;
+}
 
 static yella_fb_file_attr_type_enum_t file_type_to_fb(yella_file_type ft)
 {
@@ -9,7 +44,7 @@ static yella_fb_file_attr_type_enum_t file_type_to_fb(yella_file_type ft)
     switch (ft)
     {
     case YELLA_FILE_TYPE_BLOCK_SPECIAL:
-        result = yella_fb_file_file_type_REGULAR;
+        result = yella_fb_file_file_type_BLOCK_SPECIAL;
         break;
     case YELLA_FILE_TYPE_CHARACTER_SPECIAL:
         result = yella_fb_file_file_type_CHARACTER_SPECIAL;
@@ -56,6 +91,29 @@ int compare_attributes(const attribute* const lhs, const attribute* const rhs)
         }
     }
     return rc;
+}
+
+attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl)
+{
+    attribute* result;
+    flatbuffers_uint8_vec_t bytes;
+
+    result = malloc(sizeof(attribute));
+    switch (yella_fb_file_attr_type(tbl))
+    {
+    case yella_fb_file_attr_type_FILE_TYPE:
+        result->type = ATTR_TYPE_FILE_TYPE;
+        result->value.int_value = fb_to_file_type(yella_fb_file_attr_ftype(tbl));
+        break;
+    case yella_fb_file_attr_type_SHA_256:
+        result->type = ATTR_TYPE_SHA256;
+        bytes = yella_fb_file_attr_bytes(tbl);
+        result->value.byte_array.sz = flatbuffers_uint8_vec_len(bytes);
+        result->value.byte_array.mem = malloc(result->value.byte_array.sz);
+        memcpy(result->value.byte_array.mem, bytes, result->value.byte_array.sz);
+        break;
+    }
+    return result;
 }
 
 void destroy_attribute(attribute* attr)

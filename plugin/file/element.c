@@ -65,6 +65,21 @@ element* create_element(const UChar* const name)
     return result;
 }
 
+element* create_element_with_attrs(const UChar* const name, const uint8_t* const packed_attrs)
+{
+    element*  result;
+    yella_fb_file_attr_array_table_t tbl;
+    yella_fb_file_attr_vec_t attrs;
+    int i;
+
+    result = create_element(name);
+    tbl = yella_fb_file_attr_array_as_root(packed_attrs);
+    attrs = yella_fb_file_attr_array_attrs_get(tbl);
+    for (i = 0; i < yella_fb_file_attr_vec_len(attrs); i++)
+        add_element_attribute(result, create_attribute_from_table(yella_fb_file_attr_vec_at(attrs, i)));
+    return result;
+}
+
 void destroy_element(element* elem)
 {
     struct sglib_attr_node_iterator itor;

@@ -18,6 +18,11 @@ static bool matches_excludes(const UChar* const name, const yella_ptr_vector* ex
     return false;
 }
 
+static void process_and_send(element* elem, const job* const j, state_db* db)
+{
+
+}
+
 static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const job* const j, state_db* db)
 {
     yella_directory_iterator* itor;

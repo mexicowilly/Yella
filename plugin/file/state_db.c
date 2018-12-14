@@ -3,6 +3,7 @@
 #include "common/file.h"
 #include "common/macro_util.h"
 #include "common/text_util.h"
+#include "file_reader.h"
 #include <sqlite3.h>
 #include <openssl/evp.h>
 #include <unicode/ustring.h>
@@ -129,33 +130,28 @@ void destroy_state_db(state_db* st)
     free(st);
 }
 
-uint8_t* get_attributes_from_state_db(state_db* st, const UChar* const elem_name)
+element* get_element_from_state_db(state_db* st, const UChar* const elem_name)
 {
-    uint8_t* attrs;
-    void* blob;
     int rc;
     char* utf8;
+    element* result;
 
+    result = NULL;
     sqlite3_bind_text16(st->stmts[STMT_SELECT_ATTRS], 1, elem_name, -1, SQLITE_STATIC);
     rc = sqlite3_step(st->stmts[STMT_SELECT_ATTRS]);
     if (rc == SQLITE_ROW)
     {
-        attrs = malloc(sqlite3_column_bytes(st->stmts[STMT_SELECT_ATTRS], 0));
-        memcpy(attrs,
-               sqlite3_column_blob(st->stmts[STMT_SELECT_ATTRS], 0),
-               sqlite3_column_bytes(st->stmts[STMT_SELECT_ATTRS], 0));
+        result = create_element_with_attrs(elem_name, sqlite3_column_blob(st->stmts[STMT_SELECT_ATTRS], 0));
     }
-    else
+    else if (rc != SQLITE_DONE)
     {
         utf8 = yella_to_utf8(elem_name);
         CHUCHO_C_DEBUG("Error getting attributes for '%s': %s", utf8, sqlite3_errmsg(st->db));
         free(utf8);
-        attrs = NULL;
     }
     sqlite3_clear_bindings(st->stmts[STMT_SELECT_ATTRS]);
     sqlite3_reset(st->stmts[STMT_SELECT_ATTRS]);
-    return attrs;
-
+    return result;
 }
 
 bool insert_into_state_db(state_db* st, const element* const elem)
