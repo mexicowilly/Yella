@@ -3,7 +3,7 @@
 #include "attribute.h"
 #include <string.h>
 
-static yella_file_type fb_to_file_type(yella_fb_file_attr_type_enum_t fbt)
+static yella_file_type fb_to_file_type(yella_fb_file_file_type_enum_t fbt)
 {
     yella_file_type result;
 
@@ -39,7 +39,7 @@ static yella_file_type fb_to_file_type(yella_fb_file_attr_type_enum_t fbt)
 
 static yella_fb_file_attr_type_enum_t file_type_to_fb(yella_file_type ft)
 {
-    yella_fb_file_attr_type_enum_t result;
+    yella_fb_file_file_type_enum_t result;
 
     switch (ft)
     {

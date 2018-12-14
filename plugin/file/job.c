@@ -4,6 +4,8 @@
 #include "plugin/file/state_db_pool.h"
 #include "common/file.h"
 #include "common/uds_util.h"
+#include "common/text_util.h"
+#include "file_builder.h"
 #include <unicode/ustring.h>
 
 static bool matches_excludes(const UChar* const name, const yella_ptr_vector* excludes)
@@ -18,9 +20,65 @@ static bool matches_excludes(const UChar* const name, const yella_ptr_vector* ex
     return false;
 }
 
-static void process_and_send(element* elem, const job* const j, state_db* db)
+static void send_message(const UChar* const name, const element* elem, const job* j, yella_fb_file_condition_enum_t cond)
 {
+    flatcc_builder_t bld;
+    char* utf8;
+    uint8_t* raw;
+    size_t sz;
 
+    flatcc_builder_init(&bld);
+    yella_fb_file_file_state_start_as_root(&bld);
+    utf8 = yella_to_utf8(j->agent_api->agent_id);
+    yella_fb_file_file_state_sender_create_str(&bld, utf8);
+    free(utf8);
+    utf8 = yella_to_utf8(j->config_name);
+    yella_fb_file_file_state_config_name_create_str(&bld, utf8);
+    free(utf8);
+    utf8 = yella_to_utf8(name);
+    yella_fb_file_file_state_file_name_create_str(&bld, utf8);
+    free(utf8);
+    yella_fb_file_file_state_cond_add(&bld, cond);
+    yella_fb_file_file_state_attrs_add(&bld, pack_element_attributes_to_table(elem, &bld));
+    yella_fb_file_file_state_end_as_root(&bld);
+    raw = flatcc_builder_finalize_buffer(&bld, &sz);
+    flatcc_builder_clear(&bld);
+}
+
+static void process_element(const UChar* const name, element* elem, const job* const j, state_db* db)
+{
+    element* db_elem;
+    yella_fb_file_condition_enum_t cond;
+    int cmp;
+
+    db_elem = get_element_from_state_db(db, name);
+    if (db_elem == NULL)
+    {
+        if (elem != NULL)
+        {
+            insert_into_state_db(db, elem);
+            cond = yella_fb_file_condition_ADDED;
+            cmp = 1;
+        }
+    }
+    else if (elem == NULL)
+    {
+        delete_from_state_db(db, name);
+        cond = yella_fb_file_condition_REMOVED;
+        cmp = -1;
+    }
+    else
+    {
+        cmp = compare_element_attributes(elem, db_elem);
+        if (cmp != 0)
+        {
+            update_into_state_db(db, elem);
+            diff_elements(elem, db_elem);
+            cond = yella_fb_file_condition_CHANGED;
+        }
+    }
+    if (cmp != 0)
+        send_message(name, elem, j, cond);
 }
 
 static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const job* const j, state_db* db)

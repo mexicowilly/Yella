@@ -24,6 +24,21 @@ struct element
 SGLIB_DEFINE_RBTREE_PROTOTYPES(attr_node, left, right, color, ATTR_COMPARATOR);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(attr_node, left, right, color, ATTR_COMPARATOR);
 
+static yella_fb_file_attr_vec_ref_t build_attr_vector(const element* const elem, flatcc_builder_t* bld)
+{
+    attr_node* al;
+    struct sglib_attr_node_iterator itor;
+
+    yella_fb_file_attr_vec_start(bld);
+    for (al = sglib_attr_node_it_init(&itor, elem->attrs);
+         al != NULL;
+         al = sglib_attr_node_it_next(&itor))
+    {
+        yella_fb_file_attr_array_attrs_push(bld, pack_attribute(al->attr, bld));
+    }
+    return yella_fb_file_attr_vec_end(bld);
+}
+
 void add_element_attribute(element* elem, attribute* attr)
 {
     attr_node* al;
@@ -85,15 +100,18 @@ void destroy_element(element* elem)
     struct sglib_attr_node_iterator itor;
     attr_node* al;
 
-    udsfree(elem->name);
-    for (al = sglib_attr_node_it_init(&itor, elem->attrs);
-         al != NULL;
-         al = sglib_attr_node_it_next(&itor))
+    if (elem != NULL)
     {
-        destroy_attribute(al->attr);
-        free(al);
+        udsfree(elem->name);
+        for (al = sglib_attr_node_it_init(&itor, elem->attrs);
+             al != NULL;
+             al = sglib_attr_node_it_next(&itor))
+        {
+            destroy_attribute(al->attr);
+            free(al);
+        }
+        free(elem);
     }
-    free(elem);
 }
 
 void diff_elements(element* elem1, element* elem2)
@@ -152,21 +170,19 @@ uint8_t* pack_element_attributes(const element* const elem, size_t* sz)
 {
     flatcc_builder_t bld;
     uint8_t* result;
-    attr_node* al;
-    struct sglib_attr_node_iterator itor;
 
     flatcc_builder_init(&bld);
     yella_fb_file_attr_array_start_as_root(&bld);
-    yella_fb_file_attr_array_attrs_start(&bld);
-    for (al = sglib_attr_node_it_init(&itor, elem->attrs);
-         al != NULL;
-         al = sglib_attr_node_it_next(&itor))
-    {
-        yella_fb_file_attr_array_attrs_push(&bld, pack_attribute(al->attr, &bld));
-    }
-    yella_fb_file_attr_array_attrs_end(&bld);
+    yella_fb_file_attr_array_attrs_add(&bld, build_attr_vector(elem, &bld));
     yella_fb_file_attr_array_end_as_root(&bld);
     result = flatcc_builder_finalize_buffer(&bld, sz);
     flatcc_builder_clear(&bld);
     return result;
+}
+
+yella_fb_file_attr_array_ref_t pack_element_attributes_to_table(const element* const elem, flatcc_builder_t* bld)
+{
+    yella_fb_file_attr_array_start(bld);
+    yella_fb_file_attr_array_attrs_add(bld, build_attr_vector(elem, bld));
+    return yella_fb_file_attr_array_end(bld);
 }

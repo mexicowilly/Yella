@@ -2,6 +2,7 @@
 #define YELLA_ELEMENT_H__
 
 #include "plugin/file/attribute.h"
+#include "file_builder.h"
 #include <unicode/utypes.h>
 
 typedef struct element element;
@@ -15,5 +16,6 @@ void destroy_element(element* elem);
 void diff_elements(element* elem1, element* elem2);
 const UChar* element_name(const element* const elem);
 uint8_t* pack_element_attributes(const element* const elem, size_t* sz);
+yella_fb_file_attr_array_ref_t pack_element_attributes_to_table(const element* const elem, flatcc_builder_t* bld);
 
 #endif
