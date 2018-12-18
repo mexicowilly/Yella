@@ -10,6 +10,8 @@
 typedef struct job
 {
     uds config_name;
+    uds topic;
+    void* agent;
     /* These are both vectors of uds */
     yella_ptr_vector* includes;
     yella_ptr_vector* excludes;
@@ -19,7 +21,10 @@ typedef struct job
 } job;
 
 /* Ownership of state_db* is not transferred */
-job* create_job(const UChar* const cfg, const yella_agent_api* api);
+job* create_job(const UChar* const cfg_name,
+                const yella_agent_api* api,
+                const UChar* const topic,
+                void* agnt);
 void destroy_job(job* j);
 void run_job(const job* const j, state_db_pool* db_pool);
 

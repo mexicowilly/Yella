@@ -482,6 +482,7 @@ bool send_kafka_message(kafka* kf, const UChar* const tpc, void* msg, size_t len
         parts[1].size = len;
         result = spool_push(kf->sp, parts, 2) == YELLA_NO_ERROR;
         yella_unlock_mutex(kf->guard);
+        free(msg);
     }
     else
     {

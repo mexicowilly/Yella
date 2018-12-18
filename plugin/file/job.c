@@ -43,6 +43,7 @@ static void send_message(const UChar* const name, const element* elem, const job
     yella_fb_file_file_state_end_as_root(&bld);
     raw = flatcc_builder_finalize_buffer(&bld, &sz);
     flatcc_builder_clear(&bld);
+    j->agent_api->send_message(j->agent, j->topic, raw, sz);
 }
 
 static void process_element(const UChar* const name, element* elem, const job* const j, state_db* db)
@@ -94,6 +95,7 @@ static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const
     {
         if (file_name_matches(cur, cur_incl) && !matches_excludes(cur, j->excludes))
             existing_elem = collect_attributes(cur, j->attr_types, j->attr_type_count);
+        process_element(cur, existing_elem, j, db);
         if (existing_elem != NULL)
             destroy_element(existing_elem);
         if (yella_get_file_type(cur, &ftype) == YELLA_NO_ERROR &&
@@ -120,6 +122,7 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
         unescaped = unescape_pattern(incl);
         if (!matches_excludes(unescaped, j->excludes))
             existing_elem = collect_attributes(unescaped, j->attr_types, j->attr_type_count);
+        process_element(unescaped, existing_elem, j, db);
         udsfree(unescaped);
         if (existing_elem != NULL)
             destroy_element(existing_elem);
@@ -140,12 +143,17 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
     }
 }
 
-job* create_job(const UChar* const cfg, const yella_agent_api* api)
+job* create_job(const UChar* const cfg_name,
+                const yella_agent_api* api,
+                const UChar* const topic,
+                void* agnt)
 {
     job* result;
 
     result = calloc(1, sizeof(job));
-    result->config_name = udsnew(cfg);
+    result->config_name = udsnew(cfg_name);
+    result->topic = udsnew(topic);
+    result->agent = agnt;
     result->includes = yella_create_uds_ptr_vector();
     result->excludes = yella_create_uds_ptr_vector();
     result->agent_api = api;
@@ -156,6 +164,7 @@ void destroy_job(job* j)
 {
     yella_destroy_ptr_vector(j->excludes);
     yella_destroy_ptr_vector(j->includes);
+    udsfree(j->topic);
     udsfree(j->config_name);
     free(j->attr_types);
     free(j);
