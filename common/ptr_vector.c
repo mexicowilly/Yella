@@ -63,8 +63,11 @@ void yella_clear_ptr_vector(yella_ptr_vector* v)
 {
     size_t i;
 
-    for (i = 0; i < v->size; i++)
-        v->destructor(v->data[i], v->destructor_udata);
+    if (v->destructor != NULL)
+    {
+        for (i = 0; i < v->size; i++)
+            v->destructor(v->data[i], v->destructor_udata);
+    }
     v->size = 0;
 }
 
@@ -81,7 +84,8 @@ void yella_erase_ptr_vector_at(yella_ptr_vector* v, unsigned off)
 
     if (off < v->size)
     {
-        v->destructor(v->data[off], v->destructor_udata);
+        if (v->destructor != NULL)
+            v->destructor(v->data[off], v->destructor_udata);
         to_move = --v->size - off;
         if (to_move > 0)
             memmove(v->data + off, v->data + off + 1, to_move * sizeof(void*));

@@ -2,6 +2,7 @@
 #include "plugin/file/job.h"
 #include "common/sglib.h"
 #include "common/thread.h"
+#include "state_db_pool.h"
 #include <unicode/ustring.h>
 
 typedef struct queue
@@ -31,8 +32,10 @@ static void job_queue_main(void* udata)
 {
     job_queue* jq;
     queue* front;
+    state_db_pool* db_pool;
 
     jq = (job_queue*)udata;
+    db_pool = create_state_db_pool();
     while (true)
     {
         yella_lock_mutex(jq->guard);
@@ -53,11 +56,12 @@ static void job_queue_main(void* udata)
             sglib_queue_delete(&jq->q, front);
             --jq->sz;
             yella_unlock_mutex(jq->guard);
-            run_job(front->jb);
+            run_job(front->jb, db_pool);
             destroy_job(front->jb);
             free(front);
         }
     }
+    destroy_state_db_pool(db_pool);
 }
 
 job_queue* create_job_queue(void)

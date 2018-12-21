@@ -28,11 +28,27 @@ YELLA_EXPORT extern const UChar* YELLA_DIR_SEP;
 
 typedef struct yella_directory_iterator yella_directory_iterator;
 
+typedef enum
+{
+    YELLA_FILE_TYPE_BLOCK_SPECIAL,
+    YELLA_FILE_TYPE_CHARACTER_SPECIAL,
+    YELLA_FILE_TYPE_DIRECTORY,
+    YELLA_FILE_TYPE_FIFO,
+    YELLA_FILE_TYPE_SYMBOLIC_LINK,
+    YELLA_FILE_TYPE_REGULAR,
+    YELLA_FILE_TYPE_SOCKET,
+    YELLA_FILE_TYPE_WHITEOUT
+} yella_file_type;
+
+YELLA_EXPORT yella_rc yella_apply_function_to_file_contents(const UChar* const name,
+                                                            void(*func)(const uint8_t* const, size_t, void*),
+                                                            void* udata);
 YELLA_EXPORT uds yella_base_name(const UChar* const path);
 YELLA_EXPORT yella_rc yella_create_directory(const UChar* const name);
 YELLA_EXPORT uds yella_dir_name(const UChar* const path);
 YELLA_EXPORT yella_rc yella_ensure_dir_exists(const UChar* const name);
 YELLA_EXPORT const UChar* yella_getcwd(void);
+YELLA_EXPORT yella_rc yella_get_file_type(const UChar* const name, yella_file_type* tp);
 YELLA_EXPORT yella_rc yella_file_contents(const UChar* const name, uint8_t** contents);
 YELLA_EXPORT bool yella_file_exists(const UChar* const name);
 YELLA_EXPORT yella_rc yella_file_size(const UChar* const name, size_t* sz);

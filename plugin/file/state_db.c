@@ -3,6 +3,7 @@
 #include "common/file.h"
 #include "common/macro_util.h"
 #include "common/text_util.h"
+#include "file_reader.h"
 #include <sqlite3.h>
 #include <openssl/evp.h>
 #include <unicode/ustring.h>
@@ -22,6 +23,7 @@ struct state_db
     chucho_logger_t* lgr;
     sqlite3* db;
     sqlite3_stmt* stmts[4];
+    uds name;
 };
 
 state_db* create_state_db(const UChar* const config_name)
@@ -87,16 +89,17 @@ state_db* create_state_db(const UChar* const config_name)
             return NULL;
         }
     }
+    st->name = udsnew(config_name);
     return st;
 }
 
-bool delete_from_state_db(state_db* st, const element* const elem)
+bool delete_from_state_db(state_db* st, const UChar* const elem_name)
 {
     int rc;
     bool result;
     char* utf8;
 
-    sqlite3_bind_text16(st->stmts[STMT_DELETE], 1, element_name(elem), -1, SQLITE_STATIC);
+    sqlite3_bind_text16(st->stmts[STMT_DELETE], 1, elem_name, -1, SQLITE_STATIC);
     rc = sqlite3_step(st->stmts[STMT_DELETE]);
     if (rc == SQLITE_DONE)
     {
@@ -104,7 +107,7 @@ bool delete_from_state_db(state_db* st, const element* const elem)
     }
     else
     {
-        utf8 = yella_to_utf8(element_name(elem));
+        utf8 = yella_to_utf8(elem_name);
         CHUCHO_C_ERROR("Error deleting '%s': %s", utf8, sqlite3_errmsg(st->db));
         free(utf8);
         result = false;
@@ -123,36 +126,32 @@ void destroy_state_db(state_db* st)
         sqlite3_finalize(st->stmts[i]);
     sqlite3_close(st->db);
     chucho_release_logger(st->lgr);
+    udsfree(st->name);
     free(st);
 }
 
-uint8_t* get_attributes_from_state_db(state_db* st, const UChar* const elem_name)
+element* get_element_from_state_db(state_db* st, const UChar* const elem_name)
 {
-    uint8_t* attrs;
-    void* blob;
     int rc;
     char* utf8;
+    element* result;
 
+    result = NULL;
     sqlite3_bind_text16(st->stmts[STMT_SELECT_ATTRS], 1, elem_name, -1, SQLITE_STATIC);
     rc = sqlite3_step(st->stmts[STMT_SELECT_ATTRS]);
     if (rc == SQLITE_ROW)
     {
-        attrs = malloc(sqlite3_column_bytes(st->stmts[STMT_SELECT_ATTRS], 0));
-        memcpy(attrs,
-               sqlite3_column_blob(st->stmts[STMT_SELECT_ATTRS], 0),
-               sqlite3_column_bytes(st->stmts[STMT_SELECT_ATTRS], 0));
+        result = create_element_with_attrs(elem_name, sqlite3_column_blob(st->stmts[STMT_SELECT_ATTRS], 0));
     }
-    else
+    else if (rc != SQLITE_DONE)
     {
         utf8 = yella_to_utf8(elem_name);
         CHUCHO_C_DEBUG("Error getting attributes for '%s': %s", utf8, sqlite3_errmsg(st->db));
         free(utf8);
-        attrs = NULL;
     }
     sqlite3_clear_bindings(st->stmts[STMT_SELECT_ATTRS]);
     sqlite3_reset(st->stmts[STMT_SELECT_ATTRS]);
-    return attrs;
-
+    return result;
 }
 
 bool insert_into_state_db(state_db* st, const element* const elem)
@@ -211,4 +210,9 @@ bool update_into_state_db(state_db* st, const element* const elem)
     sqlite3_clear_bindings(st->stmts[STMT_UPDATE]);
     sqlite3_reset(st->stmts[STMT_UPDATE]);
     return result;
+}
+
+const UChar* state_db_name(const state_db* const sdb)
+{
+    return sdb->name;
 }
