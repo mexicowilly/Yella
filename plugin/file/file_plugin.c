@@ -67,6 +67,8 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
     size_t i;
     flatbuffers_uint16_vec_t uvec;
     uint16_t atval;
+    bool is_empty;
+    size_t erase_idx;
 
     fplg = (file_plugin*)udata;
     tbl = yella_fb_file_monitor_request_as_root(msg);
@@ -92,8 +94,13 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
     if (yella_fb_file_monitor_request_includes_is_present(tbl))
     {
         svec = yella_fb_file_monitor_request_includes(tbl);
+        is_empty = flatbuffers_string_vec_len(svec) == 0;
         for (i = 0; i < flatbuffers_string_vec_len(svec); i++)
             yella_push_back_ptr_vector(cfg->includes, yella_from_utf8(flatbuffers_string_vec_at(svec, i)));
+    }
+    else
+    {
+        is_empty = true;
     }
     if (yella_fb_file_monitor_request_excludes_is_present(tbl))
     {
@@ -106,21 +113,32 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
     {
         uvec = yella_fb_file_monitor_request_attr_types(tbl);
         cfg->attr_type_count = flatbuffers_uint16_vec_len(uvec);
-        cfg->attr_types = malloc(sizeof(attribute_type) * cfg->attr_type_count);
-        for (i = 0; i < cfg->attr_type_count; i++)
+        if (cfg->attr_type_count == 0)
         {
-            atval = flatbuffers_uint16_vec_at(uvec, i);
-            if (!yella_fb_file_attr_type_is_known_value(atval))
+            cfg->attr_types = NULL;
+        }
+        else
+        {
+            cfg->attr_types = malloc(sizeof(attribute_type) * cfg->attr_type_count);
+            for (i = 0; i < cfg->attr_type_count; i++)
             {
-                CHUCHO_C_ERROR(fplg->lgr,
-                               "Invalid attriubte type value in config %s: %hu",
-                               yella_fb_plugin_config_name(fb_cfg),
-                               atval);
+                atval = flatbuffers_uint16_vec_at(uvec, i);
+                if (!yella_fb_file_attr_type_is_known_value(atval))
+                {
+                    CHUCHO_C_ERROR(fplg->lgr,
+                                   "Invalid attriubte type value in config %s: %hu",
+                                   yella_fb_plugin_config_name(fb_cfg),
+                                   atval);
+                }
+                cfg->attr_types[i] = fb_to_attribute_type(atval);
             }
-            cfg->attr_types[i] = fb_to_attribute_type(atval);
         }
     }
-    // TODO: Before doing the following, figure out if the config is empty or not
+    else
+    {
+        cfg->attr_types = NULL;
+        cfg->attr_type_count = 0;
+    }
     act = yella_fb_plugin_config_action(fb_cfg);
     yella_lock_mutex(fplg->guard);
     assert(yella_ptr_vector_size(fplg->desc->in_caps) == 1);
@@ -131,12 +149,18 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
     for (i = 0; i < yella_ptr_vector_size(mon->configs); i++)
     {
         if (u_strcmp(yella_ptr_vector_at(mon->configs, i), cfg->name) == 0)
+        {
+            if (is_empty)
+                erase_idx = i;
             break;
+        }
     }
-    if (i == yella_ptr_vector_size(mon->configs))
+    if (is_empty)
+        yella_erase_ptr_vector_at(mon->configs, erase_idx);
+    else if (i == yella_ptr_vector_size(mon->configs))
         yella_push_back_ptr_vector(mon->configs, udsdup(cfg->name));
     yella_unlock_mutex(fplg->guard);
-    // TODO: Add or remove the config from the map and then add or remove from the event generator
+    // TODO: Add or remove the config from the map and then add or remove from the event source
     return YELLA_NO_ERROR;
 }
 
