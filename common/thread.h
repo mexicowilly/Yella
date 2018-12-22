@@ -42,6 +42,17 @@ YELLA_EXPORT void yella_lock_mutex(yella_mutex* mtx);
 YELLA_EXPORT void yella_unlock_mutex(yella_mutex* mtx);
 
 /**
+ * Reader-writer locks
+ */
+typedef struct yella_reader_writer_lock yella_reader_writer_lock;
+
+YELLA_EXPORT yella_reader_writer_lock* yella_create_reader_writer_lock(void);
+YELLA_EXPORT void yella_destroy_reader_writer_lock(yella_reader_writer_lock* lock);
+YELLA_EXPORT void yella_read_lock_reader_writer_lock(yella_reader_writer_lock* lock);
+YELLA_EXPORT void yella_unlock_reader_writer_lock(yella_reader_writer_lock* lock);
+YELLA_EXPORT void yella_write_lock_reader_writer_lock(yella_reader_writer_lock* lock);
+
+/**
  * Condition variables
  */
 typedef struct yella_condition_variable yella_condition_variable;

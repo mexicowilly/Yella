@@ -24,9 +24,11 @@ yella_process* yella_create_process(const UChar* const command)
     if (pipe(link) != 0)
         return NULL;
     proc = NULL;
+    u8cmd = yella_to_utf8(command);
     pid = fork();
     if (pid == -1)
     {
+        free(u8cmd);
         close(link[0]);
         close(link[1]);
         return NULL;
@@ -41,7 +43,6 @@ yella_process* yella_create_process(const UChar* const command)
             shell = "sh";
         argv[0] = shell;
         argv[1] = "-c";
-        u8cmd = yella_to_utf8(command);
         argv[2] = u8cmd;
         argv[3] = NULL;
         execvp(shell, (char* const*)argv);
@@ -54,6 +55,7 @@ yella_process* yella_create_process(const UChar* const command)
         proc->pid = pid;
         proc->in = fdopen(link[0], "r");
     }
+    free(u8cmd);
     return proc;
 }
 
