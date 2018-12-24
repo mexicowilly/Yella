@@ -34,6 +34,7 @@ typedef struct event_source_freebsd
     atomic_bool should_stop;
     struct procstat* pstat;
     name_node* names;
+    yella_mutex* guard;
 } event_source_freebsd;
 
 static int name_node_comparator(name_node* lhs, name_node* rhs)
@@ -134,11 +135,13 @@ static void handle_close(event_source_freebsd* esf, const char* const line, chuc
     {
         to_remove.pid = pid;
         to_remove.fd = fd;
+        yella_lock_mutex(esf->guard);
         if (sglib_name_node_delete_if_member(&esf->names, &to_remove, &removed))
         {
             free(removed->name);
             free(removed);
         }
+        yella_unlock_mutex(esf->guard);
     }
     else
     {
@@ -157,6 +160,7 @@ static void handle_exit(event_source_freebsd* esf, const char* const line, chuch
     if (sscanf(line, "exit:%d\n", &pid) == 1)
     {
         to_remove = NULL;
+        yella_lock_mutex(esf->guard);
         for (cur = sglib_name_node_it_init(&itor, esf->names);
              cur != NULL;
              cur = sglib_name_node_it_next(&itor))
@@ -175,6 +179,7 @@ static void handle_exit(event_source_freebsd* esf, const char* const line, chuch
                 sglib_name_node_delete(&esf->names, yella_ptr_vector_at(to_remove, i));
             yella_destroy_ptr_vector(to_remove);
         }
+        yella_unlock_mutex(esf->guard);
     }
     else
     {
@@ -184,8 +189,7 @@ static void handle_exit(event_source_freebsd* esf, const char* const line, chuch
 
 static void handle_write(const event_source* const esrc,
                          event_source_freebsd* esf,
-                         const char* const line,
-                         chucho_logger_t* lgr)
+                         const char* const line)
 {
     pid_t pid;
     int fd;
@@ -199,6 +203,7 @@ static void handle_write(const event_source* const esrc,
     {
         to_find.pid = pid;
         to_find.fd = fd;
+        yella_lock_mutex(esf->guard);
         found = sglib_name_node_find_member(esf->names, &to_find);
         if (found == NULL)
         {
@@ -234,10 +239,11 @@ static void handle_write(const event_source* const esrc,
             assert(found->config_name != NULL);
             esrc->callback(found->config_name, found->name, esrc->callback_udata);
         }
+        yella_unlock_mutex(esf->guard);
     }
     else
     {
-        CHUCHO_C_ERROR(lgr, "Unable to parse line for write event: '%s'", line);
+        CHUCHO_C_ERROR(esrc->lgr, "Unable to parse line for write event: '%s'", line);
     }
 }
 
@@ -278,10 +284,37 @@ static void worker_main(void* udata)
             {
                 // TODO: error
             }
-            assert(strlen(line) > 10);
-
+            assert(strlen(line) >= 10);
+            if (strncmp(line, "write:", 6) == 0)
+                handle_write(esrc, esf, line);
+            else if (strncmp(line, "close:", 6) == 0)
+                handle_close(esf, line, esrc->lgr);
+            else if (strncmp(line, "exit:", 5) == 0)
+                handle_exit(esf, line, esrc->lgr);
+            else
+                CHUCHO_C_ERROR("Invalid line from DTrace: '%s'", line);
         }
     }
+}
+
+/* The specs are write-locked on entry */
+void clear_event_source_impl_specs(event_source* esrc)
+{
+    struct sglib_name_node_iterator itor;
+    name_node* cur;
+    event_source_freebsd* esf;
+
+    esf = esrc->impl;
+    yella_lock_mutex(esf->guard);
+    for (cur = sglib_name_node_it_init(&itor, esf->names);
+         cur != NULL;
+         cur = sglib_name_node_it_next(&itor))
+    {
+        free(cur->name);
+        free(cur);
+    }
+    esf->names = NULL;
+    yella_unlock_mutex(esf->guard);
 }
 
 void destroy_event_source_impl(event_source* esrc)
@@ -296,13 +329,8 @@ void destroy_event_source_impl(event_source* esrc)
     yella_destroy_thread(esf->worker);
     yella_destroy_process(esf->dtrace);
     procstat_close(esf->pstat);
-    for (cur = sglib_name_node_it_init(&itor, esf->names);
-         cur != NULL;
-         cur = sglib_name_node_it_next(&itor))
-    {
-        free(cur->name);
-        free(cur);
-    }
+    clear_event_source_impl_specs(esrc);
+    yella_destroy_mutex(esf->guard);
     free(esf);
 }
 
@@ -313,9 +341,38 @@ void init_event_source_impl(event_source* esrc)
     // TODO: error handling
     esrc->impl = malloc(sizeof(event_source_freebsd));
     esf = esrc->impl;
+    esf->guard = yella_create_mutex();
     esf->should_stop = false;
     esf->names = NULL;
     esf->pstat = procstat_open_sysctl();
     esf->dtrace = yella_create_process(u"<to do>");
     esf->worker = yella_create_thread(worker_main, esrc);
+}
+
+void remove_event_source_impl_spec(event_source* esrc, const UChar* const config_name)
+{
+    struct sglib_name_node_iterator itor;
+    name_node* cur;
+    event_source_freebsd* esf;
+    yella_ptr_vector* to_remove;
+    int i;
+
+    esf = esrc->impl;
+    to_remove = yella_create_ptr_vector();
+    yella_lock_mutex(esf->guard);
+    for (cur = sglib_name_node_it_init(&itor, esf->names);
+         cur != NULL;
+         cur = sglib_name_node_it_next(&itor))
+    {
+        if (cur->config_name != NULL && u_strcmp(cur->config_name, config_name) == 0)
+            yella_push_back_ptr_vector(to_remove, cur);
+    }
+    for (i = 0; i < yella_ptr_vector_size(to_remove); i++)
+    {
+        cur = yella_ptr_vector_at(to_remove, i);
+        free(cur->name);
+        sglib_name_node_delete(&esf->names, cur);
+    }
+    yella_unlock_mutex(esf->guard);
+    yella_destroy_ptr_vector(to_remove);
 }

@@ -3,6 +3,9 @@
 
 void init_event_source_impl(event_source* esrc);
 void destroy_event_source_impl(event_source* esrc);
+/* The specs are write-locked on entry */
+void clear_event_source_impl_specs(event_source* esrc);
+void remove_event_source_impl_spec(event_source* esrc, const UChar* const config_name);
 
 SGLIB_DEFINE_RBTREE_FUNCTIONS(event_source_spec, left, right, color, EVENT_SOURCE_SPEC_COMPARATOR);
 
@@ -44,6 +47,7 @@ void clear_event_source_specs(event_source* esrc)
     struct sglib_event_source_spec_iterator itor;
 
     yella_write_lock_reader_writer_lock(esrc->guard);
+    clear_event_source_impl_specs(esrc);
     for (cur = sglib_event_source_spec_it_init(&itor, esrc->specs);
          cur != NULL;
          cur = sglib_event_source_spec_it_next(&itor))
@@ -70,6 +74,7 @@ void remove_event_source_spec(event_source* esrc, const UChar* const name)
 
     to_remove.name = (UChar*)name;
     yella_write_lock_reader_writer_lock(esrc->guard);
+    remove_event_source_impl_spec(esrc, name);
     if (sglib_event_source_spec_delete_if_member(&esrc->specs, &to_remove, &removed))
         destroy_event_source_spec(removed);
     yella_unlock_reader_writer_lock(esrc->guard);
