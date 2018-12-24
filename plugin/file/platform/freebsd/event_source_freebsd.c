@@ -56,20 +56,33 @@ static UChar* name_of_fd(pid_t pid, int fd, struct procstat* pstat, chucho_logge
     UChar* result;
     unsigned cnt;
 
-    // TODO: error handling
     result = NULL;
     kp = procstat_getprocs(pstat, KERN_PROC_PID, pid, &cnt);
-    files = procstat_getfiles(pstat, kp, 0);
-    STAILQ_FOREACH(fst, files, next)
+    if (kp == NULL)
     {
-        if (fst->fs_type == PS_FST_TYPE_VNODE && fst->fs_fd == fd)
-        {
-            result = yella_from_utf8(fst->fs_path);
-            break;
-        }
+        CHUCHO_C_ERROR(lgr, "Unable to look up PID: %d", pid);
     }
-    procstat_freefiles(pstat, files);
-    procstat_freeprocs(pstat, kp);
+    else
+    {
+        files = procstat_getfiles(pstat, kp, 0);
+        if (files == NULL)
+        {
+            CHUCHO_C_ERROR(lgr, "Unable to look up file list of PID: %d", pid);
+        }
+        else
+        {
+            STAILQ_FOREACH(fst, files, next)
+            {
+                if (fst->fs_type == PS_FST_TYPE_VNODE && fst->fs_fd == fd)
+                {
+                    result = yella_from_utf8(fst->fs_path);
+                    break;
+                }
+            }
+            procstat_freefiles(pstat, files);
+        }
+        procstat_freeprocs(pstat, kp);
+    }
     return result;
 }
 
@@ -105,7 +118,7 @@ static bool file_name_matches_any(const event_source* const esrc, const UChar* c
     return false;
 }
 
-static void handle_close(event_source_freebsd* esf, const char* const line)
+static void handle_close(event_source_freebsd* esf, const char* const line, chucho_logger_t* lgr)
 {
     pid_t pid;
     int fd;
@@ -113,8 +126,7 @@ static void handle_close(event_source_freebsd* esf, const char* const line)
     name_node to_remove;
     name_node* removed;
 
-    rc = sscanf(line, "%*s:%d,%d\n", &pid, &fd);
-    if (rc == 2)
+    if (sscanf(line, "close:%d,%d\n", &pid, &fd) == 2)
     {
         to_remove.pid = pid;
         to_remove.fd = fd;
@@ -126,11 +138,11 @@ static void handle_close(event_source_freebsd* esf, const char* const line)
     }
     else
     {
-        // TODO: error
+        CHUCHO_C_ERROR(lgr, "Unable to parse line for close event: '%s'", line);
     }
 }
 
-static void handle_exit(event_source_freebsd* esf, const char* const line)
+static void handle_exit(event_source_freebsd* esf, const char* const line, chucho_logger_t* lgr)
 {
     pid_t pid;
     struct sglib_name_node_iterator itor;
@@ -138,7 +150,7 @@ static void handle_exit(event_source_freebsd* esf, const char* const line)
     yella_ptr_vector* to_remove;
     int i;
 
-    if (sscanf(line, "%*s:%d\n", &pid) == 1)
+    if (sscanf(line, "exit:%d\n", &pid) == 1)
     {
         to_remove = NULL;
         for (cur = sglib_name_node_it_init(&itor, esf->names);
@@ -160,6 +172,10 @@ static void handle_exit(event_source_freebsd* esf, const char* const line)
             yella_destroy_ptr_vector(to_remove);
         }
     }
+    else
+    {
+        CHUCHO_C_ERROR(lgr, "Unable to parse line for exit event: '%s'", line);
+    }
 }
 
 static void handle_write(const event_source* const esrc, event_source_freebsd* esf, const char* const line)
@@ -171,7 +187,7 @@ static void handle_write(const event_source* const esrc, event_source_freebsd* e
     name_node* found;
     UChar* name;
 
-    rc = sscanf(line, "%*s:%d,%d\n", &pid, &fd);
+    rc = sscanf(line, "write:%d,%d\n", &pid, &fd);
     if (rc == 2)
     {
         to_find.pid = pid;

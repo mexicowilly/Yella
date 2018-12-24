@@ -20,7 +20,7 @@ typedef struct event_source_spec
     struct event_source_spec* right;
 } event_source_spec;
 
-typedef void (*event_source_callback)(const UChar* const fname, void* udata);
+typedef void (*event_source_callback)(const UChar* const config_name, const UChar* const fname, void* udata);
 
 typedef struct event_source
 {
