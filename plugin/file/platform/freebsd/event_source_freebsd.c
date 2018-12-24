@@ -20,6 +20,7 @@ typedef struct name_node
     pid_t pid;
     int fd;
     UChar* name;
+    const UChar* config_name;
     bool is_interesting;
     char color;
     struct name_node* left;
@@ -86,12 +87,14 @@ static UChar* name_of_fd(pid_t pid, int fd, struct procstat* pstat, chucho_logge
     return result;
 }
 
-static bool file_name_matches_any(const event_source* const esrc, const UChar* const fname)
+static const UChar* file_name_matches_any(const event_source* const esrc, const UChar* const fname)
 {
     int i;
     struct sglib_event_source_spec_iterator spec_itor;
     event_source_spec* cur_spec;
+    const UChar* result;
 
+    result = NULL;
     yella_read_lock_reader_writer_lock(esrc->guard);
     for (cur_spec = sglib_event_source_spec_it_init(&spec_itor, esrc->specs);
          cur_spec != NULL;
@@ -102,20 +105,21 @@ static bool file_name_matches_any(const event_source* const esrc, const UChar* c
             if (file_name_matches(fname, yella_ptr_vector_at(cur_spec->excludes, i)))
             {
                 yella_unlock_reader_writer_lock(esrc->guard);
-                return false;
+                return result;
             }
         }
         for (i = 0; i < yella_ptr_vector_size(cur_spec->includes); i++)
         {
             if (file_name_matches(fname, yella_ptr_vector_at(cur_spec->includes, i)))
             {
+                result = cur_spec->name;
                 yella_unlock_reader_writer_lock(esrc->guard);
-                return true;
+                return result;
             }
         }
     }
     yella_unlock_reader_writer_lock(esrc->guard);
-    return false;
+    return result;
 }
 
 static void handle_close(event_source_freebsd* esf, const char* const line, chucho_logger_t* lgr)
@@ -178,7 +182,10 @@ static void handle_exit(event_source_freebsd* esf, const char* const line, chuch
     }
 }
 
-static void handle_write(const event_source* const esrc, event_source_freebsd* esf, const char* const line)
+static void handle_write(const event_source* const esrc,
+                         event_source_freebsd* esf,
+                         const char* const line,
+                         chucho_logger_t* lgr)
 {
     pid_t pid;
     int fd;
@@ -198,23 +205,24 @@ static void handle_write(const event_source* const esrc, event_source_freebsd* e
             name = name_of_fd(pid, fd, esf->pstat, esrc->lgr);
             if (name == NULL)
             {
-                // TODO error
+                return;
             }
             else
             {
                 found = malloc(sizeof(name_node));
                 found->pid = pid;
                 found->fd = fd;
-                if (file_name_matches_any(esrc, name))
-                {
-                    found->name = name;
-                    found->is_interesting = true;
-                }
-                else
+                found->config_name = file_name_matches_any(esrc, name);
+                if (found->config_name == NULL)
                 {
                     free(name);
                     found->name = NULL;
                     found->is_interesting = false;
+                }
+                else
+                {
+                    found->name = name;
+                    found->is_interesting = true;
                 }
                 sglib_name_node_add(&esf->names, found);
             }
@@ -223,12 +231,13 @@ static void handle_write(const event_source* const esrc, event_source_freebsd* e
         if (found->is_interesting)
         {
             assert(found->name != NULL);
-            esrc->callback(found->name, esrc->callback_udata);
+            assert(found->config_name != NULL);
+            esrc->callback(found->config_name, found->name, esrc->callback_udata);
         }
     }
     else
     {
-        // TODO: error
+        CHUCHO_C_ERROR(lgr, "Unable to parse line for write event: '%s'", line);
     }
 }
 
