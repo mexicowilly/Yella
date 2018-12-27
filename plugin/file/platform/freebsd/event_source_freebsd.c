@@ -262,6 +262,7 @@ static void worker_main(void* udata)
     char line[6 + 512 + 1 + 512 + 1];
     pid_t pid;
     int fd;
+    size_t len;
 
     esrc = udata;
     esf = esrc->impl;
@@ -275,24 +276,41 @@ static void worker_main(void* udata)
             break;
         if (rc < 0)
         {
-            CHUCHO_C_ERROR("Error waiting for DTrace data: %s", strerror(errno));
+            CHUCHO_C_ERROR(esrc->lgr, "Error waiting for DTrace data: %s", strerror(errno));
             break;
         }
         if (rc == 1)
         {
             if (fgets(line, sizeof(line), reader) == NULL)
             {
-                // TODO: error
+                if (yella_process_is_running(esf->dtrace))
+                {
+                    CHUCHO_C_ERROR(esrc->lgr, "Error reading from DTrace stream");
+                    clearerr(reader);
+                }
+                else
+                {
+                    yella_destroy_process(esf->dtrace);
+                    CHUCHO_C_ERROR(esrc->lgr, "DTrace has exited and will be restarted");
+                    esf->dtrace = yella_create_process(u"<to do>");
+                    if (esf->dtrace == NULL)
+                    {
+                        CHUCHO_C_FATAL(esrc->lgr, "Unable to start DTrace. Exiting the worker thread...");
+                        break;
+                    }
+                    reader = yella_process_get_reader(esf->dtrace);
+                }
+                continue;
             }
-            assert(strlen(line) >= 10);
-            if (strncmp(line, "write:", 6) == 0)
+            len = strlen(line);
+            if (len > 6 && strncmp(line, "write:", 6) == 0)
                 handle_write(esrc, esf, line);
-            else if (strncmp(line, "close:", 6) == 0)
+            else if (len > 6 && strncmp(line, "close:", 6) == 0)
                 handle_close(esf, line, esrc->lgr);
-            else if (strncmp(line, "exit:", 5) == 0)
+            else if (len > 5 && strncmp(line, "exit:", 5) == 0)
                 handle_exit(esf, line, esrc->lgr);
             else
-                CHUCHO_C_ERROR("Invalid line from DTrace: '%s'", line);
+                CHUCHO_C_ERROR(esrc->lgr, "Invalid line from DTrace: '%s'", line);
         }
     }
 }

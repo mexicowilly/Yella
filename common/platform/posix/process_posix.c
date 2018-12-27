@@ -1,5 +1,6 @@
 #include "common/process.h"
 #include "common/text_util.h"
+#include <chucho/log.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -65,18 +66,25 @@ void yella_destroy_process(yella_process* proc)
     int rc;
 
     fclose(proc->in);
-    if (kill(proc->pid, 0) == 0)
-    {
+    if (yella_process_is_running(proc))
         kill(proc->pid, SIGTERM);
-        do
-        {
-            pid = waitpid(proc->pid, &rc, 0);
-        } while (pid == -1 && errno == EINTR);
-    }
+    do
+    {
+        pid = waitpid(proc->pid, &rc, 0);
+    } while (pid == -1 && errno == EINTR);
+    if (WIFSIGNALED(rc))
+        CHUCHO_C_WARN("yella.process", "Child process exited on signal: %d", WTERMSIG(rc));
+    else if (WIFEXITED(rc) && WEXITSTATUS(rc) != 0)
+        CHUCHO_C_WARN("yella.process", "Child process exited with non-zero status: %d", WEXITSTATUS(rc));
     free(proc);
 }
 
 FILE* yella_process_get_reader(yella_process* proc)
 {
     return proc->in;
+}
+
+bool yella_process_is_running(yella_process* proc)
+{
+    return kill(proc->pid, 0) == 0;
 }
