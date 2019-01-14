@@ -171,15 +171,15 @@ static void retrieve_file_settings(void)
     yella_setting_desc descs[] =
     {
         { u"data-dir", YELLA_SETTING_VALUE_TEXT },
-        { u"max-spool-dbs", YELLA_SETTING_VALUE_UINT }
+        { u"max-spool-dbs", YELLA_SETTING_VALUE_UINT },
+        { u"max-events-in-cache", YELLA_SETTING_VALUE_UINT }
     };
 
-    data_dir = udsnew(yella_settings_get_text(u"agent", u"data-dir"));
-    data_dir = udscat(data_dir, YELLA_DIR_SEP);
-    data_dir = udscat(data_dir, u"file");
+    data_dir = udscatprintf(udsempty(), u"%S%Sfile", yella_settings_get_text(u"agent", u"data-dir"), YELLA_DIR_SEP);
     yella_settings_set_text(u"file", u"data-dir", data_dir);
-    yella_settings_set_uint(u"file", u"max-spool-dbs", 100);
     udsfree(data_dir);
+    yella_settings_set_uint(u"file", u"max-spool-dbs", 100);
+    yella_settings_set_uint(u"file", u"max-events-in-cache", 5000000);
 
     yella_retrieve_settings(u"file", descs, YELLA_ARRAY_SIZE(descs));
 }

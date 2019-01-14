@@ -2,6 +2,7 @@
 #include "plugin/file/file_name_matcher.h"
 #include "common/process.h"
 #include "common/text_util.h"
+#include "common/settings.h"
 #include <chucho/log.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -27,6 +28,13 @@ typedef struct name_node
     struct name_node* right;
 } name_node;
 
+typedef struct pending_line
+{
+    char* line;
+    struct pending_line* previous;
+    struct pending_line* next;
+} pending_line;
+
 typedef struct event_source_freebsd
 {
     yella_process* dtrace;
@@ -35,6 +43,16 @@ typedef struct event_source_freebsd
     struct procstat* pstat;
     name_node* names;
     yella_mutex* guard;
+    struct
+    {
+        pending_line* lines;
+        pending_line* last;
+        size_t line_count;
+        yella_mutex* guard;
+        yella_condition_variable* full_cond;
+        yella_condition_variable* empty_cond;
+    } pending;
+    yella_thread* reader;
 } event_source_freebsd;
 
 static int name_node_comparator(name_node* lhs, name_node* rhs)
@@ -49,6 +67,11 @@ static int name_node_comparator(name_node* lhs, name_node* rhs)
 
 SGLIB_DEFINE_RBTREE_PROTOTYPES(name_node, left, right, color, name_node_comparator);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(name_node, left, right, color, name_node_comparator);
+
+#define PENDING_COMPARATOR(lhs, rhs) (strcmp(lhs->line, rhs->line))
+
+SGLIB_DEFINE_DL_LIST_PROTOTYPES(pending_line, PENDING_COMPARATOR, previous, next);
+SGLIB_DEFINE_DL_LIST_FUNCTIONS(pending_line, PENDING_COMPARATOR, previous, next);
 
 static UChar* name_of_fd(pid_t pid, int fd, struct procstat* pstat, chucho_logger_t* lgr)
 {
@@ -247,7 +270,7 @@ static void handle_write(const event_source* const esrc,
     }
 }
 
-static void worker_main(void* udata)
+static void reader_main(void* udata)
 {
     event_source* esrc;
     event_source_freebsd* esf;
@@ -263,15 +286,24 @@ static void worker_main(void* udata)
     pid_t pid;
     int fd;
     size_t len;
+    size_t max_events;
+    pending_line* to_add;
 
     esrc = udata;
     esf = esrc->impl;
     reader = yella_process_get_reader(esf->dtrace);
     pfd.fd = fileno(reader);
     pfd.events = POLLIN;
+    max_events = *yella_settings_get_uint(u"file", u"max-events-in-cache");
     while (!esf->should_stop)
     {
-        rc = poll(&pfd, 1, 200);
+        yella_lock_mutex(esf->pending.guard);
+        while (!esf->should_stop && esf->pending.line_count >= max_events)
+            yella_wait_milliseconds_for_condition_variable(esf->pending.full_cond, esf->pending.guard, 250);
+        yella_unlock_mutex(esf->pending.guard);
+        if (esf->should_stop)
+            break;
+        rc = poll(&pfd, 1, 250);
         if (esf->should_stop)
             break;
         if (rc < 0)
@@ -302,16 +334,59 @@ static void worker_main(void* udata)
                 }
                 continue;
             }
-            len = strlen(line);
-            if (len > 6 && strncmp(line, "write:", 6) == 0)
-                handle_write(esrc, esf, line);
-            else if (len > 6 && strncmp(line, "close:", 6) == 0)
-                handle_close(esf, line, esrc->lgr);
-            else if (len > 5 && strncmp(line, "exit:", 5) == 0)
-                handle_exit(esf, line, esrc->lgr);
-            else
-                CHUCHO_C_ERROR(esrc->lgr, "Invalid line from DTrace: '%s'", line);
+            to_add = malloc(sizeof(pending_line));
+            to_add->line = strdup(line);
+            yella_lock_mutex(esf->pending.guard);
+            sglib_pending_line_add_after(&esf->pending.last, to_add);
+            if (esf->pending.last->next != NULL)
+                esf->pending.last = esf->pending.last->next;
+            if (esf->pending.lines == NULL)
+                esf->pending.lines = esf->pending.last;
+            if (++esf->pending.line_count == 1)
+                yella_signal_condition_variable(esf->pending.empty_cond);
+            yella_unlock_mutex(esf->pending.guard);
         }
+    }
+}
+
+static void worker_main(void* udata)
+{
+    event_source* esrc;
+    event_source_freebsd* esf;
+    size_t max_events;
+    pending_line* cur;
+    size_t len;
+
+    esrc = udata;
+    esf = esrc->impl;
+    // Minus one because this is the test for whether to signal the full condition
+    max_events = *yella_settings_get_uint(u"file", u"max-events-in-cache") - 1;
+    while (!esf->should_stop)
+    {
+        yella_lock_mutex(esf->pending.guard);
+        while (!esf->should_stop && esf->pending.line_count == 0)
+            yella_wait_milliseconds_for_condition_variable(esf->pending.empty_cond, esf->pending.guard, 250);
+        yella_unlock_mutex(esf->pending.guard);
+        if (esf->should_stop)
+            break;
+        yella_lock_mutex(esf->pending.guard);
+        cur = esf->pending.lines;
+        assert(cur != NULL);
+        sglib_pending_line_delete(&esf->pending.lines, cur);
+        if (--esf->pending.line_count == max_events)
+            yella_signal_condition_variable(esf->pending.full_cond);
+        yella_unlock_mutex(esf->pending.guard);
+        len = strlen(cur->line);
+        if (len > 6 && strncmp(cur->line, "write:", 6) == 0)
+            handle_write(esrc, esf, cur->line);
+        else if (len > 6 && strncmp(cur->line, "close:", 6) == 0)
+            handle_close(esf, cur->line, esrc->lgr);
+        else if (len > 5 && strncmp(cur->line, "exit:", 5) == 0)
+            handle_exit(esf, cur->line, esrc->lgr);
+        else
+            CHUCHO_C_ERROR(esrc->lgr, "Invalid line from DTrace: '%s'", cur->line);
+        free(cur->line);
+        free(cur);
     }
 }
 
@@ -345,7 +420,12 @@ void destroy_event_source_impl(event_source* esrc)
     esf->should_stop = true;
     yella_join_thread(esf->worker);
     yella_destroy_thread(esf->worker);
+    yella_join_thread(esf->reader);
+    yella_destroy_thread(esf->reader);
     yella_destroy_process(esf->dtrace);
+    yella_destroy_condition_variable(esf->pending.empty_cond);
+    yella_destroy_condition_variable(esf->pending.full_cond);
+    yella_destroy_mutex(esf->pending.guard);
     procstat_close(esf->pstat);
     clear_event_source_impl_specs(esrc);
     yella_destroy_mutex(esf->guard);
@@ -363,7 +443,11 @@ void init_event_source_impl(event_source* esrc)
     esf->should_stop = false;
     esf->names = NULL;
     esf->pstat = procstat_open_sysctl();
+    esf->pending.guard = yella_create_mutex();
+    esf->pending.empty_cond = yella_create_condition_variable();
+    esf->pending.full_cond = yella_create_condition_variable();
     esf->dtrace = yella_create_process(u"<to do>");
+    esf->reader = yella_create_thread(reader_main, esrc);
     esf->worker = yella_create_thread(worker_main, esrc);
 }
 

@@ -22,16 +22,20 @@
 
 void yella_initialize_platform_settings(void)
 {
-    uds plg;
-    UChar* utf16;
+    uds dir;
+    UChar* inst;
 
     yella_settings_set_text(u"agent", u"config-file", u"/etc/yella.yaml");
     yella_settings_set_text(u"agent", u"data-dir", u"/var/lib/yella");
     yella_settings_set_text(u"agent", u"spool-dir", u"/var/spool/yella");
-    utf16 = yella_from_utf8(YELLA_VALUE_STR(YELLA_INSTALL_PREFIX));
-    plg = udsnew(utf16);
-    free(utf16);
-    plg = udscat(plg, u"/plugin");
-    yella_settings_set_text(u"agent", u"plugin-dir", plg);
-    udsfree(plg);
+    inst = yella_from_utf8(YELLA_VALUE_STR(YELLA_INSTALL_PREFIX));
+    dir = udsnew(inst);
+    dir = udscat(dir, u"/plugin");
+    yella_settings_set_text(u"agent", u"plugin-dir", dir);
+    udsfree(dir);
+    dir = udsnew(inst);
+    dir = udscat(dir, u"/bin");
+    yella_settings_set_text(u"agent", u"bin-dir", dir);
+    udsfree(dir);
+    free(inst);
 }
