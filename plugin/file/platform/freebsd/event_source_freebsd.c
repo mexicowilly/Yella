@@ -288,6 +288,7 @@ static void reader_main(void* udata)
     size_t len;
     size_t max_events;
     pending_line* to_add;
+    bool was_waiting;
 
     esrc = udata;
     esf = esrc->impl;
@@ -297,9 +298,10 @@ static void reader_main(void* udata)
     max_events = *yella_settings_get_uint(u"file", u"max-events-in-cache");
     while (!esf->should_stop)
     {
+        was_waiting = false;
         yella_lock_mutex(esf->pending.guard);
         while (!esf->should_stop && esf->pending.line_count >= max_events)
-            yella_wait_milliseconds_for_condition_variable(esf->pending.full_cond, esf->pending.guard, 250);
+            was_waiting = yella_wait_milliseconds_for_condition_variable(esf->pending.full_cond, esf->pending.guard, 250);
         yella_unlock_mutex(esf->pending.guard);
         if (esf->should_stop)
             break;
@@ -313,6 +315,8 @@ static void reader_main(void* udata)
         }
         if (rc == 1)
         {
+            if (was_waiting)
+                CHUCHO_C_WARN(esrc->lgr, "The event queue was full and is now emptying");
             if (fgets(line, sizeof(line), reader) == NULL)
             {
                 if (yella_process_is_running(esf->dtrace))
