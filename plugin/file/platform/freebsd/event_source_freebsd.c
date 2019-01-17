@@ -65,6 +65,15 @@ static int name_node_comparator(name_node* lhs, name_node* rhs)
     return result;
 }
 
+static void name_node_destructor(void* nn, void* udata)
+{
+    name_node* cur;
+
+    cur = (name_node*)nn;
+    free(cur->name);
+    free(cur);
+}
+
 SGLIB_DEFINE_RBTREE_PROTOTYPES(name_node, left, right, color, name_node_comparator);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(name_node, left, right, color, name_node_comparator);
 
@@ -160,15 +169,44 @@ static void handle_close(event_source_freebsd* esf, const char* const line, chuc
         to_remove.fd = fd;
         yella_lock_mutex(esf->guard);
         if (sglib_name_node_delete_if_member(&esf->names, &to_remove, &removed))
-        {
-            free(removed->name);
-            free(removed);
-        }
+            name_node_destructor(removed, NULL);
         yella_unlock_mutex(esf->guard);
     }
     else
     {
         CHUCHO_C_ERROR(lgr, "Unable to parse line for close event: '%s'", line);
+    }
+}
+
+static void handle_closefrom(event_source_freebsd* esf, const char* const line, chucho_logger_t* lgr)
+{
+    pid_t pid;
+    int fd;
+    struct sglib_name_node_iterator itor;
+    name_node* cur;
+    yella_ptr_vector* to_remove;
+    int i;
+
+    if (sscanf(line, "closefrom:%d,%d\n", &pid, &fd) == 2)
+    {
+        to_remove = yella_create_ptr_vector();
+        yella_set_ptr_vector_destructor(to_remove, name_node_destructor, NULL);
+        yella_lock_mutex(esf->guard);
+        for (cur = sglib_name_node_it_init(&itor, esf->names);
+             cur != NULL;
+             cur = sglib_name_node_it_next(&itor))
+        {
+            if (cur->pid == pid && cur->fd >= fd)
+                yella_push_back_ptr_vector(to_remove, cur);
+        }
+        for (i = 0; i < yella_ptr_vector_size(to_remove); i++)
+            sglib_name_node_delete(&esf->names, yella_ptr_vector_at(to_remove, i));
+        yella_unlock_mutex(esf->guard);
+        yella_destroy_ptr_vector(to_remove);
+    }
+    else
+    {
+        CHUCHO_C_ERROR(lgr, "Unable to parse line for closefrom event: '%s'", line);
     }
 }
 
@@ -190,9 +228,11 @@ static void handle_exit(event_source_freebsd* esf, const char* const line, chuch
         {
             if (cur->pid == pid)
             {
-                free(cur->name);
                 if (to_remove == NULL)
+                {
                     to_remove = yella_create_ptr_vector();
+                    yella_set_ptr_vector_destructor(to_remove, name_node_destructor, NULL);
+                }
                 yella_push_back_ptr_vector(to_remove, cur);
             }
         }
@@ -280,9 +320,10 @@ static void reader_main(void* udata)
     /* Possibilities are:
      * "write:<pid>,<fd>"
      * "close:<pid>,<fd>"
+     * "closefrom:<pid>,<fd>"
      * "exit:<pid>"
      */
-    char line[6 + 512 + 1 + 512 + 1];
+    char line[10 + 512 + 1 + 512 + 1];
     pid_t pid;
     int fd;
     size_t len;
@@ -387,6 +428,8 @@ static void worker_main(void* udata)
             handle_close(esf, cur->line, esrc->lgr);
         else if (len > 5 && strncmp(cur->line, "exit:", 5) == 0)
             handle_exit(esf, cur->line, esrc->lgr);
+        else if (len > 10 && strncmp(cur->line, "closefrom:", 10) == 0)
+            handle_closefrom(esf, cur->line, esrc->lgr);
         else
             CHUCHO_C_ERROR(esrc->lgr, "Invalid line from DTrace: '%s'", cur->line);
         free(cur->line);
