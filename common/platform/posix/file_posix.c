@@ -342,7 +342,13 @@ yella_rc yella_file_size(const UChar* const name, size_t* sz)
 
 UChar* yella_getcwd(void)
 {
-    return yella_from_utf8(getcwd(NULL, 0));
+    char* cwd;
+    UChar* result;
+
+    cwd = getcwd(NULL, 0);
+    result = yella_from_utf8(cwd);
+    free(cwd);
+    return result;
 }
 
 yella_rc yella_get_file_type(const UChar* const name, yella_file_type* tp)
