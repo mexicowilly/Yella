@@ -176,6 +176,7 @@ static void ensure_dir(void** arg)
     yrc = yella_ensure_dir_exists(u"ensure_dir_test_dir/my/dog/has/fleas");
     assert_int_equal(YELLA_NO_ERROR, yrc);
     yella_remove_all(u"ensure_dir_test_dir");
+    assert_false(yella_file_exists(u"ensure_dir_test_dir"));
 }
 
 static void exists(void** arg)
