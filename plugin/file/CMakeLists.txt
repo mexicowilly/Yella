@@ -28,6 +28,10 @@ ADD_LIBRARY(file SHARED
             state_db_pool.c
             state_db_pool.h
             ${FILE_PLATFORM_SOURCES})
+IF(DEFINED YELLA_SO_FLAGS)
+    SET_TARGET_PROPERTIES(file PROPERTIES
+                          COMPILE_FLAGS "${YELLA_SO_FLAGS}")
+ENDIF()
 TARGET_LINK_LIBRARIES(file ${YELLA_SQLITE3_LIB} OpenSSL::Crypto plugin)
 IF(YELLA_FREEBSD)
     TARGET_LINK_LIBRARIES(file procstat)

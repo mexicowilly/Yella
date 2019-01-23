@@ -136,21 +136,18 @@ static const UChar* file_name_matches_any(const event_source* const esrc, const 
         for (i = 0; i < yella_ptr_vector_size(cur_spec->excludes); i++)
         {
             if (file_name_matches(fname, yella_ptr_vector_at(cur_spec->excludes, i)))
-            {
-                yella_unlock_reader_writer_lock(esrc->guard);
-                return result;
-            }
+                goto top_break;
         }
         for (i = 0; i < yella_ptr_vector_size(cur_spec->includes); i++)
         {
             if (file_name_matches(fname, yella_ptr_vector_at(cur_spec->includes, i)))
             {
                 result = cur_spec->name;
-                yella_unlock_reader_writer_lock(esrc->guard);
-                return result;
+                goto top_break;
             }
         }
     }
+    top_break:
     yella_unlock_reader_writer_lock(esrc->guard);
     return result;
 }
@@ -189,20 +186,29 @@ static void handle_closefrom(event_source_freebsd* esf, const char* const line, 
 
     if (sscanf(line, "closefrom:%d,%d\n", &pid, &fd) == 2)
     {
-        to_remove = yella_create_ptr_vector();
-        yella_set_ptr_vector_destructor(to_remove, name_node_destructor, NULL);
+        to_remove = NULL;
         yella_lock_mutex(esf->guard);
         for (cur = sglib_name_node_it_init(&itor, esf->names);
              cur != NULL;
              cur = sglib_name_node_it_next(&itor))
         {
             if (cur->pid == pid && cur->fd >= fd)
+            {
+                if (to_remove == NULL)
+                {
+                    to_remove = yella_create_ptr_vector();
+                    yella_set_ptr_vector_destructor(to_remove, name_node_destructor, NULL);
+                }
                 yella_push_back_ptr_vector(to_remove, cur);
+            }
         }
-        for (i = 0; i < yella_ptr_vector_size(to_remove); i++)
-            sglib_name_node_delete(&esf->names, yella_ptr_vector_at(to_remove, i));
+        if (to_remove != NULL)
+        {
+            for (i = 0; i < yella_ptr_vector_size(to_remove); i++)
+                sglib_name_node_delete(&esf->names, yella_ptr_vector_at(to_remove, i));
+            yella_destroy_ptr_vector(to_remove);
+        }
         yella_unlock_mutex(esf->guard);
-        yella_destroy_ptr_vector(to_remove);
     }
     else
     {
