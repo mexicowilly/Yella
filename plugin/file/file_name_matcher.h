@@ -1,7 +1,6 @@
 #ifndef YELLA_FILE_NAME_MATCHER_H__
 #define YELLA_FILE_NAME_MATCHER_H__
 
-#include "export.h"
 #include "common/uds.h"
 #include <unicode/utypes.h>
 #include <stdbool.h>
