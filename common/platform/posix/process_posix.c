@@ -1,5 +1,6 @@
 #include "common/process.h"
 #include "common/text_util.h"
+#include <chucho/log.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -24,9 +25,11 @@ yella_process* yella_create_process(const UChar* const command)
     if (pipe(link) != 0)
         return NULL;
     proc = NULL;
+    u8cmd = yella_to_utf8(command);
     pid = fork();
     if (pid == -1)
     {
+        free(u8cmd);
         close(link[0]);
         close(link[1]);
         return NULL;
@@ -41,7 +44,6 @@ yella_process* yella_create_process(const UChar* const command)
             shell = "sh";
         argv[0] = shell;
         argv[1] = "-c";
-        u8cmd = yella_to_utf8(command);
         argv[2] = u8cmd;
         argv[3] = NULL;
         execvp(shell, (char* const*)argv);
@@ -54,6 +56,7 @@ yella_process* yella_create_process(const UChar* const command)
         proc->pid = pid;
         proc->in = fdopen(link[0], "r");
     }
+    free(u8cmd);
     return proc;
 }
 
@@ -63,18 +66,25 @@ void yella_destroy_process(yella_process* proc)
     int rc;
 
     fclose(proc->in);
-    if (kill(proc->pid, 0) == 0)
-    {
+    if (yella_process_is_running(proc))
         kill(proc->pid, SIGTERM);
-        do
-        {
-            pid = waitpid(proc->pid, &rc, 0);
-        } while (pid == -1 && errno == EINTR);
-    }
+    do
+    {
+        pid = waitpid(proc->pid, &rc, 0);
+    } while (pid == -1 && errno == EINTR);
+    if (WIFSIGNALED(rc))
+        CHUCHO_C_WARN("yella.process", "Child process exited on signal: %d", WTERMSIG(rc));
+    else if (WIFEXITED(rc) && WEXITSTATUS(rc) != 0)
+        CHUCHO_C_WARN("yella.process", "Child process exited with non-zero status: %d", WEXITSTATUS(rc));
     free(proc);
 }
 
 FILE* yella_process_get_reader(yella_process* proc)
 {
     return proc->in;
+}
+
+bool yella_process_is_running(yella_process* proc)
+{
+    return kill(proc->pid, 0) == 0;
 }

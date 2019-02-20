@@ -55,6 +55,7 @@ state_db* create_state_db(const UChar* const config_name)
         name = udscatprintf(name, u"%02x", sha1[i]);
     name = udscat(name, u".sqlite");
     rc = sqlite3_open16(name, &st->db);
+    udsfree(name);
     if (rc != SQLITE_OK)
     {
         CHUCHO_C_FATAL(st->lgr, "Unable to create SQLite database: %s", sqlite3_errstr(rc));

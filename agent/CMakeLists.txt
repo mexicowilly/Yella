@@ -64,6 +64,10 @@ IF(YELLA_MACINTOSH)
 ENDIF()
 
 ADD_LIBRARY(agent SHARED ${YELLA_SOURCES})
+IF(DEFINED YELLA_SO_FLAGS)
+    SET_TARGET_PROPERTIES(agent PROPERTIES
+                          COMPILE_FLAGS "${YELLA_SO_FLAGS}")
+ENDIF()
 
 YELLA_GEN_TARGET(agent
                  serialization/public/envelope.fbs

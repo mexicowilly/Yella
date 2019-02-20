@@ -32,6 +32,11 @@ struct yella_mutex
     pthread_mutex_t mtx;
 };
 
+struct yella_reader_writer_lock
+{
+    pthread_rwlock_t rwlock;
+};
+
 struct yella_thread
 {
     pthread_t thr;
@@ -76,6 +81,15 @@ yella_mutex* yella_create_mutex(void)
     return result;
 }
 
+yella_reader_writer_lock* yella_create_reader_writer_lock(void)
+{
+    yella_reader_writer_lock* result;
+
+    result = malloc(sizeof(yella_reader_writer_lock));
+    pthread_rwlock_init(&result->rwlock, NULL);
+    return result;
+}
+
 yella_thread* yella_create_thread(yella_thread_func f, void* arg)
 {
     yella_thread* result;
@@ -104,6 +118,12 @@ void yella_destroy_mutex(yella_mutex* mtx)
     free(mtx);
 }
 
+void yella_destroy_reader_writer_lock(yella_reader_writer_lock* lock)
+{
+    pthread_rwlock_destroy(&lock->rwlock);
+    free(lock);
+}
+
 void yella_destroy_thread(yella_thread* thr)
 {
     free(thr);
@@ -122,6 +142,11 @@ void yella_join_thread(yella_thread* thr)
 void yella_lock_mutex(yella_mutex* mtx)
 {
     pthread_mutex_lock(&mtx->mtx);
+}
+
+void yella_read_lock_reader_writer_lock(yella_reader_writer_lock* lock)
+{
+    pthread_rwlock_rdlock(&lock->rwlock);
 }
 
 void yella_signal_condition_variable(yella_condition_variable* cond)
@@ -157,6 +182,11 @@ void yella_unlock_mutex(yella_mutex* mtx)
     pthread_mutex_unlock(&mtx->mtx);
 }
 
+void yella_unlock_reader_writer_lock(yella_reader_writer_lock* lock)
+{
+    pthread_rwlock_unlock(&lock->rwlock);
+}
+
 bool yella_wait_milliseconds_for_condition_variable(yella_condition_variable* cond,
                                                     yella_mutex* mtx,
                                                     size_t milliseconds)
@@ -180,4 +210,9 @@ void yella_wait_for_event(yella_event* evt)
     while (!evt->signaled)
         pthread_cond_wait(&evt->cnd, &evt->mtx);
     pthread_mutex_unlock(&evt->mtx);
+}
+
+void yella_write_lock_reader_writer_lock(yella_reader_writer_lock* lock)
+{
+    pthread_rwlock_wrlock(&lock->rwlock);
 }
