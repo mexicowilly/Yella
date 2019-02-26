@@ -1,11 +1,6 @@
 #include "plugin/file/event_source.h"
+#include "plugin/file/file_name_matcher.h"
 #include <stdlib.h>
-
-void init_event_source_impl(event_source* esrc);
-void destroy_event_source_impl(event_source* esrc);
-/* The specs are write-locked on entry */
-void clear_event_source_impl_specs(event_source* esrc);
-void remove_event_source_impl_spec(event_source* esrc, const UChar* const config_name);
 
 SGLIB_DEFINE_RBTREE_FUNCTIONS(event_source_spec, left, right, color, EVENT_SOURCE_SPEC_COMPARATOR);
 
@@ -65,6 +60,38 @@ void destroy_event_source(event_source* esrc)
     yella_destroy_reader_writer_lock(esrc->guard);
     chucho_release_logger(esrc->lgr);
     free(esrc);
+}
+
+const UChar* event_source_file_name_matches_any(const event_source* const esrc, const UChar* const fname)
+{
+    int i;
+    struct sglib_event_source_spec_iterator spec_itor;
+    event_source_spec* cur_spec;
+    const UChar* result;
+
+    result = NULL;
+    yella_read_lock_reader_writer_lock(esrc->guard);
+    for (cur_spec = sglib_event_source_spec_it_init(&spec_itor, esrc->specs);
+         cur_spec != NULL;
+         cur_spec = sglib_event_source_spec_it_next(&spec_itor))
+    {
+        for (i = 0; i < yella_ptr_vector_size(cur_spec->excludes); i++)
+        {
+            if (file_name_matches(fname, yella_ptr_vector_at(cur_spec->excludes, i)))
+                goto top_break;
+        }
+        for (i = 0; i < yella_ptr_vector_size(cur_spec->includes); i++)
+        {
+            if (file_name_matches(fname, yella_ptr_vector_at(cur_spec->includes, i)))
+            {
+                result = cur_spec->name;
+                goto top_break;
+            }
+        }
+    }
+    top_break:
+    yella_unlock_reader_writer_lock(esrc->guard);
+    return result;
 }
 
 void remove_event_source_spec(event_source* esrc, const UChar* const name)

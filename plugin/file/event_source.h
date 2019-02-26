@@ -35,6 +35,12 @@ typedef struct event_source
 /* These are private */
 #define EVENT_SOURCE_SPEC_COMPARATOR(lhs, rhs) (u_strcmp(lhs->name, rhs->name))
 SGLIB_DEFINE_RBTREE_PROTOTYPES(event_source_spec, left, right, color, EVENT_SOURCE_SPEC_COMPARATOR);
+const UChar* event_source_file_name_matches_any(const event_source* const esrc, const UChar* const fname);
+void init_event_source_impl(event_source* esrc);
+void destroy_event_source_impl(event_source* esrc);
+/* The specs are write-locked on entry */
+void clear_event_source_impl_specs(event_source* esrc);
+void remove_event_source_impl_spec(event_source* esrc, const UChar* const config_name);
 /* End private */
 
 void add_or_replace_event_source_spec(event_source* esrc, event_source_spec* spec);
