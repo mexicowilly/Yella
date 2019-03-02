@@ -20,6 +20,7 @@ void add_or_replace_event_source_spec(event_source* esrc, event_source_spec* spe
     if (sglib_event_source_spec_delete_if_member(&esrc->specs, spec, &removed) != 0)
         destroy_event_source_spec(removed);
     sglib_event_source_spec_add(&esrc->specs, spec);
+    add_or_replace_event_source_impl_spec(esrc, spec);
     yella_unlock_reader_writer_lock(esrc->guard);
 }
 
@@ -42,7 +43,6 @@ void clear_event_source_specs(event_source* esrc)
     struct sglib_event_source_spec_iterator itor;
 
     yella_write_lock_reader_writer_lock(esrc->guard);
-    clear_event_source_impl_specs(esrc);
     for (cur = sglib_event_source_spec_it_init(&itor, esrc->specs);
          cur != NULL;
          cur = sglib_event_source_spec_it_next(&itor))
@@ -50,6 +50,7 @@ void clear_event_source_specs(event_source* esrc)
         destroy_event_source_spec(cur);
     }
     esrc->specs = NULL;
+    clear_event_source_impl_specs(esrc);
     yella_unlock_reader_writer_lock(esrc->guard);
 }
 
@@ -101,8 +102,8 @@ void remove_event_source_spec(event_source* esrc, const UChar* const name)
 
     to_remove.name = (UChar*)name;
     yella_write_lock_reader_writer_lock(esrc->guard);
-    remove_event_source_impl_spec(esrc, name);
     if (sglib_event_source_spec_delete_if_member(&esrc->specs, &to_remove, &removed))
         destroy_event_source_spec(removed);
+    remove_event_source_impl_spec(esrc, name);
     yella_unlock_reader_writer_lock(esrc->guard);
 }

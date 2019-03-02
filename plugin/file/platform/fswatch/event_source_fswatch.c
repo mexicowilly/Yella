@@ -13,7 +13,6 @@ typedef struct event_source_fswatch
 {
     FSW_HANDLE fsw;
     yella_thread* worker;
-    yella_mutex* guard;
     /* These are uds */
     yella_ptr_vector* paths;
 } event_source_fswatch;
@@ -74,8 +73,45 @@ static void worker_main(void* udata)
     fsw_start_monitor(((event_source_fswatch*)udata)->fsw);
 }
 
+static void update_specs(const event_source* const esrc)
+{
+    event_source_fswatch* esf;
+    char* utf8;
+    size_t i;
+
+    esf = (event_source_fswatch*)esrc->impl;
+    if (fsw_is_running(esf->fsw))
+        fsw_stop_monitor(esf->fsw);
+    if (esf->worker != NULL)
+    {
+        yella_join_thread(esf->worker);
+        fsw_destroy_session(esf->fsw);
+        yella_destroy_thread(esf->worker);
+    }
+    esf->fsw = fsw_init_session(system_default_monitor_type);
+    fsw_set_callback(esf->fsw, worker_callback, (void*)esrc);
+    fsw_set_recursive(esf->fsw, true);
+    fsw_set_latency(esf->fsw, *yella_settings_get_uint(u"file", u"fs-monitor-latency-seconds"));
+    esf->paths = NULL;
+    set_paths(esrc);
+    for (i = 0; i < yella_ptr_vector_size(esf->paths); i++)
+    {
+        utf8 = yella_to_utf8(yella_ptr_vector_at(esf->paths, i));
+        fsw_add_path(esf->fsw, utf8);
+        free(utf8);
+    }
+    esf->worker = yella_create_thread(worker_main, esf);
+
+}
+
+void add_or_replace_event_source_impl_spec(event_source* esrc, event_source_spec* spec)
+{
+    update_specs(esrc);
+}
+
 void clear_event_source_impl_specs(event_source* esrc)
 {
+    update_specs(esrc);
 }
 
 void destroy_event_source_impl(event_source* esrc)
@@ -88,27 +124,19 @@ void destroy_event_source_impl(event_source* esrc)
     yella_join_thread(esf->worker);
     fsw_destroy_session(esf->fsw);
     yella_destroy_thread(esf->worker);
-    yella_destroy_mutex(esf->guard);
     free(esf);
 }
 
 void init_event_source_impl(event_source* esrc)
 {
-    event_source_fswatch* esf;
-
     if (fsw_init_library() == FSW_OK)
     {
-        esrc->impl = malloc(sizeof(event_source_fswatch));
-        esf = esrc->impl;
-        esf->fsw = fsw_init_session(system_default_monitor_type);
-        fsw_set_callback(esf->fsw, worker_callback, esrc);
-        fsw_set_recursive(esf->fsw, true);
-        fsw_set_latency(esf->fsw, *yella_settings_get_uint(u"file", u"fs-monitor-latency-seconds"));
-        esf->guard = yella_create_mutex();
-        esf->worker = yella_create_thread(worker_main, esf);
+        esrc->impl = calloc(1, sizeof(event_source_fswatch));
+        update_specs(esrc);
     }
 }
 
 void remove_event_source_impl_spec(event_source* esrc, const UChar* const config_name)
 {
+    update_specs(esrc);
 }
