@@ -112,7 +112,6 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
     const UChar* special;
     uds unescaped;
     element* existing_elem;
-    UChar* slash;
     uds top_dir;
     yella_file_type ftype;
 
@@ -120,8 +119,7 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
     if (special == NULL)
     {
         unescaped = unescape_pattern(incl);
-        if (!matches_excludes(unescaped, j->excludes))
-            existing_elem = collect_attributes(unescaped, j->attr_types, j->attr_type_count);
+        existing_elem = collect_attributes(unescaped, j->attr_types, j->attr_type_count);
         process_element(unescaped, existing_elem, j, db);
         udsfree(unescaped);
         if (existing_elem != NULL)
@@ -129,10 +127,11 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
     }
     else
     {
-        slash = u_strrchr(special, YELLA_DIR_SEP[0]);
-        if (slash != NULL)
+        while (*special != YELLA_DIR_SEP[0] && special >= incl)
+            --special;
+        if (special >= incl)
         {
-            top_dir = udsnewlen(incl, slash - incl);
+            top_dir = udsnewlen(incl, (special == incl) ? 1 : special - incl);
             if (yella_get_file_type(top_dir, &ftype) == YELLA_NO_ERROR &&
                 ftype == YELLA_FILE_TYPE_DIRECTORY)
             {
