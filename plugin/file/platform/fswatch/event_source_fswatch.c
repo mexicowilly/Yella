@@ -17,6 +17,16 @@ typedef struct event_source_fswatch
     yella_thread* worker;
 } event_source_fswatch;
 
+static int qsort_compare(const void* p1, const void* p2)
+{
+    const UChar** u1;
+    const UChar** u2;
+
+    u1 = (const UChar**)p1;
+    u2 = (const UChar**)p2;
+    return u_strcmp(*u1, *u2);
+}
+
 static yella_ptr_vector* get_paths(const event_source* const esrc)
 {
     struct sglib_event_source_spec_iterator spec_itor;
@@ -28,6 +38,7 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
     uds log_msg;
     int32_t cur_len;
     char* utf8;
+    yella_ptr_vector* uniq;
 
     paths = yella_create_uds_ptr_vector();
     for (cur_spec = sglib_event_source_spec_it_init(&spec_itor, esrc->specs);
@@ -51,16 +62,33 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
             }
         }
     }
-    if (chucho_logger_permits(esrc->lgr, CHUCHO_INFO))
+    if (yella_ptr_vector_size(paths) > 0)
     {
-        log_msg = udscatprintf(udsempty(), u"Watching paths:%S", YELLA_NL);
-        for (i = 0; i < yella_ptr_vector_size(paths); i++)
-            log_msg = udscatprintf(log_msg, u"  '%S'%S", yella_ptr_vector_at(paths, i), YELLA_NL);
-        cur_len = u_strlen(YELLA_NL);
-        udsrange(log_msg, 0, -cur_len - 1);
-        utf8 = yella_to_utf8(log_msg);
-        CHUCHO_C_INFO(esrc->lgr, "%s", utf8);
-        free(utf8);
+        qsort(yella_ptr_vector_data(paths),
+              yella_ptr_vector_size(paths),
+              sizeof(UChar*),
+              qsort_compare);
+        uniq = yella_create_ptr_vector();
+        yella_push_back_ptr_vector(uniq, udsdup(yella_ptr_vector_at(paths, 0)));
+        for (i = 1; i < yella_ptr_vector_size(paths); i++)
+        {
+            if (u_strcmp(yella_ptr_vector_at(paths, i), yella_ptr_vector_at(uniq, yella_ptr_vector_size(uniq) - 1)) != 0)
+                yella_push_back_ptr_vector(uniq, udsdup(yella_ptr_vector_at(paths, i)));
+        }
+        yella_destroy_ptr_vector(paths);
+        paths = uniq;
+        if (chucho_logger_permits(esrc->lgr, CHUCHO_INFO))
+        {
+            log_msg = udscatprintf(udsempty(), u"Watching paths:%S", YELLA_NL);
+            for (i = 0; i < yella_ptr_vector_size(paths); i++)
+                log_msg = udscatprintf(log_msg, u"  '%S'%S", yella_ptr_vector_at(paths, i), YELLA_NL);
+            cur_len = u_strlen(YELLA_NL);
+            udsrange(log_msg, 0, -cur_len - 1);
+            utf8 = yella_to_utf8(log_msg);
+            CHUCHO_C_INFO(esrc->lgr, "%s", utf8);
+            free(utf8);
+            udsfree(log_msg);
+        }
     }
     return paths;
 }
