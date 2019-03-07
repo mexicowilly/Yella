@@ -17,6 +17,7 @@
 #if !defined(AGENT_H__)
 #define AGENT_H__
 
+#include "export.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -34,7 +35,7 @@
 
 typedef struct yella_agent yella_agent;
 
-yella_agent* yella_create_agent(void);
-void yella_destroy_agent(yella_agent* agent);
+YELLA_EXPORT yella_agent* yella_create_agent(void);
+YELLA_EXPORT void yella_destroy_agent(yella_agent* agent);
 
 #endif

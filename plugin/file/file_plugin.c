@@ -8,9 +8,13 @@
 #include "common/text_util.h"
 #include "plugin/file/job_queue.h"
 #include "plugin/file/event_source.h"
+#undef flatbuffers_identifier
 #include "file_reader.h"
+#include "file_config_builder.h"
 #include <chucho/logger.h>
 #include <unicode/ustring.h>
+#include <stdio.h>
+#include <errno.h>
 
 typedef struct config_node
 {
@@ -115,6 +119,167 @@ static attribute_type fb_to_attribute_type(uint16_t fb)
         break;
     }
     return result;
+}
+
+static uint16_t attribute_type_to_fb(attribute_type atp)
+{
+    uint16_t result;
+
+    switch (atp)
+    {
+    case ATTR_TYPE_FILE_TYPE:
+        result = yella_fb_file_attr_type_FILE_TYPE;
+        break;
+    case ATTR_TYPE_SHA256:
+        result = yella_fb_file_attr_type_SHA_256;
+        break;
+    }
+    return result;
+}
+
+static void load_configs(file_plugin* fplg)
+{
+    uds fname;
+    uint8_t* raw;
+    yella_rc rc;
+    yella_fb_file_configs_table_t tbl;
+    yella_fb_file_config_vec_t cfgs;
+    yella_fb_file_config_table_t cfg;
+    flatbuffers_string_vec_t inex;
+    flatbuffers_uint16_vec_t atps;
+    size_t i;
+    size_t j;
+    UChar* utf16;
+    config_node* cur;
+    char* utf8;
+
+    fname = udscatprintf(udsempty(), u"%S%Sconfigs.flatb", yella_settings_get_text(u"file", u"data-dir"), YELLA_DIR_SEP);
+    rc = yella_file_contents(fname, &raw);
+    if (rc == YELLA_NO_ERROR)
+    {
+        if (!flatbuffers_has_identifier(raw, flatbuffers_identifier))
+        {
+            utf8 = yella_to_utf8(fname);
+            CHUCHO_C_ERROR(fplg->lgr, "Invalid configs saved to '%s'", utf8);
+            free(utf8);
+        }
+        else
+        {
+            tbl = yella_fb_file_configs_as_root(raw);
+            cfgs = yella_fb_file_configs_cfgs(tbl);
+            for (i = 0; i < yella_fb_file_config_vec_len(cfgs); i++)
+            {
+                cur = malloc(sizeof(config_node));
+                cfg = yella_fb_file_config_vec_at(cfgs, i);
+                utf16 = yella_from_utf8(yella_fb_file_config_name(cfg));
+                cur->name = udsnew(utf16);
+                free(utf16);
+                utf16 = yella_from_utf8(yella_fb_file_config_topic(cfg));
+                cur->topic = udsnew(utf16);
+                free(utf16);
+                inex = yella_fb_file_config_includes(cfg);
+                cur->includes = yella_create_uds_ptr_vector();
+                for (j = 0; j < flatbuffers_string_vec_len(inex); j++)
+                {
+                    utf16 = yella_from_utf8(flatbuffers_string_vec_at(inex, j));
+                    yella_push_back_ptr_vector(cur->includes, udsnew(utf16));
+                    free(utf16);
+                }
+                inex = yella_fb_file_config_excludes(cfg);
+                cur->excludes = yella_create_uds_ptr_vector();
+                for (j = 0; j < flatbuffers_string_vec_len(inex); j++)
+                {
+                    utf16 = yella_from_utf8(flatbuffers_string_vec_at(inex, j));
+                    yella_push_back_ptr_vector(cur->excludes, udsnew(utf16));
+                    free(utf16);
+                }
+                atps = yella_fb_file_config_attribute_types(cfg);
+                cur->attr_type_count = flatbuffers_uint16_vec_len(atps);
+                cur->attr_types = malloc(cur->attr_type_count * sizeof(attribute_type));
+                for (j = 0; j < cur->attr_type_count; j++)
+                    cur->attr_types[j] = fb_to_attribute_type(flatbuffers_uint16_vec_at(atps, j));
+                sglib_config_node_add(&fplg->configs, cur);
+            }
+        }
+    }
+    udsfree(fname);
+    free(raw);
+}
+
+static void save_configs(const file_plugin* const fplg)
+{
+    uds fname;
+    flatcc_builder_t bld;
+    struct sglib_config_node_iterator itor;
+    config_node* cur;
+    char* utf8;
+    size_t i;
+    uint16_t fb_attr_type;
+    uint8_t* ser;
+    size_t ser_size;
+    FILE* f;
+    size_t num_written;
+
+    flatcc_builder_init(&bld);
+    yella_fb_file_configs_start_as_root(&bld);
+    yella_fb_file_configs_cfgs_start(&bld);
+    for (cur = sglib_config_node_it_init(&itor, fplg->configs);
+         cur != NULL;
+         cur = sglib_config_node_it_next(&itor))
+    {
+        yella_fb_file_config_start(&bld);
+        utf8 = yella_to_utf8(cur->name);
+        yella_fb_file_config_name_create_str(&bld, utf8);
+        free(utf8);
+        utf8 = yella_to_utf8(cur->topic);
+        yella_fb_file_config_topic_create_str(&bld, utf8);
+        free(utf8);
+        yella_fb_file_config_includes_start(&bld);
+        for (i = 0; i < yella_ptr_vector_size(cur->includes); i++)
+        {
+            utf8 = yella_to_utf8(yella_ptr_vector_at(cur->includes, i));
+            yella_fb_file_config_includes_push_create_str(&bld, utf8);
+            free(utf8);
+        }
+        yella_fb_file_config_includes_add(&bld, yella_fb_file_config_includes_end(&bld));
+        yella_fb_file_config_excludes_start(&bld);
+        for (i = 0; i < yella_ptr_vector_size(cur->excludes); i++)
+        {
+            utf8 = yella_to_utf8(yella_ptr_vector_at(cur->excludes, i));
+            yella_fb_file_config_excludes_push_create_str(&bld, utf8);
+            free(utf8);
+        }
+        yella_fb_file_config_excludes_add(&bld, yella_fb_file_config_excludes_end(&bld));
+        yella_fb_file_config_attribute_types_start(&bld);
+        for (i = 0; i < cur->attr_type_count; i++)
+        {
+            fb_attr_type = attribute_type_to_fb(cur->attr_types[i]);
+            yella_fb_file_config_attribute_types_push(&bld, &fb_attr_type);
+        }
+        yella_fb_file_config_attribute_types_add(&bld, yella_fb_file_config_attribute_types_end(&bld));
+        yella_fb_file_configs_cfgs_push(&bld, yella_fb_file_config_end(&bld));
+    }
+    yella_fb_file_configs_cfgs_end(&bld);
+    yella_fb_file_configs_end_as_root(&bld);
+    ser = flatcc_builder_finalize_buffer(&bld, &ser_size);
+    flatcc_builder_clear(&bld);
+    fname = udscatprintf(udsempty(), u"%S%Sconfigs.flatb", yella_settings_get_text(u"file", u"data-dir"), YELLA_DIR_SEP);
+    utf8 = yella_to_utf8(fname);
+    udsfree(fname);
+    f = fopen(utf8, "w");
+    if (f == NULL)
+    {
+        CHUCHO_C_ERROR(fplg->lgr, "Unable to open '%s' for writing: %s", utf8, strerror(errno));
+    }
+    else
+    {
+        num_written = fwrite(ser, 1, ser_size, f);
+        fclose(f);
+        if (num_written != ser_size)
+            CHUCHO_C_ERROR_L(fplg->lgr, "Could not write to '%s'", utf8);
+    }
+    free(utf8);
+    free(ser);
 }
 
 static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata)
@@ -244,6 +409,7 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
         CHUCHO_C_INFO(fplg->lgr, "Added config '%s'", utf8);
     }
     free(utf8);
+    save_configs(fplg);
     yella_unlock_reader_writer_lock(fplg->config_guard);
     return YELLA_NO_ERROR;
 }
@@ -289,6 +455,7 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     fplg->configs = NULL;
     fplg->esrc = create_event_source(event_received, fplg);
     fplg->agent = agnt;
+    load_configs(fplg);
     return yella_copy_plugin(fplg->desc);
 }
 

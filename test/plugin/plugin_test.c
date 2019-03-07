@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <cmocka.h>
 
-yella_rc in_cap_handler(const uint8_t* const msg, size_t sz)
+yella_rc in_cap_handler(const uint8_t* const msg, size_t sz, void* udata)
 {
     return YELLA_NO_ERROR;
 }
@@ -18,18 +18,18 @@ static void copy(void** arg)
     yella_plugin_out_cap* out;
     yella_plugin* plg2;
 
-    plg = yella_create_plugin(u"my dog", u"has fleas");
-    in = yella_create_plugin_in_cap(u"doggies", 72, in_cap_handler);
+    plg = yella_create_plugin(u"my dog", u"has fleas", NULL);
+    in = yella_create_plugin_in_cap(u"doggies", 72, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"tom"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"ze"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"is"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"cool"));
     yella_push_back_ptr_vector(plg->in_caps, in);
-    in = yella_create_plugin_in_cap(u"iguanas", 73, in_cap_handler);
+    in = yella_create_plugin_in_cap(u"iguanas", 73, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"play"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"it"));
     yella_push_back_ptr_vector(plg->in_caps, in);
-    in = yella_create_plugin_in_cap(u"monkies", 74, in_cap_handler);
+    in = yella_create_plugin_in_cap(u"monkies", 74, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"what"));
     yella_push_back_ptr_vector(plg->in_caps, in);
     yella_push_back_ptr_vector(plg->out_caps, yella_create_plugin_out_cap(u"cry me", 75));
@@ -74,18 +74,18 @@ static void create(void** arg)
     yella_plugin_in_cap* in;
     yella_plugin_out_cap* out;
 
-    plg = yella_create_plugin(u"my dog", u"has fleas");
-    in = yella_create_plugin_in_cap(u"doggies", 72, in_cap_handler);
+    plg = yella_create_plugin(u"my dog", u"has fleas", NULL);
+    in = yella_create_plugin_in_cap(u"doggies", 72, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"tom"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"ze"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"is"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"cool"));
     yella_push_back_ptr_vector(plg->in_caps, in);
-    in = yella_create_plugin_in_cap(u"iguanas", 73, in_cap_handler);
+    in = yella_create_plugin_in_cap(u"iguanas", 73, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"play"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"it"));
     yella_push_back_ptr_vector(plg->in_caps, in);
-    in = yella_create_plugin_in_cap(u"monkies", 74, in_cap_handler);
+    in = yella_create_plugin_in_cap(u"monkies", 74, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"what"));
     yella_push_back_ptr_vector(plg->in_caps, in);
     yella_push_back_ptr_vector(plg->out_caps, yella_create_plugin_out_cap(u"cry me", 75));

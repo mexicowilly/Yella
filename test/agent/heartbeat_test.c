@@ -7,6 +7,11 @@
 #include <stdarg.h>
 #include <cmocka.h>
 
+yella_rc in_cap_handler(const uint8_t* const msg, size_t sz, void* udata)
+{
+    return YELLA_NO_ERROR;
+}
+
 static void plugin_dtor(void* p, void* udata)
 {
     yella_destroy_plugin((yella_plugin*)p);
@@ -27,26 +32,26 @@ static void simple(void** targ)
 
     plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(plugins, plugin_dtor, NULL);
-    plg = yella_create_plugin(u"test", u"7.6.5");
-    in = yella_create_plugin_in_cap(u"bite_me", 3, NULL);
+    plg = yella_create_plugin(u"test", u"7.6.5", NULL);
+    in = yella_create_plugin_in_cap(u"bite_me", 3, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"config 9"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"config 10"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"config 11"));
     yella_push_back_ptr_vector(plg->in_caps, in);
-    in = yella_create_plugin_in_cap(u"sweet", 4, NULL);
+    in = yella_create_plugin_in_cap(u"sweet", 4, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"config 12"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"config 13"));
     yella_push_back_ptr_vector(plg->in_caps, in);
-    in = yella_create_plugin_in_cap(u"grumpy", 5, NULL);
+    in = yella_create_plugin_in_cap(u"grumpy", 5, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"config 14"));
     yella_push_back_ptr_vector(plg->in_caps, in);
     yella_push_back_ptr_vector(plg->out_caps, yella_create_plugin_out_cap(u"what?", 6));
     yella_push_back_ptr_vector(plg->out_caps, yella_create_plugin_out_cap(u"summmmm", 7));
     yella_push_back_ptr_vector(plugins, plg);
-    plg = yella_create_plugin(u"chucho", u"4.3.2");
-    in = yella_create_plugin_in_cap(u"you_wish", 1, NULL);
+    plg = yella_create_plugin(u"chucho", u"4.3.2", NULL);
+    in = yella_create_plugin_in_cap(u"you_wish", 1, in_cap_handler, NULL);
     yella_push_back_ptr_vector(plg->in_caps, in);
-    in = yella_create_plugin_in_cap(u"sour", 2, NULL);
+    in = yella_create_plugin_in_cap(u"sour", 2, in_cap_handler, NULL);
     yella_push_back_ptr_vector(in->configs, udsnew(u"config 17"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"config 18"));
     yella_push_back_ptr_vector(in->configs, udsnew(u"config 19"));
