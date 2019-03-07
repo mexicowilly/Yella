@@ -73,9 +73,12 @@ void yella_clear_ptr_vector(yella_ptr_vector* v)
 
 void yella_destroy_ptr_vector(yella_ptr_vector* v)
 {
-    yella_clear_ptr_vector(v);
-    free(v->data);
-    free(v);
+    if (v != NULL)
+    {
+        yella_clear_ptr_vector(v);
+        free(v->data);
+        free(v);
+    }
 }
 
 void yella_erase_ptr_vector_at(yella_ptr_vector* v, unsigned off)

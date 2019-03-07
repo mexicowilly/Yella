@@ -120,38 +120,6 @@ static UChar* name_of_fd(pid_t pid, int fd, struct procstat* pstat, chucho_logge
     return result;
 }
 
-static const UChar* file_name_matches_any(const event_source* const esrc, const UChar* const fname)
-{
-    int i;
-    struct sglib_event_source_spec_iterator spec_itor;
-    event_source_spec* cur_spec;
-    const UChar* result;
-
-    result = NULL;
-    yella_read_lock_reader_writer_lock(esrc->guard);
-    for (cur_spec = sglib_event_source_spec_it_init(&spec_itor, esrc->specs);
-         cur_spec != NULL;
-         cur_spec = sglib_event_source_spec_it_next(&spec_itor))
-    {
-        for (i = 0; i < yella_ptr_vector_size(cur_spec->excludes); i++)
-        {
-            if (file_name_matches(fname, yella_ptr_vector_at(cur_spec->excludes, i)))
-                goto top_break;
-        }
-        for (i = 0; i < yella_ptr_vector_size(cur_spec->includes); i++)
-        {
-            if (file_name_matches(fname, yella_ptr_vector_at(cur_spec->includes, i)))
-            {
-                result = cur_spec->name;
-                goto top_break;
-            }
-        }
-    }
-    top_break:
-    yella_unlock_reader_writer_lock(esrc->guard);
-    return result;
-}
-
 static void handle_close(event_source_freebsd* esf, const char* const line, chucho_logger_t* lgr)
 {
     pid_t pid;
@@ -286,7 +254,7 @@ static void handle_write(const event_source* const esrc,
                 found = malloc(sizeof(name_node));
                 found->pid = pid;
                 found->fd = fd;
-                found->config_name = file_name_matches_any(esrc, name);
+                found->config_name = event_source_file_name_matches_any(esrc, name);
                 if (found->config_name == NULL)
                 {
                     free(name);

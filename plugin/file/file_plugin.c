@@ -7,6 +7,7 @@
 #include "common/uds_util.h"
 #include "common/text_util.h"
 #include "plugin/file/job_queue.h"
+#include "plugin/file/event_source.h"
 #include "file_reader.h"
 #include <chucho/logger.h>
 #include <unicode/ustring.h>
@@ -29,15 +30,76 @@ typedef struct file_plugin
     yella_plugin* desc;
     chucho_logger_t* lgr;
     yella_mutex* guard;
+    yella_reader_writer_lock* config_guard;
     yella_agent_api* agent_api;
     job_queue* jq;
     config_node* configs;
+    event_source* esrc;
+    void* agent;
 } file_plugin;
 
 #define CONFIG_MAP_COMPARATOR(lhs, rhs) (u_strcmp(lhs->name, rhs->name))
 
 SGLIB_DEFINE_RBTREE_PROTOTYPES(config_node, left, right, color, CONFIG_MAP_COMPARATOR);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(config_node, left, right, color, CONFIG_MAP_COMPARATOR);
+
+static void destroy_config_node(config_node* cn)
+{
+    if (cn != NULL)
+    {
+        udsfree(cn->name);
+        udsfree(cn->topic);
+        yella_destroy_ptr_vector(cn->includes);
+        yella_destroy_ptr_vector(cn->excludes);
+        free(cn->attr_types);
+        free(cn);
+    }
+}
+
+static void event_received(const UChar* const config_name, const UChar* const fname, void* udata)
+{
+    file_plugin* fplg;
+    config_node to_find;
+    config_node* found;
+    job* jb;
+    char* cutf8;
+    char* futf8;
+
+    fplg = (file_plugin*)udata;
+    to_find.name = (uds)config_name;
+    yella_read_lock_reader_writer_lock(fplg->config_guard);
+    found = sglib_config_node_find_member(fplg->configs, &to_find);
+    if (found != NULL)
+    {
+        jb = create_job(config_name, fplg->agent_api, found->topic, fplg->agent);
+        yella_push_back_ptr_vector(jb->includes, udsnew(fname));
+        jb->attr_type_count = found->attr_type_count;
+        jb->attr_types = malloc(sizeof(attribute_type) * jb->attr_type_count);
+        memcpy(jb->attr_types, found->attr_types, sizeof(attribute_type) * jb->attr_type_count);
+        yella_unlock_reader_writer_lock(fplg->config_guard);
+        push_job_queue(fplg->jq, jb);
+        if (chucho_logger_permits(fplg->lgr, CHUCHO_TRACE))
+        {
+            cutf8 = yella_to_utf8(config_name);
+            futf8 = yella_to_utf8(fname);
+            CHUCHO_C_TRACE(fplg->lgr, "Submitted job for config '%s': '%s'", cutf8, futf8);
+            free(futf8);
+            free(cutf8);
+        }
+    }
+    else
+    {
+        yella_unlock_reader_writer_lock(fplg->config_guard);
+        if (chucho_logger_permits(fplg->lgr, CHUCHO_WARN))
+        {
+            cutf8 = yella_to_utf8(config_name);
+            futf8 = yella_to_utf8(fname);
+            CHUCHO_C_WARN(fplg->lgr, "Unable to find config named '%s' for file '%s'", cutf8, futf8);
+            free(futf8);
+            free(cutf8);
+        }
+    }
+}
 
 static attribute_type fb_to_attribute_type(uint16_t fb)
 {
@@ -69,6 +131,9 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
     uint16_t atval;
     bool is_empty;
     size_t erase_idx;
+    config_node* removed_cfg;
+    char* utf8;
+    event_source_spec* espec;
 
     fplg = (file_plugin*)udata;
     tbl = yella_fb_file_monitor_request_as_root(msg);
@@ -140,7 +205,7 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
         cfg->attr_type_count = 0;
     }
     act = yella_fb_plugin_config_action(fb_cfg);
-    yella_lock_mutex(fplg->guard);
+    yella_write_lock_reader_writer_lock(fplg->config_guard);
     assert(yella_ptr_vector_size(fplg->desc->in_caps) == 1);
     mon = yella_ptr_vector_at(fplg->desc->in_caps, 0);
     assert(u_strcmp(mon->name, u"file.monitor_request") == 0);
@@ -159,8 +224,27 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
         yella_erase_ptr_vector_at(mon->configs, erase_idx);
     else if (i == yella_ptr_vector_size(mon->configs))
         yella_push_back_ptr_vector(mon->configs, udsdup(cfg->name));
-    yella_unlock_mutex(fplg->guard);
-    // TODO: Add or remove the config from the map and then add or remove from the event source
+    sglib_config_node_delete_if_member(&fplg->configs, cfg, &removed_cfg);
+    destroy_config_node(removed_cfg);
+    utf8 = yella_to_utf8(cfg->name);
+    if (is_empty)
+    {
+        remove_event_source_spec(fplg->esrc, cfg->name);
+        destroy_config_node(cfg);
+        CHUCHO_C_INFO(fplg->lgr, "Removed config '%s'", utf8);
+    }
+    else
+    {
+        sglib_config_node_add(&fplg->configs, cfg);
+        espec = malloc(sizeof(event_source_spec));
+        espec->name = udsdup(cfg->name);
+        espec->includes = yella_copy_ptr_vector(cfg->includes);
+        espec->excludes = yella_copy_ptr_vector(cfg->excludes);
+        add_or_replace_event_source_spec(fplg->esrc, espec);
+        CHUCHO_C_INFO(fplg->lgr, "Added config '%s'", utf8);
+    }
+    free(utf8);
+    yella_unlock_reader_writer_lock(fplg->config_guard);
     return YELLA_NO_ERROR;
 }
 
@@ -172,7 +256,8 @@ static void retrieve_file_settings(void)
     {
         { u"data-dir", YELLA_SETTING_VALUE_TEXT },
         { u"max-spool-dbs", YELLA_SETTING_VALUE_UINT },
-        { u"max-events-in-cache", YELLA_SETTING_VALUE_UINT }
+        { u"max-events-in-cache", YELLA_SETTING_VALUE_UINT },
+        { u"fs-monitor-latency-seconds", YELLA_SETTING_VALUE_UINT }
     };
 
     data_dir = udscatprintf(udsempty(), u"%S%Sfile", yella_settings_get_text(u"agent", u"data-dir"), YELLA_DIR_SEP);
@@ -180,6 +265,7 @@ static void retrieve_file_settings(void)
     udsfree(data_dir);
     yella_settings_set_uint(u"file", u"max-spool-dbs", 100);
     yella_settings_set_uint(u"file", u"max-events-in-cache", 5000000);
+    yella_settings_set_uint(u"file", u"fs-monitor-latency-seconds", 5);
 
     yella_retrieve_settings(u"file", descs, YELLA_ARRAY_SIZE(descs));
 }
@@ -192,6 +278,7 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     fplg = malloc(sizeof(file_plugin));
     fplg->lgr = chucho_get_logger("yella.file");
     fplg->guard = yella_create_mutex();
+    fplg->config_guard = yella_create_reader_writer_lock();
     fplg->desc = yella_create_plugin(u"file", u"1", fplg);
     yella_push_back_ptr_vector(fplg->desc->in_caps,
                                yella_create_plugin_in_cap(u"file.monitor_request", 1, monitor_handler, fplg));
@@ -200,6 +287,8 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     fplg->agent_api = yella_copy_agent_api(api);
     fplg->jq = create_job_queue();
     fplg->configs = NULL;
+    fplg->esrc = create_event_source(event_received, fplg);
+    fplg->agent = agnt;
     return yella_copy_plugin(fplg->desc);
 }
 
@@ -222,16 +311,17 @@ YELLA_EXPORT yella_rc plugin_stop(void* udata)
     config_node* cur;
 
     fplg = (file_plugin*)udata;
+    destroy_event_source(fplg->esrc);
     for (cur = sglib_config_node_it_init(&itor, fplg->configs);
          cur != NULL;
          cur = sglib_config_node_it_next(&itor))
     {
-        udsfree(cur->name);
-        free(cur);
+        destroy_config_node(cur);
     }
     destroy_job_queue(fplg->jq);
     yella_destroy_plugin(fplg->desc);
     yella_destroy_mutex(fplg->guard);
+    yella_destroy_reader_writer_lock(fplg->config_guard);
     yella_destroy_agent_api(fplg->agent_api);
     chucho_release_logger(fplg->lgr);
     free(fplg);
