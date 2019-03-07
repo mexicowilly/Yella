@@ -14,6 +14,7 @@
  *    limitations under the License.
  */
 
+#include "export.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <chucho/logger.h>
@@ -34,7 +35,7 @@ typedef struct yella_mac_addresses
     size_t count;
 } yella_mac_addresses;
 
-void yella_destroy_mac_addresses(yella_mac_addresses* addrs);
-yella_mac_addresses* yella_get_mac_addresses(chucho_logger_t* lgr);
+YELLA_PRIV_EXPORT void yella_destroy_mac_addresses(yella_mac_addresses* addrs);
+YELLA_PRIV_EXPORT yella_mac_addresses* yella_get_mac_addresses(chucho_logger_t* lgr);
 
 #endif

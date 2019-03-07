@@ -13,6 +13,7 @@
 extern "C" {
 #endif
 
+#include "export.h"
 #include <stdint.h>
 
 struct argparse;
@@ -101,8 +102,8 @@ struct argparse {
 };
 
 // built-in callbacks
-int argparse_help_cb(struct argparse *self,
-                     const struct argparse_option *option);
+YELLA_EXPORT int argparse_help_cb(struct argparse *self,
+                                  const struct argparse_option *option);
 
 // built-in option macros
 #define OPT_END()        { ARGPARSE_OPT_END, 0, NULL, NULL, 0, NULL, 0, 0 }
@@ -116,12 +117,12 @@ int argparse_help_cb(struct argparse *self,
                                      "show this help message and exit", \
                                      argparse_help_cb, 0, 0)
 
-int argparse_init(struct argparse *self, struct argparse_option *options,
-                  const char *const *usages, int flags);
-void argparse_describe(struct argparse *self, const char *description,
-                       const char *epilog);
-int argparse_parse(struct argparse *self, int argc, const char **argv);
-void argparse_usage(struct argparse *self);
+YELLA_EXPORT int argparse_init(struct argparse *self, struct argparse_option *options,
+                               const char *const *usages, int flags);
+YELLA_EXPORT void argparse_describe(struct argparse *self, const char *description,
+                                    const char *epilog);
+YELLA_EXPORT int argparse_parse(struct argparse *self, int argc, const char **argv);
+YELLA_EXPORT void argparse_usage(struct argparse *self);
 
 #ifdef __cplusplus
 }

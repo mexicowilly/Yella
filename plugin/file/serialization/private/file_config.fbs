@@ -1,5 +1,7 @@
 namespace yella.fb.file;
 
+file_identifier "YLFC";
+
 table config
 {
     name: string;

@@ -105,8 +105,7 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
         {
             tbl = yella_fb_saved_state_as_root(raw);
             if (yella_fb_saved_state_uuid_is_present(tbl) &&
-                yella_fb_saved_state_mac_addrs_is_present(tbl) &&
-                yella_fb_saved_state_boot_count_is_present(tbl))
+                yella_fb_saved_state_mac_addrs_is_present(tbl))
             {
                 mac_addrs_vec = yella_fb_saved_state_mac_addrs(tbl);
                 if (mac_addresses_changed(mac_addrs_vec, lgr))
