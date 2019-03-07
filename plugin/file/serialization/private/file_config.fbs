@@ -1,0 +1,16 @@
+namespace yella.fb.file;
+
+table config
+{
+    name: string;
+    topic: string;
+    includes: [string];
+    excludes: [string];
+    // These are the flatbuffers types from file.fbs
+    attribute_types: [ushort];
+}
+
+table configs
+{
+    cfgs: [config];
+}

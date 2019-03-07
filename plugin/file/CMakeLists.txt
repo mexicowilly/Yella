@@ -46,5 +46,6 @@ SET_TARGET_PROPERTIES(file PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DI
 ADD_DEPENDENCIES(all-targets file)
 
 YELLA_GEN_TARGET(file
-                 serialization/public/file.fbs)
+                 serialization/public/file.fbs
+                 serialization/private/file_config.fbs)
 ADD_DEPENDENCIES(file-gen plugin-gen)
