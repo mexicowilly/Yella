@@ -26,11 +26,27 @@ struct state_db
     uds name;
 };
 
+static uds create_db_name(const UChar* const config_name)
+{
+    uds result;
+    uint8_t sha1[EVP_MAX_MD_SIZE];
+    unsigned sz;
+    unsigned i;
+
+    result = udsnew(yella_settings_get_text(u"file", u"data-dir"));
+    yella_ensure_dir_exists(result);
+    if (result[0] != 0 && result[u_strlen(result) - 1] != YELLA_DIR_SEP[0])
+        result = udscat(result, YELLA_DIR_SEP);
+    EVP_Digest(config_name, u_strlen(config_name) * sizeof(UChar), sha1, &sz, EVP_sha1(), NULL);
+    for (i = 0; i < sz; i++)
+        result = udscatprintf(result, u"%02x", sha1[i]);
+    result = udscat(result, u".sqlite");
+    return result;
+}
+
 state_db* create_state_db(const UChar* const config_name)
 {
     uds name;
-    unsigned sz;
-    uint8_t sha1[EVP_MAX_MD_SIZE];
     int i;
     int rc;
     state_db* st;
@@ -46,20 +62,13 @@ state_db* create_state_db(const UChar* const config_name)
 
     st = calloc(1, sizeof(state_db));
     st->lgr = chucho_get_logger("yella.file.db");
-    name = udsnew(yella_settings_get_text(u"file", u"data-dir"));
-    yella_ensure_dir_exists(name);
-    if (name[0] != 0 && name[u_strlen(name) - 1] != YELLA_DIR_SEP[0])
-        name = udscat(name, YELLA_DIR_SEP);
-    EVP_Digest(config_name, u_strlen(config_name) * sizeof(UChar), sha1, &sz, EVP_sha1(), NULL);
-    for (i = 0; i < sz; i++)
-        name = udscatprintf(name, u"%02x", sha1[i]);
-    name = udscat(name, u".sqlite");
+    name = create_db_name(config_name);
     rc = sqlite3_open16(name, &st->db);
     udsfree(name);
     if (rc != SQLITE_OK)
     {
         CHUCHO_C_FATAL(st->lgr, "Unable to create SQLite database: %s", sqlite3_errstr(rc));
-        destroy_state_db(st);
+        destroy_state_db(st, STATE_DB_ACTION_REMOVE);
         return NULL;
     }
     sqlite3_extended_result_codes(st->db, 1);
@@ -72,7 +81,7 @@ state_db* create_state_db(const UChar* const config_name)
     {
         CHUCHO_C_FATAL(st->lgr, "Unable to create 'state' table: %s", sqlerr);
         sqlite3_free(sqlerr);
-        destroy_state_db(st);
+        destroy_state_db(st, STATE_DB_ACTION_REMOVE);
         return NULL;
     }
     for (i = 0; i < YELLA_ARRAY_SIZE(sqls); i++)
@@ -86,7 +95,7 @@ state_db* create_state_db(const UChar* const config_name)
         if (rc != SQLITE_OK)
         {
             CHUCHO_C_FATAL(st->lgr, "Unable to prepare statement '%s': %s", st->stmts[i], sqlite3_errmsg(st->db));
-            destroy_state_db(st);
+            destroy_state_db(st, STATE_DB_ACTION_REMOVE);
             return NULL;
         }
     }
@@ -109,7 +118,7 @@ bool delete_from_state_db(state_db* st, const UChar* const elem_name)
     else
     {
         utf8 = yella_to_utf8(elem_name);
-        CHUCHO_C_ERROR("Error deleting '%s': %s", utf8, sqlite3_errmsg(st->db));
+        CHUCHO_C_ERROR(st->lgr, "Error deleting '%s': %s", utf8, sqlite3_errmsg(st->db));
         free(utf8);
         result = false;
     }
@@ -119,13 +128,21 @@ bool delete_from_state_db(state_db* st, const UChar* const elem_name)
 
 }
 
-void destroy_state_db(state_db* st)
+void destroy_state_db(state_db* st, state_db_removal_action ra)
 {
     int i;
+    uds name;
+    char* utf8;
 
     for (i = 0; i < YELLA_ARRAY_SIZE(st->stmts); i++)
         sqlite3_finalize(st->stmts[i]);
     sqlite3_close(st->db);
+    if (ra == STATE_DB_ACTION_REMOVE)
+    {
+        name = create_db_name(st->name);
+        yella_remove_file(name);
+        udsfree(name);
+    }
     chucho_release_logger(st->lgr);
     udsfree(st->name);
     free(st);
@@ -147,7 +164,7 @@ element* get_element_from_state_db(state_db* st, const UChar* const elem_name)
     else if (rc != SQLITE_DONE)
     {
         utf8 = yella_to_utf8(elem_name);
-        CHUCHO_C_DEBUG("Error getting attributes for '%s': %s", utf8, sqlite3_errmsg(st->db));
+        CHUCHO_C_DEBUG(st->lgr, "Error getting attributes for '%s': %s", utf8, sqlite3_errmsg(st->db));
         free(utf8);
     }
     sqlite3_clear_bindings(st->stmts[STMT_SELECT_ATTRS]);
@@ -175,7 +192,7 @@ bool insert_into_state_db(state_db* st, const element* const elem)
     else
     {
         utf8 = yella_to_utf8(element_name(elem));
-        CHUCHO_C_ERROR("Error inserting '%s': %s", utf8, sqlite3_errmsg(st->db));
+        CHUCHO_C_ERROR(st->lgr, "Error inserting '%s': %s", utf8, sqlite3_errmsg(st->db));
         free(utf8);
         result = false;
     }
@@ -204,7 +221,7 @@ bool update_into_state_db(state_db* st, const element* const elem)
     else
     {
         utf8 = yella_to_utf8(element_name(elem));
-        CHUCHO_C_ERROR("Error updating '%s': %s", utf8, sqlite3_errmsg(st->db));
+        CHUCHO_C_ERROR(st->lgr, "Error updating '%s': %s", utf8, sqlite3_errmsg(st->db));
         free(utf8);
         result = false;
     }

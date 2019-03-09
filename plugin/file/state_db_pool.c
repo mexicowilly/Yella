@@ -44,7 +44,7 @@ void destroy_state_db_pool(state_db_pool* pool)
          node != NULL;
          node = sglib_state_db_node_it_next(&itor))
     {
-        destroy_state_db(node->db);
+        destroy_state_db(node->db, STATE_DB_ACTION_KEEP);
         free(node);
     }
     free(pool);
@@ -81,7 +81,7 @@ state_db* get_state_db_from_pool(state_db_pool* pool, const UChar* const config_
                 CHUCHO_C_INFO("yella.file.db", "Too many open state databases (%zu open, %zu maximum). Closing %s.", pool->count, max_dbs, utf8);
                 free(utf8);
                 sglib_state_db_node_delete(&pool->nodes, oldest);
-                destroy_state_db(oldest->db);
+                destroy_state_db(oldest->db, STATE_DB_ACTION_KEEP);
                 free(oldest);
             }
         }
@@ -111,7 +111,7 @@ void remove_state_db_from_pool(state_db_pool* pool, const UChar* const config_na
     to_find.name = config_name;
     if (sglib_state_db_node_delete_if_member(&pool->nodes, &to_find, &removed))
     {
-        destroy_state_db(removed->db);
+        destroy_state_db(removed->db, STATE_DB_ACTION_REMOVE);
         free(removed);
     }
 }

@@ -60,3 +60,22 @@ yella_rc yella_file_contents(const UChar* const name, uint8_t** contents)
     free(utf8);
     return YELLA_NO_ERROR;
 }
+
+yella_rc yella_remove_file(const UChar* const name)
+{
+    char* utf8;
+    yella_rc rc;
+
+    utf8 = yella_to_utf8(name);
+    if (remove(utf8) == 0)
+    {
+        rc = YELLA_NO_ERROR;
+    }
+    else
+    {
+        CHUCHO_C_ERROR("yella.common", "Unable to remove file '%s': %s", utf8, strerror(errno));
+        rc = YELLA_FILE_SYSTEM_ERROR;
+    }
+    free(utf8);
+    return rc;
+}

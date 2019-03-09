@@ -53,6 +53,7 @@ YELLA_EXPORT yella_rc yella_file_contents(const UChar* const name, uint8_t** con
 YELLA_EXPORT bool yella_file_exists(const UChar* const name);
 YELLA_EXPORT yella_rc yella_file_size(const UChar* const name, size_t* sz);
 YELLA_EXPORT yella_rc yella_remove_all(const UChar* const name);
+YELLA_EXPORT yella_rc yella_remove_file(const UChar* const name);
 
 YELLA_EXPORT yella_directory_iterator* yella_create_directory_iterator(const UChar* const dir);
 YELLA_EXPORT void yella_destroy_directory_iterator(yella_directory_iterator* itor);
