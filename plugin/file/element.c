@@ -8,9 +8,7 @@
 typedef struct attr_node
 {
     attribute* attr;
-    char color;
-    struct attr_node* left;
-    struct attr_node* right;
+    struct attr_node* next;
 } attr_node;
 
 struct element
@@ -21,22 +19,22 @@ struct element
 
 #define ATTR_COMPARATOR(lhs, rhs) (lhs->attr->type - rhs->attr->type)
 
-SGLIB_DEFINE_RBTREE_PROTOTYPES(attr_node, left, right, color, ATTR_COMPARATOR);
-SGLIB_DEFINE_RBTREE_FUNCTIONS(attr_node, left, right, color, ATTR_COMPARATOR);
+SGLIB_DEFINE_SORTED_LIST_PROTOTYPES(attr_node, ATTR_COMPARATOR, next);
+SGLIB_DEFINE_SORTED_LIST_FUNCTIONS(attr_node, ATTR_COMPARATOR, next);
 
 static yella_fb_file_attr_vec_ref_t build_attr_vector(const element* const elem, flatcc_builder_t* bld)
 {
     attr_node* al;
     struct sglib_attr_node_iterator itor;
 
-    yella_fb_file_attr_vec_start(bld);
+    yella_fb_file_attr_array_attrs_start(bld);
     for (al = sglib_attr_node_it_init(&itor, elem->attrs);
          al != NULL;
          al = sglib_attr_node_it_next(&itor))
     {
         yella_fb_file_attr_array_attrs_push(bld, pack_attribute(al->attr, bld));
     }
-    return yella_fb_file_attr_vec_end(bld);
+    return yella_fb_file_attr_array_attrs_end(bld);
 }
 
 void add_element_attribute(element* elem, attribute* attr)
@@ -89,7 +87,7 @@ element* create_element_with_attrs(const UChar* const name, const uint8_t* const
 
     result = create_element(name);
     tbl = yella_fb_file_attr_array_as_root(packed_attrs);
-    attrs = yella_fb_file_attr_array_attrs_get(tbl);
+    attrs = yella_fb_file_attr_array_attrs(tbl);
     for (i = 0; i < yella_fb_file_attr_vec_len(attrs); i++)
         add_element_attribute(result, create_attribute_from_table(yella_fb_file_attr_vec_at(attrs, i)));
     return result;

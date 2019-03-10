@@ -138,25 +138,16 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
     {
     case ATTR_TYPE_FILE_TYPE:
         fb_type = yella_fb_file_attr_type_FILE_TYPE;
-        break;
-    case ATTR_TYPE_SHA256:
-        fb_type = yella_fb_file_attr_type_SHA_256;
-        break;
-    }
-    yella_fb_file_attr_type_add(bld, fb_type);
-    switch (attr->type)
-    {
-    case ATTR_TYPE_FILE_TYPE:
         yella_fb_file_attr_ftype_add(bld, file_type_to_fb(attr->value.int_value));
         break;
     case ATTR_TYPE_SHA256:
-        yella_fb_file_attr_bytes_start(bld);
+        fb_type = yella_fb_file_attr_type_SHA_256;
         yella_fb_file_attr_bytes_add(bld,
                                      flatbuffers_uint8_vec_create(bld,
                                                                   attr->value.byte_array.mem,
                                                                   attr->value.byte_array.sz));
-        yella_fb_file_attr_bytes_end(bld);
         break;
     }
+    yella_fb_file_attr_type_add(bld, fb_type);
     return yella_fb_file_attr_end(bld);
 }

@@ -7,15 +7,15 @@
 
 typedef struct element element;
 
-void add_element_attribute(element* elem, attribute* attr);
-int compare_element_attributes(const element* const lhs, const element* const rhs);
-element* create_element(const UChar* const name);
-element* create_element_with_attrs(const UChar* const name, const uint8_t* const packed_attrs);
-void destroy_element(element* elem);
+YELLA_PRIV_EXPORT void add_element_attribute(element* elem, attribute* attr);
+YELLA_PRIV_EXPORT int compare_element_attributes(const element* const lhs, const element* const rhs);
+YELLA_PRIV_EXPORT element* create_element(const UChar* const name);
+YELLA_PRIV_EXPORT element* create_element_with_attrs(const UChar* const name, const uint8_t* const packed_attrs);
+YELLA_PRIV_EXPORT void destroy_element(element* elem);
 /* post: elem1 contains the symmetric difference of attributes between the two */
-void diff_elements(element* elem1, element* elem2);
-const UChar* element_name(const element* const elem);
-uint8_t* pack_element_attributes(const element* const elem, size_t* sz);
-yella_fb_file_attr_array_ref_t pack_element_attributes_to_table(const element* const elem, flatcc_builder_t* bld);
+YELLA_PRIV_EXPORT void diff_elements(element* elem1, element* elem2);
+YELLA_PRIV_EXPORT const UChar* element_name(const element* const elem);
+YELLA_PRIV_EXPORT uint8_t* pack_element_attributes(const element* const elem, size_t* sz);
+YELLA_PRIV_EXPORT yella_fb_file_attr_array_ref_t pack_element_attributes_to_table(const element* const elem, flatcc_builder_t* bld);
 
 #endif

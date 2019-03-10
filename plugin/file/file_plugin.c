@@ -202,6 +202,10 @@ static void load_configs(file_plugin* fplg)
             }
         }
     }
+    else
+    {
+        CHUCHO_C_WARN(fplg->lgr, "Error loading monitor configuration state: %s", yella_strerror(rc));
+    }
     udsfree(fname);
     free(raw);
 }
@@ -263,7 +267,9 @@ static void save_configs(const file_plugin* const fplg)
     yella_fb_file_configs_end_as_root(&bld);
     ser = flatcc_builder_finalize_buffer(&bld, &ser_size);
     flatcc_builder_clear(&bld);
-    fname = udscatprintf(udsempty(), u"%S%Sconfigs.flatb", yella_settings_get_text(u"file", u"data-dir"), YELLA_DIR_SEP);
+    fname = udsnew(yella_settings_get_text(u"file", u"data-dir"));
+    yella_ensure_dir_exists(fname);
+    fname = udscatprintf(fname, u"%Sconfigs.flatb", YELLA_DIR_SEP);
     utf8 = yella_to_utf8(fname);
     udsfree(fname);
     f = fopen(utf8, "w");

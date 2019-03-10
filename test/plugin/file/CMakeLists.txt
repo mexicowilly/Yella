@@ -1,5 +1,6 @@
 YELLA_TEST(file-name-matcher-test)
-YELLA_TEST(attribute-test)
-
 TARGET_LINK_LIBRARIES(file-name-matcher-test file)
+YELLA_TEST(attribute-test)
 TARGET_LINK_LIBRARIES(attribute-test file)
+YELLA_TEST(state-db-test)
+TARGET_LINK_LIBRARIES(state-db-test file)
