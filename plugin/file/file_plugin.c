@@ -152,6 +152,7 @@ static void load_configs(file_plugin* fplg)
     UChar* utf16;
     config_node* cur;
     char* utf8;
+    event_source_spec* espec;
 
     fname = udscatprintf(udsempty(), u"%S%Sconfigs.flatb", yella_settings_get_text(u"file", u"data-dir"), YELLA_DIR_SEP);
     rc = yella_file_contents(fname, &raw);
@@ -199,6 +200,11 @@ static void load_configs(file_plugin* fplg)
                 for (j = 0; j < cur->attr_type_count; j++)
                     cur->attr_types[j] = fb_to_attribute_type(flatbuffers_uint16_vec_at(atps, j));
                 sglib_config_node_add(&fplg->configs, cur);
+                espec = malloc(sizeof(event_source_spec));
+                espec->name = udsdup(cur->name);
+                espec->includes = yella_copy_ptr_vector(cur->includes);
+                espec->excludes = yella_copy_ptr_vector(cur->excludes);
+                add_or_replace_event_source_spec(fplg->esrc, espec);
             }
         }
     }
