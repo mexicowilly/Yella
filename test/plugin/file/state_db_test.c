@@ -21,7 +21,7 @@ static void delete(void** arg)
     elem1 = create_element(u"funky smalls");
     attr = malloc(sizeof(attribute));
     attr->type = ATTR_TYPE_FILE_TYPE;
-    attr->value.int_value = YELLA_FILE_TYPE_REGULAR;
+    attr->value.integer = YELLA_FILE_TYPE_REGULAR;
     add_element_attribute(elem1, attr);
     attr = malloc(sizeof(attribute));
     attr->type = ATTR_TYPE_SHA256;
@@ -49,7 +49,7 @@ static void insert(void** arg)
     elem1 = create_element(u"funky smalls");
     attr = malloc(sizeof(attribute));
     attr->type = ATTR_TYPE_FILE_TYPE;
-    attr->value.int_value = YELLA_FILE_TYPE_REGULAR;
+    attr->value.integer = YELLA_FILE_TYPE_REGULAR;
     add_element_attribute(elem1, attr);
     attr = malloc(sizeof(attribute));
     attr->type = ATTR_TYPE_SHA256;
@@ -87,7 +87,7 @@ static void update(void** arg)
     elem1 = create_element(u"funky smalls");
     attr = malloc(sizeof(attribute));
     attr->type = ATTR_TYPE_FILE_TYPE;
-    attr->value.int_value = YELLA_FILE_TYPE_REGULAR;
+    attr->value.integer = YELLA_FILE_TYPE_REGULAR;
     add_element_attribute(elem1, attr);
     attr = malloc(sizeof(attribute));
     attr->type = ATTR_TYPE_SHA256;

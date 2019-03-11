@@ -13,11 +13,11 @@ static void compare(void** arg)
     int rc;
 
     one.type = ATTR_TYPE_FILE_TYPE;
-    one.value.int_value = 707;
+    one.value.integer = 707;
     two.type = ATTR_TYPE_FILE_TYPE;
-    two.value.int_value = 707;
+    two.value.integer = 707;
     assert_int_equal(compare_attributes(&one, &two), 0);
-    two.value.int_value = 708;
+    two.value.integer = 708;
     assert_true(compare_attributes(&one, &two) < 0);
     one.type = ATTR_TYPE_SHA256;
     one.value.byte_array.sz = 5;

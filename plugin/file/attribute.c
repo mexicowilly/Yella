@@ -81,7 +81,7 @@ int compare_attributes(const attribute* const lhs, const attribute* const rhs)
         switch (lhs->type)
         {
         case ATTR_TYPE_FILE_TYPE:
-            rc = lhs->value.int_value - rhs->value.int_value;
+            rc = lhs->value.integer - rhs->value.integer;
             break;
         case ATTR_TYPE_SHA256:
             rc = (int)lhs->value.byte_array.sz - (int)rhs->value.byte_array.sz;
@@ -103,7 +103,7 @@ attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl)
     {
     case yella_fb_file_attr_type_FILE_TYPE:
         result->type = ATTR_TYPE_FILE_TYPE;
-        result->value.int_value = fb_to_file_type(yella_fb_file_attr_ftype(tbl));
+        result->value.integer = fb_to_file_type(yella_fb_file_attr_ftype(tbl));
         break;
     case yella_fb_file_attr_type_SHA_256:
         result->type = ATTR_TYPE_SHA256;
@@ -138,7 +138,7 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
     {
     case ATTR_TYPE_FILE_TYPE:
         fb_type = yella_fb_file_attr_type_FILE_TYPE;
-        yella_fb_file_attr_ftype_add(bld, file_type_to_fb(attr->value.int_value));
+        yella_fb_file_attr_ftype_add(bld, file_type_to_fb(attr->value.integer));
         break;
     case ATTR_TYPE_SHA256:
         fb_type = yella_fb_file_attr_type_SHA_256;

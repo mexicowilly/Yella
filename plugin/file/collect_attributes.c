@@ -40,7 +40,7 @@ element* collect_attributes(const UChar* const name, attribute_type* attr_types,
         {
             attr = malloc(sizeof(attribute));
             attr->type = ATTR_TYPE_FILE_TYPE;
-            attr->value.int_value = ftype;
+            attr->value.integer = ftype;
             add_element_attribute(result, attr);
         }
         if ((ftype == YELLA_FILE_TYPE_REGULAR || ftype == YELLA_FILE_TYPE_SYMBOLIC_LINK) &&
