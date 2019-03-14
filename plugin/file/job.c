@@ -52,6 +52,7 @@ static void process_element(const UChar* const name, element* elem, const job* c
     yella_fb_file_condition_enum_t cond;
     int cmp;
 
+    cmp = 0;
     db_elem = get_element_from_state_db(db, name);
     if (db_elem == NULL)
     {

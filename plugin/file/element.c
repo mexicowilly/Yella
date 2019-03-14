@@ -123,6 +123,7 @@ void diff_elements(element* elem1, element* elem2)
 
     assert(u_strcmp(elem1->name, elem2->name) == 0);
     to_delete1 = yella_create_ptr_vector();
+    yella_set_ptr_vector_destructor(to_delete1, NULL, NULL);
     /* The first loop covers the case where an attribute is either just
      * in elem1 or different from that in elem2.
      */
