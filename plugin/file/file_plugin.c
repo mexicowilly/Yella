@@ -278,7 +278,7 @@ static void save_configs(const file_plugin* const fplg)
     fname = udscatprintf(fname, u"%Sconfigs.flatb", YELLA_DIR_SEP);
     utf8 = yella_to_utf8(fname);
     udsfree(fname);
-    f = fopen(utf8, "w");
+    f = fopen(utf8, "wb");
     if (f == NULL)
     {
         CHUCHO_C_ERROR(fplg->lgr, "Unable to open '%s' for writing: %s", utf8, strerror(errno));
