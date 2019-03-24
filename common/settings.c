@@ -328,7 +328,7 @@ void yella_log_settings(void)
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
-        out = udscatprintf(udsempty(), u"Settinngs:%S%S", YELLA_NL, YELLA_NL);
+        out = udscatprintf(udsempty(), u"Settings:%S%S", YELLA_NL, YELLA_NL);
         yella_lock_mutex(guard);
         for (sct_elem = sglib_section_it_init(&sct_itor, sections);
              sct_elem != NULL;

@@ -234,6 +234,7 @@ static void load_plugins(yella_agent* agent)
     }
     yella_destroy_directory_iterator(itor);
     udsfree(agent_api.agent_id);
+    yella_log_settings();
 }
 
 static void message_received(void* msg, size_t len, void* udata)
