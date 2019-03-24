@@ -105,7 +105,7 @@ attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl)
         result->type = ATTR_TYPE_FILE_TYPE;
         result->value.integer = fb_to_file_type(yella_fb_file_attr_ftype(tbl));
         break;
-    case yella_fb_file_attr_type_SHA_256:
+    case yella_fb_file_attr_type_SHA256:
         result->type = ATTR_TYPE_SHA256;
         bytes = yella_fb_file_attr_bytes(tbl);
         result->value.byte_array.sz = flatbuffers_uint8_vec_len(bytes);
@@ -141,7 +141,7 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
         yella_fb_file_attr_ftype_add(bld, file_type_to_fb(attr->value.integer));
         break;
     case ATTR_TYPE_SHA256:
-        fb_type = yella_fb_file_attr_type_SHA_256;
+        fb_type = yella_fb_file_attr_type_SHA256;
         yella_fb_file_attr_bytes_add(bld,
                                      flatbuffers_uint8_vec_create(bld,
                                                                   attr->value.byte_array.mem,

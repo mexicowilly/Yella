@@ -8,7 +8,7 @@ namespace yella.fb.file;
 enum attr_type : ushort
 {
     FILE_TYPE = 1,          // ftype field in attr
-    SHA_256                 // bytes field in attr
+    SHA256                  // bytes field in attr
 }
 
 //

@@ -114,9 +114,11 @@ static attribute_type fb_to_attribute_type(uint16_t fb)
     case yella_fb_file_attr_type_FILE_TYPE:
         result = ATTR_TYPE_FILE_TYPE;
         break;
-    case yella_fb_file_attr_type_SHA_256:
+    case yella_fb_file_attr_type_SHA256:
         result = ATTR_TYPE_SHA256;
         break;
+    default:
+        assert(false);
     }
     return result;
 }
@@ -131,8 +133,10 @@ static uint16_t attribute_type_to_fb(attribute_type atp)
         result = yella_fb_file_attr_type_FILE_TYPE;
         break;
     case ATTR_TYPE_SHA256:
-        result = yella_fb_file_attr_type_SHA_256;
+        result = yella_fb_file_attr_type_SHA256;
         break;
+    default:
+        assert(false);
     }
     return result;
 }
