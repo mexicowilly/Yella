@@ -26,9 +26,11 @@ typedef struct attribute
     } value;
 } attribute;
 
+YELLA_PRIV_EXPORT uint16_t attribute_type_to_fb(attribute_type atp);
 YELLA_PRIV_EXPORT int compare_attributes(const attribute* const lhs, const attribute* const rhs);
 YELLA_PRIV_EXPORT attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl);
 YELLA_PRIV_EXPORT void destroy_attribute(attribute* attr);
+YELLA_PRIV_EXPORT attribute_type fb_to_attribute_type(uint16_t fb);
 YELLA_PRIV_EXPORT yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_builder_t* bld);
 
 #endif

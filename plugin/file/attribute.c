@@ -71,6 +71,24 @@ static yella_fb_file_attr_type_enum_t file_type_to_fb(yella_file_type ft)
     return result;
 }
 
+uint16_t attribute_type_to_fb(attribute_type atp)
+{
+    uint16_t result;
+
+    switch (atp)
+    {
+        case ATTR_TYPE_FILE_TYPE:
+            result = yella_fb_file_attr_type_FILE_TYPE;
+            break;
+        case ATTR_TYPE_SHA256:
+            result = yella_fb_file_attr_type_SHA256;
+            break;
+        default:
+            assert(false);
+    }
+    return result;
+}
+
 int compare_attributes(const attribute* const lhs, const attribute* const rhs)
 {
     int rc;
@@ -112,6 +130,8 @@ attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl)
         result->value.byte_array.mem = malloc(result->value.byte_array.sz);
         memcpy(result->value.byte_array.mem, bytes, result->value.byte_array.sz);
         break;
+    default:
+        assert(false);
     }
     return result;
 }
@@ -127,6 +147,24 @@ void destroy_attribute(attribute* attr)
         break;
     }
     free(attr);
+}
+
+attribute_type fb_to_attribute_type(uint16_t fb)
+{
+    attribute_type result;
+
+    switch (fb)
+    {
+        case yella_fb_file_attr_type_FILE_TYPE:
+            result = ATTR_TYPE_FILE_TYPE;
+            break;
+        case yella_fb_file_attr_type_SHA256:
+            result = ATTR_TYPE_SHA256;
+            break;
+        default:
+            assert(false);
+    }
+    return result;
 }
 
 yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_builder_t* bld)
@@ -147,6 +185,8 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
                                                                   attr->value.byte_array.mem,
                                                                   attr->value.byte_array.sz));
         break;
+    default:
+        assert(false);
     }
     yella_fb_file_attr_type_add(bld, fb_type);
     return yella_fb_file_attr_end(bld);

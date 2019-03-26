@@ -105,42 +105,6 @@ static void event_received(const UChar* const config_name, const UChar* const fn
     }
 }
 
-static attribute_type fb_to_attribute_type(uint16_t fb)
-{
-    attribute_type result;
-
-    switch (fb)
-    {
-    case yella_fb_file_attr_type_FILE_TYPE:
-        result = ATTR_TYPE_FILE_TYPE;
-        break;
-    case yella_fb_file_attr_type_SHA256:
-        result = ATTR_TYPE_SHA256;
-        break;
-    default:
-        assert(false);
-    }
-    return result;
-}
-
-static uint16_t attribute_type_to_fb(attribute_type atp)
-{
-    uint16_t result;
-
-    switch (atp)
-    {
-    case ATTR_TYPE_FILE_TYPE:
-        result = yella_fb_file_attr_type_FILE_TYPE;
-        break;
-    case ATTR_TYPE_SHA256:
-        result = yella_fb_file_attr_type_SHA256;
-        break;
-    default:
-        assert(false);
-    }
-    return result;
-}
-
 static void load_configs(file_plugin* fplg)
 {
     uds fname;
