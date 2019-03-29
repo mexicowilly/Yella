@@ -33,6 +33,8 @@ static yella_file_type fb_to_file_type(yella_fb_file_file_type_enum_t fbt)
     case yella_fb_file_file_type_WHITEOUT:
         result = YELLA_FILE_TYPE_WHITEOUT;
         break;
+    default:
+        assert(false);
     }
     return result;
 }
@@ -67,6 +69,8 @@ static yella_fb_file_attr_type_enum_t file_type_to_fb(yella_file_type ft)
     case YELLA_FILE_TYPE_WHITEOUT:
         result = yella_fb_file_file_type_WHITEOUT;
         break;
+    default:
+        assert(false);
     }
     return result;
 }
@@ -77,14 +81,14 @@ uint16_t attribute_type_to_fb(attribute_type atp)
 
     switch (atp)
     {
-        case ATTR_TYPE_FILE_TYPE:
-            result = yella_fb_file_attr_type_FILE_TYPE;
-            break;
-        case ATTR_TYPE_SHA256:
-            result = yella_fb_file_attr_type_SHA256;
-            break;
-        default:
-            assert(false);
+    case ATTR_TYPE_FILE_TYPE:
+        result = yella_fb_file_attr_type_FILE_TYPE;
+        break;
+    case ATTR_TYPE_SHA256:
+        result = yella_fb_file_attr_type_SHA256;
+        break;
+    default:
+        assert(false);
     }
     return result;
 }
@@ -106,6 +110,8 @@ int compare_attributes(const attribute* const lhs, const attribute* const rhs)
             if (rc == 0)
                 rc = memcmp(lhs->value.byte_array.mem, rhs->value.byte_array.mem, lhs->value.byte_array.sz);
             break;
+        default:
+            assert(false);
         }
     }
     return rc;
@@ -155,14 +161,14 @@ attribute_type fb_to_attribute_type(uint16_t fb)
 
     switch (fb)
     {
-        case yella_fb_file_attr_type_FILE_TYPE:
-            result = ATTR_TYPE_FILE_TYPE;
-            break;
-        case yella_fb_file_attr_type_SHA256:
-            result = ATTR_TYPE_SHA256;
-            break;
-        default:
-            assert(false);
+    case yella_fb_file_attr_type_FILE_TYPE:
+        result = ATTR_TYPE_FILE_TYPE;
+        break;
+    case yella_fb_file_attr_type_SHA256:
+        result = ATTR_TYPE_SHA256;
+        break;
+    default:
+        assert(false);
     }
     return result;
 }
