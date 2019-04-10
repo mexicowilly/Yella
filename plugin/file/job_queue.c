@@ -2,7 +2,6 @@
 #include "plugin/file/job.h"
 #include "common/sglib.h"
 #include "common/thread.h"
-#include "state_db_pool.h"
 #include <unicode/ustring.h>
 
 typedef struct queue
@@ -21,6 +20,7 @@ struct job_queue
     yella_condition_variable* cond;
     yella_thread* runner;
     bool should_stop;
+    state_db_pool* db_pool;
 };
 
 #define JOB_COMPARATOR(lhs, rhs) (u_strcmp(lhs->jb->config_name, rhs->jb->config_name))
@@ -32,10 +32,8 @@ static void job_queue_main(void* udata)
 {
     job_queue* jq;
     queue* front;
-    state_db_pool* db_pool;
 
     jq = (job_queue*)udata;
-    db_pool = create_state_db_pool();
     while (true)
     {
         yella_lock_mutex(jq->guard);
@@ -56,15 +54,14 @@ static void job_queue_main(void* udata)
             sglib_queue_delete(&jq->q, front);
             --jq->sz;
             yella_unlock_mutex(jq->guard);
-            run_job(front->jb, db_pool);
+            run_job(front->jb, jq->db_pool);
             destroy_job(front->jb);
             free(front);
         }
     }
-    destroy_state_db_pool(db_pool);
 }
 
-job_queue* create_job_queue(void)
+job_queue* create_job_queue(state_db_pool* pool)
 {
     job_queue* result;
 
@@ -72,6 +69,7 @@ job_queue* create_job_queue(void)
     result->guard = yella_create_mutex();
     result->cond = yella_create_condition_variable();
     result->runner = yella_create_thread(job_queue_main, result);
+    result->db_pool = pool;
     return result;
 }
 

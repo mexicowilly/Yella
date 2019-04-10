@@ -167,7 +167,7 @@ static const void* get_value(const UChar* const sct, const UChar* const key, yel
     {
         utf8 = yella_to_utf8(sct);
         CHUCHO_C_ERROR_L(lgr,
-                         "The section %s was not found",
+                         "The section '%s' was not found",
                          utf8);
         free(utf8);
         return NULL;
@@ -180,7 +180,7 @@ static const void* get_value(const UChar* const sct, const UChar* const key, yel
         {
             utf8 = yella_to_utf8(key);
             CHUCHO_C_ERROR_L(lgr,
-                             "The setting, \"%s\", was not found",
+                             "The setting, '%s', was not found",
                              utf8);
             free(utf8);
             return NULL;
@@ -189,7 +189,7 @@ static const void* get_value(const UChar* const sct, const UChar* const key, yel
         {
             utf8 = yella_to_utf8(key);
             CHUCHO_C_ERROR_L(lgr,
-                             "The setting, \"%s\", is not of type, \"%s\"",
+                             "The setting, '%s', is not of type, '%s'",
                              utf8,
                              (type == YELLA_SETTING_VALUE_TEXT ? "text" : "uint"));
             free(utf8);
@@ -269,7 +269,7 @@ yella_rc yella_load_settings_doc(void)
     {
         fn_utf8 = yella_to_utf8(file_name);
         CHUCHO_C_ERROR_L(lgr,
-                         "The configuration file %s does not exist",
+                         "The configuration file '%s' does not exist",
                          fn_utf8);
         free(fn_utf8);
         return YELLA_DOES_NOT_EXIST;
@@ -279,7 +279,7 @@ yella_rc yella_load_settings_doc(void)
     {
         fn_utf8 = yella_to_utf8(file_name);
         CHUCHO_C_ERROR_L(lgr,
-                         "The configuration file %s has a size of %llu, which is greater than the maximum allowed of 100 KB",
+                         "The configuration file '%s' has a size of %llu, which is greater than the maximum allowed of 100 KB",
                          fn_utf8,
                          sz);
         free(fn_utf8);
@@ -291,7 +291,7 @@ yella_rc yella_load_settings_doc(void)
     {
         err = errno;
         CHUCHO_C_ERROR_L(lgr,
-                         "Unable to open the config file %s for reading: %s",
+                         "Unable to open the config file '%s' for reading: %s",
                          fn_utf8,
                          strerror(err));
         free(fn_utf8);

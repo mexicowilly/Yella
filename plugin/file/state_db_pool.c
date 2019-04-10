@@ -78,11 +78,12 @@ state_db* get_state_db_from_pool(state_db_pool* pool, const UChar* const config_
             if (oldest != NULL)
             {
                 utf8 = yella_to_utf8(oldest->name);
-                CHUCHO_C_INFO("yella.file.db", "Too many open state databases (%zu open, %zu maximum). Closing %s.", pool->count, max_dbs, utf8);
+                CHUCHO_C_INFO("yella.file.db", "Too many open state databases (%zu open, %zu maximum). Closing '%s'.", pool->count, max_dbs, utf8);
                 free(utf8);
                 sglib_state_db_node_delete(&pool->nodes, oldest);
                 destroy_state_db(oldest->db, STATE_DB_ACTION_KEEP);
                 free(oldest);
+                --pool->count;
             }
         }
         found = malloc(sizeof(state_db_node));
@@ -113,5 +114,11 @@ void remove_state_db_from_pool(state_db_pool* pool, const UChar* const config_na
     {
         destroy_state_db(removed->db, STATE_DB_ACTION_REMOVE);
         free(removed);
+        --pool->count;
     }
+}
+
+size_t state_db_pool_size(const state_db_pool* const pool)
+{
+    return pool->count;
 }

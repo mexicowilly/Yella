@@ -8,6 +8,7 @@
 #include "common/text_util.h"
 #include "plugin/file/job_queue.h"
 #include "plugin/file/event_source.h"
+#include "plugin/file/state_db_pool.h"
 #undef flatbuffers_identifier
 #include "file_reader.h"
 #include "file_config_builder.h"
@@ -40,6 +41,7 @@ typedef struct file_plugin
     config_node* configs;
     event_source* esrc;
     void* agent;
+    state_db_pool* db_pool;
 } file_plugin;
 
 #define CONFIG_MAP_COMPARATOR(lhs, rhs) (u_strcmp(lhs->name, rhs->name))
@@ -375,6 +377,7 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
     if (is_empty)
     {
         remove_event_source_spec(fplg->esrc, cfg->name);
+        remove_state_db_from_pool(fplg->db_pool, cfg->name);
         destroy_config_node(cfg);
         CHUCHO_C_INFO(fplg->lgr, "Removed config '%s'", utf8);
     }
@@ -431,7 +434,8 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     yella_push_back_ptr_vector(fplg->desc->out_caps,
                                yella_create_plugin_out_cap(u"file.change", 1));
     fplg->agent_api = yella_copy_agent_api(api);
-    fplg->jq = create_job_queue();
+    fplg->db_pool = create_state_db_pool();
+    fplg->jq = create_job_queue(fplg->db_pool);
     fplg->configs = NULL;
     fplg->esrc = create_event_source(event_received, fplg);
     fplg->agent = agnt;
@@ -466,6 +470,7 @@ YELLA_EXPORT yella_rc plugin_stop(void* udata)
         destroy_config_node(cur);
     }
     destroy_job_queue(fplg->jq);
+    destroy_state_db_pool(fplg->db_pool);
     yella_destroy_plugin(fplg->desc);
     yella_destroy_mutex(fplg->guard);
     yella_destroy_reader_writer_lock(fplg->config_guard);

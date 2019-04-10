@@ -20,12 +20,12 @@ typedef struct job
     size_t attr_type_count;
 } job;
 
-/* Ownership of state_db* is not transferred */
 job* create_job(const UChar* const cfg_name,
                 const yella_agent_api* api,
                 const UChar* const topic,
                 void* agnt);
 void destroy_job(job* j);
+/* Ownership of db_pool is not transferred */
 void run_job(const job* const j, state_db_pool* db_pool);
 
 #endif
