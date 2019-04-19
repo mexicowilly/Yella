@@ -170,12 +170,19 @@ uint8_t* pack_element_attributes(const element* const elem, size_t* sz)
     flatcc_builder_t bld;
     uint8_t* result;
 
-    flatcc_builder_init(&bld);
-    yella_fb_file_attr_array_start_as_root(&bld);
-    yella_fb_file_attr_array_attrs_add(&bld, build_attr_vector(elem, &bld));
-    yella_fb_file_attr_array_end_as_root(&bld);
-    result = flatcc_builder_finalize_buffer(&bld, sz);
-    flatcc_builder_clear(&bld);
+    if (elem->attrs == NULL)
+    {
+        result = NULL;
+    }
+    else
+    {
+        flatcc_builder_init(&bld);
+        yella_fb_file_attr_array_start_as_root(&bld);
+        yella_fb_file_attr_array_attrs_add(&bld, build_attr_vector(elem, &bld));
+        yella_fb_file_attr_array_end_as_root(&bld);
+        result = flatcc_builder_finalize_buffer(&bld, sz);
+        flatcc_builder_clear(&bld);
+    }
     return result;
 }
 
