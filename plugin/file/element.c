@@ -86,10 +86,13 @@ element* create_element_with_attrs(const UChar* const name, const uint8_t* const
     int i;
 
     result = create_element(name);
-    tbl = yella_fb_file_attr_array_as_root(packed_attrs);
-    attrs = yella_fb_file_attr_array_attrs(tbl);
-    for (i = 0; i < yella_fb_file_attr_vec_len(attrs); i++)
-        add_element_attribute(result, create_attribute_from_table(yella_fb_file_attr_vec_at(attrs, i)));
+    if (packed_attrs != NULL)
+    {
+        tbl = yella_fb_file_attr_array_as_root(packed_attrs);
+        attrs = yella_fb_file_attr_array_attrs(tbl);
+        for (i = 0; i < yella_fb_file_attr_vec_len(attrs); i++)
+            add_element_attribute(result, create_attribute_from_table(yella_fb_file_attr_vec_at(attrs, i)));
+    }
     return result;
 }
 
