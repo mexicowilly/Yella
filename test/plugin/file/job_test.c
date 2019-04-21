@@ -35,9 +35,10 @@ typedef struct test_node
 typedef struct test_data
 {
     yella_agent_api api;
-    const UChar* data_dir;
+    uds data_dir;
     test_node* files;
     state_db_pool* db_pool;
+    uds topic;
 } test_data;
 
 #define TEST_NODE_COMPARATOR(lhs, rhs) (u_strcmp(lhs->file_name, rhs->file_name))
@@ -121,6 +122,7 @@ static void send_message(void* agnt, const UChar* const tpc, const uint8_t* cons
     attr_node attr_to_find;
 
     td = agnt;
+    assert_int_equal(u_strcmp(tpc, td->topic), 0);
     st = yella_fb_file_file_state_as_root(msg);
     str = yella_fb_file_file_state_sender(st);
     assert_string_equal(str, "job-test-agent");
@@ -177,9 +179,11 @@ static int set_up(void** arg)
     td = malloc(sizeof(test_data));
     td->api.agent_id = udsnew(u"job-test-agent");
     td->api.send_message = send_message;
-    td->data_dir = u"job-test-data";
+    td->data_dir = udsnew(u"job-test-data");
+    td->data_dir = udscat(td->data_dir, YELLA_DIR_SEP);
     td->db_pool = create_state_db_pool();
     td->files = NULL;
+    td->topic = udsnew(u"my cool topic");
     yella_remove_all(td->data_dir);
     yella_ensure_dir_exists(td->data_dir);
     *arg = td;
@@ -193,6 +197,7 @@ static int tear_down(void** arg)
     td = *arg;
     udsfree(td->api.agent_id);
     destroy_state_db_pool(td->db_pool);
+    udsfree(td->topic);
     free(td);
     return 0;
 }
@@ -208,7 +213,7 @@ static void single(void** arg)
     int i;
 
     td = *arg;
-    file_name = udscatprintf(udsempty(), u"%S%Ssingle", td->data_dir, YELLA_DIR_SEP);
+    file_name = udscatprintf(udsempty(), u"%Ssingle", td->data_dir);
     for (i = 0; i < 3; i++)
     {
         if (i == 0 || i == 1)
@@ -221,7 +226,7 @@ static void single(void** arg)
         {
             yella_remove_file(file_name);
         }
-        j = create_job(u"single-cfg", &td->api, u"single-topic", td);
+        j = create_job(u"single-cfg", &td->api, td->topic, td);
         yella_push_back_ptr_vector(j->includes, udsdup(file_name));
         j->attr_type_count = 2;
         j->attr_types = malloc(sizeof(attribute_type) * j->attr_type_count);
@@ -260,11 +265,63 @@ static void single(void** arg)
     udsfree(file_name);
 }
 
+void wild(void** arg)
+{
+    test_data* td;
+    test_node* tn;
+    job* j;
+    attr_node* expect;
+    UFILE* uf;
+
+    td = *arg;
+    j = create_job(u"wild-cfg", &td->api, td->topic, td);
+    yella_push_back_ptr_vector(j->includes, udscatprintf(udsempty(), u"%S**", td->data_dir));
+    j->attr_type_count = 1;
+    j->attr_types = malloc(sizeof(attribute_type));
+    j->attr_types[0] = ATTR_TYPE_FILE_TYPE;
+    tn = calloc(1, sizeof(test_node));
+    tn->file_name = udscatprintf(udsempty(), u"%Swild-one", td->data_dir);
+    tn->cond = yella_fb_file_condition_ADDED;
+    tn->config_name = udsdup(j->config_name);
+    expect = malloc(sizeof(attr_node));
+    expect->attr.type = ATTR_TYPE_FILE_TYPE;
+    expect->attr.value.integer = YELLA_FILE_TYPE_REGULAR;
+    sglib_attr_node_add(&tn->attrs, expect);
+    sglib_test_node_add(&td->files, tn);
+    uf = u_fopen_u(tn->file_name, "w", NULL, NULL);
+    u_fclose(uf);
+    tn = calloc(1, sizeof(test_node));
+    expect = malloc(sizeof(attr_node));
+    expect->attr.type = ATTR_TYPE_FILE_TYPE;
+    expect->attr.value.integer = YELLA_FILE_TYPE_DIRECTORY;
+    tn->file_name = udscatprintf(udsempty(), u"%Swild-dir", td->data_dir);
+    tn->cond = yella_fb_file_condition_ADDED;
+    tn->config_name = udsdup(j->config_name);
+    yella_ensure_dir_exists(tn->file_name);
+    sglib_attr_node_add(&tn->attrs, expect);
+    sglib_test_node_add(&td->files, tn);
+    tn = calloc(1, sizeof(test_node));
+    tn->file_name = udscatprintf(udsempty(), u"%Swild-dir/jumpy", td->data_dir);
+    tn->cond = yella_fb_file_condition_ADDED;
+    tn->config_name = udsdup(j->config_name);
+    expect = malloc(sizeof(attr_node));
+    expect->attr.type = ATTR_TYPE_FILE_TYPE;
+    expect->attr.value.integer = YELLA_FILE_TYPE_REGULAR;
+    sglib_attr_node_add(&tn->attrs, expect);
+    sglib_test_node_add(&td->files, tn);
+    uf = u_fopen_u(tn->file_name, "w", NULL, NULL);
+    u_fclose(uf);
+    run_job(j, td->db_pool);
+    destroy_job(j);
+    assert_int_equal(sglib_test_node_len(td->files), 0);
+}
+
 int main()
 {
     const struct CMUnitTest tests[] =
     {
-        cmocka_unit_test_setup_teardown(single, set_up, tear_down)
+        cmocka_unit_test_setup_teardown(single, set_up, tear_down),
+        cmocka_unit_test_setup_teardown(wild, set_up, tear_down)
     };
 
     yella_load_settings_doc();

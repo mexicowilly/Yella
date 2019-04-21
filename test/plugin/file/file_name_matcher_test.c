@@ -157,7 +157,8 @@ static void star_star(void** arg)
         { u"/my/dog/has/fleas", u"**fleas", false },
         { u"/my/dog/has/fleas", u"/**fleas", false },
         { u"/my/dog/has/fleas", u"/**/f?ea*", true },
-        { u"/my/dog/has/fleas", u"/m?/**/f?ea*", true }
+        { u"/my/dog/has/fleas", u"/m?/**/f?ea*", true },
+        { u"fleas", u"**/fleas", true }
     };
 
     check_it(tests, YELLA_ARRAY_SIZE(tests));

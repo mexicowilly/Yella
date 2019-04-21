@@ -43,7 +43,6 @@ static void empty_attributes(void** arg)
     state_db* db;
     element* elem1;
     element* elem2;
-    attribute* attr;
 
     db = create_state_db(u"monkey balls");
     elem1 = create_element(u"funky smalls");
