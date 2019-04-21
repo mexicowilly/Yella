@@ -86,10 +86,13 @@ element* create_element_with_attrs(const UChar* const name, const uint8_t* const
     int i;
 
     result = create_element(name);
-    tbl = yella_fb_file_attr_array_as_root(packed_attrs);
-    attrs = yella_fb_file_attr_array_attrs(tbl);
-    for (i = 0; i < yella_fb_file_attr_vec_len(attrs); i++)
-        add_element_attribute(result, create_attribute_from_table(yella_fb_file_attr_vec_at(attrs, i)));
+    if (packed_attrs != NULL)
+    {
+        tbl = yella_fb_file_attr_array_as_root(packed_attrs);
+        attrs = yella_fb_file_attr_array_attrs(tbl);
+        for (i = 0; i < yella_fb_file_attr_vec_len(attrs); i++)
+            add_element_attribute(result, create_attribute_from_table(yella_fb_file_attr_vec_at(attrs, i)));
+    }
     return result;
 }
 
@@ -170,12 +173,19 @@ uint8_t* pack_element_attributes(const element* const elem, size_t* sz)
     flatcc_builder_t bld;
     uint8_t* result;
 
-    flatcc_builder_init(&bld);
-    yella_fb_file_attr_array_start_as_root(&bld);
-    yella_fb_file_attr_array_attrs_add(&bld, build_attr_vector(elem, &bld));
-    yella_fb_file_attr_array_end_as_root(&bld);
-    result = flatcc_builder_finalize_buffer(&bld, sz);
-    flatcc_builder_clear(&bld);
+    if (elem->attrs == NULL)
+    {
+        result = NULL;
+    }
+    else
+    {
+        flatcc_builder_init(&bld);
+        yella_fb_file_attr_array_start_as_root(&bld);
+        yella_fb_file_attr_array_attrs_add(&bld, build_attr_vector(elem, &bld));
+        yella_fb_file_attr_array_end_as_root(&bld);
+        result = flatcc_builder_finalize_buffer(&bld, sz);
+        flatcc_builder_clear(&bld);
+    }
     return result;
 }
 

@@ -7,6 +7,7 @@
 #include "common/text_util.h"
 #include "file_builder.h"
 #include <unicode/ustring.h>
+#include <sys/param.h>
 
 static bool matches_excludes(const UChar* const name, const yella_ptr_vector* excludes)
 {
@@ -39,7 +40,8 @@ static void send_message(const UChar* const name, const element* elem, const job
     yella_fb_file_file_state_file_name_create_str(&bld, utf8);
     free(utf8);
     yella_fb_file_file_state_cond_add(&bld, cond);
-    yella_fb_file_file_state_attrs_add(&bld, pack_element_attributes_to_table(elem, &bld));
+    if (elem != NULL)
+        yella_fb_file_file_state_attrs_add(&bld, pack_element_attributes_to_table(elem, &bld));
     yella_fb_file_file_state_end_as_root(&bld);
     raw = flatcc_builder_finalize_buffer(&bld, &sz);
     flatcc_builder_clear(&bld);
@@ -79,6 +81,7 @@ static void process_element(const UChar* const name, element* elem, const job* c
             cond = yella_fb_file_condition_CHANGED;
         }
     }
+    destroy_element(db_elem);
     if (cmp != 0)
         send_message(name, elem, j, cond);
 }
@@ -115,6 +118,7 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
     element* existing_elem;
     uds top_dir;
     yella_file_type ftype;
+    char* utf8;
 
     special = first_unescaped_special_char(incl);
     if (special == NULL)

@@ -4,6 +4,7 @@
 #include "plugin/file/attribute.h"
 #include "file_builder.h"
 #include <unicode/utypes.h>
+#include <stdbool.h>
 
 typedef struct element element;
 

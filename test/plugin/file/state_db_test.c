@@ -38,6 +38,23 @@ static void delete(void** arg)
     destroy_state_db(db, STATE_DB_ACTION_REMOVE);
 }
 
+static void empty_attributes(void** arg)
+{
+    state_db* db;
+    element* elem1;
+    element* elem2;
+
+    db = create_state_db(u"monkey balls");
+    elem1 = create_element(u"funky smalls");
+    assert_true(insert_into_state_db(db, elem1));
+    elem2 = get_element_from_state_db(db, u"funky smalls");
+    assert_non_null(elem2);
+    assert_int_equal(compare_element_attributes(elem1, elem2), 0);
+    destroy_element(elem2);
+    destroy_element(elem1);
+    destroy_state_db(db, STATE_DB_ACTION_REMOVE);
+}
+
 static void insert(void** arg)
 {
     state_db* db;
@@ -120,6 +137,7 @@ int main()
     const struct CMUnitTest tests[] =
     {
         cmocka_unit_test(delete),
+        cmocka_unit_test(empty_attributes),
         cmocka_unit_test(insert),
         cmocka_unit_test(name),
         cmocka_unit_test(update)
