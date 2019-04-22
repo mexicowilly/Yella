@@ -438,32 +438,9 @@ const uint64_t* yella_settings_get_uint(const UChar* const sct, const UChar* con
 void yella_settings_set_dir(const UChar* const sct, const UChar* const key, const UChar* const val)
 {
     uds actual;
-    int32_t i;
-    int32_t last_sep;
     int32_t len;
 
-    actual = udsempty();
-    last_sep = -1;
-    for (i = 0; i < u_strlen(val); i++)
-    {
-        if (val[i] == YELLA_DIR_SEP[0])
-        {
-            if (last_sep == -1)
-            {
-                actual = udscatlen(actual, &YELLA_DIR_SEP[0], 1);
-                last_sep = i;
-            }
-            else
-            {
-                last_sep = i;
-            }
-        }
-        else
-        {
-            actual = udscatlen(actual, &val[i], 1);
-            last_sep = -1;
-        }
-    }
+    actual = yella_remove_duplicate_dir_seps(val);
     len = u_strlen(actual);
     if (len > 0 && actual[len - 1] != YELLA_DIR_SEP[0])
         actual = udscatlen(actual, &YELLA_DIR_SEP[0], 1);

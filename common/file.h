@@ -44,6 +44,7 @@ YELLA_EXPORT yella_rc yella_apply_function_to_file_contents(const UChar* const n
                                                             void(*func)(const uint8_t* const, size_t, void*),
                                                             void* udata);
 YELLA_EXPORT uds yella_base_name(const UChar* const path);
+YELLA_EXPORT uds yella_remove_duplicate_dir_seps(const UChar* const name);
 YELLA_EXPORT yella_rc yella_create_directory(const UChar* const name);
 YELLA_EXPORT uds yella_dir_name(const UChar* const path);
 YELLA_EXPORT yella_rc yella_ensure_dir_exists(const UChar* const name);
@@ -52,6 +53,7 @@ YELLA_EXPORT yella_rc yella_get_file_type(const UChar* const name, yella_file_ty
 YELLA_EXPORT yella_rc yella_file_contents(const UChar* const name, uint8_t** contents);
 YELLA_EXPORT bool yella_file_exists(const UChar* const name);
 YELLA_EXPORT yella_rc yella_file_size(const UChar* const name, size_t* sz);
+YELLA_EXPORT bool yella_is_file_name_absolute(const UChar* const name);
 YELLA_EXPORT yella_rc yella_remove_all(const UChar* const name);
 YELLA_EXPORT yella_rc yella_remove_file(const UChar* const name);
 

@@ -382,6 +382,11 @@ yella_rc yella_get_file_type(const UChar* const name, yella_file_type* tp)
     return result;
 }
 
+bool yella_is_file_name_absolute(const UChar* const name)
+{
+    return name != NULL && name[0] == u'/';
+}
+
 static yella_rc remove_all_impl(const UChar* const name)
 {
     yella_directory_iterator* itor = yella_create_directory_iterator(name);

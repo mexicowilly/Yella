@@ -264,36 +264,21 @@ static void save_configs(const file_plugin* const fplg)
     free(ser);
 }
 
-static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata)
+static config_node* process_plugin_config(file_plugin* fplg, yella_fb_file_monitor_request_table_t tbl, yella_fb_plugin_config_action_enum_t* act)
 {
-    yella_fb_file_monitor_request_table_t tbl;
     yella_fb_plugin_config_table_t fb_cfg;
-    yella_fb_plugin_config_action_enum_t act;
-    yella_plugin_in_cap* mon;
-    file_plugin* fplg;
     config_node* cfg;
-    flatbuffers_string_vec_t svec;
-    size_t i;
-    flatbuffers_uint16_vec_t uvec;
-    uint16_t atval;
-    bool is_empty;
-    size_t erase_idx;
-    config_node* removed_cfg;
-    char* utf8;
-    event_source_spec* espec;
 
-    fplg = (file_plugin*)udata;
-    tbl = yella_fb_file_monitor_request_as_root(msg);
     if (!yella_fb_file_monitor_request_config_is_present(tbl))
     {
         CHUCHO_C_ERROR(fplg->lgr, "monitor_request: config field is missing");
-        return YELLA_INVALID_FORMAT;
+        return NULL;
     }
     fb_cfg = yella_fb_file_monitor_request_config(tbl);
     if (!yella_fb_plugin_config_name_is_present(fb_cfg))
     {
         CHUCHO_C_ERROR(fplg->lgr, "monitor_request: config.name field is missing");
-        return YELLA_INVALID_FORMAT;
+        return NULL;
     }
     CHUCHO_C_INFO(fplg->lgr, "Received monitor request %s", yella_fb_plugin_config_name(fb_cfg));
     cfg = malloc(sizeof(config_node));
@@ -302,25 +287,70 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
         cfg->topic = udsnew(yella_from_utf8(yella_fb_plugin_config_topic(fb_cfg)));
     else
         cfg->topic = NULL;
+    *act = yella_fb_plugin_config_action(fb_cfg);
+    return cfg;
+}
+
+static uds cleanse_file_name(file_plugin* fplg, const char* const utf8)
+{
+    uds result;
+    UChar* utf16;
+    int32_t i;
+    int32_t last_sep;
+
+    utf16 = yella_from_utf8(utf8);
+    if (!yella_is_file_name_absolute(utf16))
+    {
+        CHUCHO_C_ERROR(fplg->lgr, "The file name '%s' is not absolute", utf8);
+        return NULL;
+    }
+    result = yella_remove_duplicate_dir_seps(utf16);
+    free(utf16);
+    return result;
+}
+
+static void process_includes_excludes(file_plugin* fplg, config_node* cfg, yella_fb_file_monitor_request_table_t tbl, bool* is_empty)
+{
+    flatbuffers_string_vec_t svec;
+    size_t i;
+    uds fname;
+
     cfg->includes = yella_create_uds_ptr_vector();
     if (yella_fb_file_monitor_request_includes_is_present(tbl))
     {
         svec = yella_fb_file_monitor_request_includes(tbl);
-        is_empty = flatbuffers_string_vec_len(svec) == 0;
+        *is_empty = flatbuffers_string_vec_len(svec) == 0;
         for (i = 0; i < flatbuffers_string_vec_len(svec); i++)
-            yella_push_back_ptr_vector(cfg->includes, yella_from_utf8(flatbuffers_string_vec_at(svec, i)));
+        {
+            fname = cleanse_file_name(fplg, flatbuffers_string_vec_at(svec, i));
+            if (fname != NULL)
+                yella_push_back_ptr_vector(cfg->includes, fname);
+        }
     }
     else
     {
-        is_empty = true;
+        *is_empty = true;
     }
+    cfg->excludes = yella_create_uds_ptr_vector();
     if (yella_fb_file_monitor_request_excludes_is_present(tbl))
     {
-        cfg->excludes = yella_create_uds_ptr_vector();
         svec = yella_fb_file_monitor_request_excludes(tbl);
         for (i = 0; i < flatbuffers_string_vec_len(svec); i++)
-            yella_push_back_ptr_vector(cfg->excludes, yella_from_utf8(flatbuffers_string_vec_at(svec, i)));
+        {
+            fname = cleanse_file_name(fplg, flatbuffers_string_vec_at(svec, i));
+            if (fname != NULL)
+                yella_push_back_ptr_vector(cfg->excludes, fname);
+        }
     }
+}
+
+static void process_attributes(file_plugin* fplg, config_node* cfg, yella_fb_file_monitor_request_table_t tbl)
+{
+    flatbuffers_uint16_vec_t uvec;
+    uint16_t atval;
+    char* utf8;
+    size_t i;
+
     if (yella_fb_file_monitor_request_attr_types_is_present(tbl))
     {
         uvec = yella_fb_file_monitor_request_attr_types(tbl);
@@ -335,14 +365,22 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
             for (i = 0; i < cfg->attr_type_count; i++)
             {
                 atval = flatbuffers_uint16_vec_at(uvec, i);
-                if (!yella_fb_file_attr_type_is_known_value(atval))
+                if (yella_fb_file_attr_type_is_known_value(atval))
                 {
-                    CHUCHO_C_ERROR(fplg->lgr,
-                                   "Invalid attriubte type value in config %s: %hu",
-                                   yella_fb_plugin_config_name(fb_cfg),
-                                   atval);
+                    cfg->attr_types[i] = fb_to_attribute_type(atval);
                 }
-                cfg->attr_types[i] = fb_to_attribute_type(atval);
+                else
+                {
+                    utf8 = yella_to_utf8(cfg->name);
+                    CHUCHO_C_ERROR(fplg->lgr,
+                                   "Invalid attribute type value in config %s: %hu",
+                                   utf8,
+                                   atval);
+                    free(utf8);
+                    free(cfg->attr_types);
+                    cfg->attr_type_count = 0;
+                    break;
+                }
             }
         }
     }
@@ -351,11 +389,21 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
         cfg->attr_types = NULL;
         cfg->attr_type_count = 0;
     }
-    act = yella_fb_plugin_config_action(fb_cfg);
+}
+
+static void install_config_node(file_plugin* fplg, config_node* cfg, bool is_empty, yella_fb_plugin_config_action_enum_t act)
+{
+    yella_plugin_in_cap* mon;
+    size_t erase_idx;
+    config_node* removed_cfg;
+    char* utf8;
+    size_t i;
+    event_source_spec* espec;
+
     yella_write_lock_reader_writer_lock(fplg->config_guard);
     assert(yella_ptr_vector_size(fplg->desc->in_caps) == 1);
     mon = yella_ptr_vector_at(fplg->desc->in_caps, 0);
-    assert(u_strcmp(mon->name, u"file.monitor_request") == 0);
+    assert(u_strcmp(mon->name, u"file.monitor_requests") == 0);
     if (act == yella_fb_plugin_config_action_REPLACE_ALL)
         yella_clear_ptr_vector(mon->configs);
     for (i = 0; i < yella_ptr_vector_size(mon->configs); i++)
@@ -394,6 +442,25 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
     free(utf8);
     save_configs(fplg);
     yella_unlock_reader_writer_lock(fplg->config_guard);
+}
+
+static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata)
+{
+    yella_fb_file_monitor_request_table_t req;
+    yella_fb_plugin_config_action_enum_t act;
+    file_plugin* fplg;
+    config_node* cfg;
+    size_t i;
+    bool is_empty;
+
+    fplg = (file_plugin*)udata;
+    req = yella_fb_file_monitor_request_as_root(msg);
+    cfg = process_plugin_config(fplg, req, &act);
+    if (cfg == NULL)
+        return YELLA_INVALID_FORMAT;
+    process_includes_excludes(fplg, cfg, req, &is_empty);
+    process_attributes(fplg, cfg, req);
+    install_config_node(fplg, cfg, is_empty, act);
     return YELLA_NO_ERROR;
 }
 
@@ -430,7 +497,7 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     fplg->config_guard = yella_create_reader_writer_lock();
     fplg->desc = yella_create_plugin(u"file", u"1", fplg);
     yella_push_back_ptr_vector(fplg->desc->in_caps,
-                               yella_create_plugin_in_cap(u"file.monitor_request", 1, monitor_handler, fplg));
+                               yella_create_plugin_in_cap(u"file.monitor_requests", 1, monitor_handler, fplg));
     yella_push_back_ptr_vector(fplg->desc->out_caps,
                                yella_create_plugin_out_cap(u"file.change", 1));
     fplg->agent_api = yella_copy_agent_api(api);

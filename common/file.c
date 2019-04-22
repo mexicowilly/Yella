@@ -22,6 +22,37 @@
 #include <string.h>
 #include <stdlib.h>
 
+uds yella_remove_duplicate_dir_seps(const UChar* const name)
+{
+    uds result;
+    int32_t i;
+    int32_t last_sep;
+
+    result = udsempty();
+    last_sep = -1;
+    for (i = 0; i < u_strlen(name); i++)
+    {
+        if (name[i] == YELLA_DIR_SEP[0])
+        {
+            if (last_sep == -1)
+            {
+                result = udscatlen(result, &YELLA_DIR_SEP[0], 1);
+                last_sep = i;
+            }
+            else
+            {
+                last_sep = i;
+            }
+        }
+        else
+        {
+            result = udscatlen(result, &name[i], 1);
+            last_sep = -1;
+        }
+    }
+    return result;
+}
+
 yella_rc yella_file_contents(const UChar* const name, uint8_t** contents)
 {
     FILE* f;
