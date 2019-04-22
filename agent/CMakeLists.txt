@@ -14,6 +14,8 @@
 #    limitations under the License.
 #
 
+SET(AGENT_SO_VERSION 1)
+
 INCLUDE_DIRECTORIES("${YELLA_RDKAFKA_INCLUDE_DIR}"
                     "${YELLA_FLATCC_INCLUDE_DIR}"
                     "${YELLA_CJSON_INCLUDE_DIR}")
@@ -64,6 +66,10 @@ IF(YELLA_MACINTOSH)
 ENDIF()
 
 ADD_LIBRARY(agent SHARED ${YELLA_SOURCES})
+SET_TARGET_PROPERTIES(agent PROPERTIES
+                      VERSION ${YELLA_VERSION}
+                      SOVERSION ${AGENT_SO_VERSION}
+                      COMPILE_DEFINITIONS yella_EXPORTS)
 IF(DEFINED YELLA_SO_FLAGS)
     SET_TARGET_PROPERTIES(agent PROPERTIES
                           COMPILE_FLAGS "${YELLA_SO_FLAGS}")

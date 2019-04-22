@@ -1,3 +1,5 @@
+SET(FILE_SO_VERSION 1)
+
 INCLUDE_DIRECTORIES("${YELLA_SQLITE3_INCLUDE_DIR}"
                     "${OPENSSL_INCLUDE_DIR}")
 
@@ -31,6 +33,10 @@ ADD_LIBRARY(file SHARED
             state_db_pool.c
             state_db_pool.h
             ${FILE_PLATFORM_SOURCES})
+SET_TARGET_PROPERTIES(file PROPERTIES
+                      VERSION ${YELLA_VERSION}
+                      SOVERSION ${FILE_SO_VERSION}
+                      COMPILE_DEFINITIONS yella_EXPORTS)
 IF(DEFINED YELLA_SO_FLAGS)
     SET_TARGET_PROPERTIES(file PROPERTIES
                           COMPILE_FLAGS "${YELLA_SO_FLAGS}")
