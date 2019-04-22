@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <unicode/ustring.h>
 
 void yella_initialize_platform_settings(void);
 
@@ -153,6 +154,15 @@ static void handle_yaml_node(const yaml_node_t* node,
     }
 }
 
+static const char* type_to_str(yella_setting_value_type tp)
+{
+    if (tp == YELLA_SETTING_VALUE_TEXT)
+        return "text";
+    else if (tp == YELLA_SETTING_VALUE_DIR)
+        return "dir";
+    return "uint";
+}
+
 static const void* get_value(const UChar* const sct, const UChar* const key, yella_setting_value_type type)
 {
     setting set_to_find;
@@ -191,15 +201,48 @@ static const void* get_value(const UChar* const sct, const UChar* const key, yel
             CHUCHO_C_ERROR_L(lgr,
                              "The setting, '%s', is not of type, '%s'",
                              utf8,
-                             (type == YELLA_SETTING_VALUE_TEXT ? "text" : "uint"));
+                             type_to_str(type));
             free(utf8);
             return NULL;
         }
     }
-    if (type == YELLA_SETTING_VALUE_TEXT)
-        return set_found->value.text;
-    else
+    if (type == YELLA_SETTING_VALUE_UINT)
         return &set_found->value.uint;
+    else
+        return set_found->value.text;
+}
+
+void set_text_impl(const UChar* const sct, const UChar* const key, const UChar* const val, yella_setting_value_type type)
+{
+    setting set_to_find;
+    setting* set_found;
+    section sct_to_find;
+    section* sct_found;
+
+    sct_to_find.key = (UChar*)sct;
+    sct_found = sglib_section_find_member(sections, &sct_to_find);
+    if (sct_found == NULL)
+    {
+        sct_found = malloc(sizeof(section));
+        sct_found->key = udsnew(sct);
+        sct_found->settings = NULL;
+        sglib_section_add(&sections, sct_found);
+    }
+    set_to_find.key = (UChar*)key;
+    set_found = sglib_setting_find_member(sct_found->settings, &set_to_find);
+    if (set_found == NULL)
+    {
+        set_found = malloc(sizeof(setting));
+        set_found->key = udsnew(key);
+        set_found->value.text = udsnew(val);
+        set_found->type = type;
+        sglib_setting_add(&sct_found->settings, set_found);
+    }
+    else
+    {
+        udsfree(set_found->value.text);
+        set_found->value.text = udsnew(val);
+    }
 }
 
 void yella_destroy_settings(void)
@@ -377,14 +420,59 @@ void yella_retrieve_settings(const UChar* const section, const yella_setting_des
     }
 }
 
-const uint64_t* yella_settings_get_uint(const UChar* const sct, const UChar* const key)
+const UChar* yella_settings_get_dir(const UChar* const sct, const UChar* const key)
 {
-    return get_value(sct, key, YELLA_SETTING_VALUE_UINT);
+    return get_value(sct, key, YELLA_SETTING_VALUE_DIR);
 }
 
 const UChar* yella_settings_get_text(const UChar* const sct, const UChar* const key)
 {
     return get_value(sct, key, YELLA_SETTING_VALUE_TEXT);
+}
+
+const uint64_t* yella_settings_get_uint(const UChar* const sct, const UChar* const key)
+{
+    return get_value(sct, key, YELLA_SETTING_VALUE_UINT);
+}
+
+void yella_settings_set_dir(const UChar* const sct, const UChar* const key, const UChar* const val)
+{
+    uds actual;
+    int32_t i;
+    int32_t last_sep;
+    int32_t len;
+
+    actual = udsempty();
+    last_sep = -1;
+    for (i = 0; i < u_strlen(val); i++)
+    {
+        if (val[i] == YELLA_DIR_SEP[0])
+        {
+            if (last_sep == -1)
+            {
+                actual = udscatlen(actual, &YELLA_DIR_SEP[0], 1);
+                last_sep = i;
+            }
+            else
+            {
+                last_sep = i;
+            }
+        }
+        else
+        {
+            actual = udscatlen(actual, &val[i], 1);
+            last_sep = -1;
+        }
+    }
+    len = u_strlen(actual);
+    if (len > 0 && actual[len - 1] != YELLA_DIR_SEP[0])
+        actual = udscatlen(actual, &YELLA_DIR_SEP[0], 1);
+    set_text_impl(sct, key, actual, YELLA_SETTING_VALUE_DIR);
+}
+
+void yella_settings_set_text(const UChar* const sct, const UChar* const key, const UChar* const val)
+{
+    set_text_impl(sct, key, val, YELLA_SETTING_VALUE_TEXT);
 }
 
 void yella_settings_set_uint(const UChar* const sct, const UChar* const key, uint64_t val)
@@ -419,35 +507,3 @@ void yella_settings_set_uint(const UChar* const sct, const UChar* const key, uin
     }
 }
 
-void yella_settings_set_text(const UChar* const sct, const UChar* const key, const UChar* const val)
-{
-    setting set_to_find;
-    setting* set_found;
-    section sct_to_find;
-    section* sct_found;
-
-    sct_to_find.key = (UChar*)sct;
-    sct_found = sglib_section_find_member(sections, &sct_to_find);
-    if (sct_found == NULL)
-    {
-        sct_found = malloc(sizeof(section));
-        sct_found->key = udsnew(sct);
-        sct_found->settings = NULL;
-        sglib_section_add(&sections, sct_found);
-    }
-    set_to_find.key = (UChar*)key;
-    set_found = sglib_setting_find_member(sct_found->settings, &set_to_find);
-    if (set_found == NULL)
-    {
-        set_found = malloc(sizeof(setting));
-        set_found->key = udsnew(key);
-        set_found->value.text = udsnew(val);
-        set_found->type = YELLA_SETTING_VALUE_TEXT;
-        sglib_setting_add(&sct_found->settings, set_found);
-    }
-    else
-    {
-        udsfree(set_found->value.text);
-        set_found->value.text = udsnew(val);
-    }
-}

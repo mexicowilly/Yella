@@ -329,7 +329,7 @@ static int clean_settings(void** arg)
 
 static int init_test(void **arg)
 {
-    yella_remove_all(yella_settings_get_text(u"agent", u"spool-dir"));
+    yella_remove_all(yella_settings_get_dir(u"agent", u"spool-dir"));
     yella_settings_set_uint(u"agent", u"max-spool-partition-size", 1024 * 1024);
     yella_settings_set_uint(u"agent", u"max-spool-partitions", 100);
     return 0;
@@ -345,7 +345,7 @@ static int init_settings(void** arg)
 "        chucho::pattern_formatter:\n"
 "            pattern: '%-5p %5r %b:%L] %m%n'\n");
     yella_initialize_settings();
-    yella_settings_set_text(u"agent", u"spool-dir", u"test-spool");
+    yella_settings_set_dir(u"agent", u"spool-dir", u"test-spool");
     return 0;
 }
 
@@ -360,5 +360,7 @@ int main()
         cmocka_unit_test_setup_teardown(empty, init_test, NULL)
     };
 
+    yella_load_settings_doc();
+    yella_destroy_settings_doc();
     return cmocka_run_group_tests(tests, init_settings, clean_settings);
 }

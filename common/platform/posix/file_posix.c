@@ -297,6 +297,7 @@ yella_rc yella_ensure_dir_exists(const UChar* const name)
     size_t i;
     yella_rc rc = YELLA_NO_ERROR;
     const UChar* cur;
+    uds actual;
 
     if (name == NULL || name[0] == 0)
         return YELLA_LOGIC_ERROR;

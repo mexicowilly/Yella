@@ -124,7 +124,7 @@ static void load_configs(file_plugin* fplg)
     char* utf8;
     event_source_spec* espec;
 
-    fname = udscatprintf(udsempty(), u"%S%Sconfigs.flatb", yella_settings_get_text(u"file", u"data-dir"), YELLA_DIR_SEP);
+    fname = udscatprintf(udsempty(), u"%Sconfigs.flatb", yella_settings_get_dir(u"file", u"data-dir"));
     rc = yella_file_contents(fname, &raw);
     if (rc == YELLA_NO_ERROR)
     {
@@ -243,9 +243,9 @@ static void save_configs(const file_plugin* const fplg)
     yella_fb_file_configs_end_as_root(&bld);
     ser = flatcc_builder_finalize_buffer(&bld, &ser_size);
     flatcc_builder_clear(&bld);
-    fname = udsnew(yella_settings_get_text(u"file", u"data-dir"));
+    fname = udsnew(yella_settings_get_dir(u"file", u"data-dir"));
     yella_ensure_dir_exists(fname);
-    fname = udscatprintf(fname, u"%Sconfigs.flatb", YELLA_DIR_SEP);
+    fname = udscat(fname, u"configs.flatb");
     utf8 = yella_to_utf8(fname);
     udsfree(fname);
     f = fopen(utf8, "wb");
@@ -403,14 +403,14 @@ static void retrieve_file_settings(void)
 
     yella_setting_desc descs[] =
     {
-        { u"data-dir", YELLA_SETTING_VALUE_TEXT },
+        { u"data-dir", YELLA_SETTING_VALUE_DIR },
         { u"max-spool-dbs", YELLA_SETTING_VALUE_UINT },
         { u"max-events-in-cache", YELLA_SETTING_VALUE_UINT },
         { u"fs-monitor-latency-seconds", YELLA_SETTING_VALUE_UINT }
     };
 
-    data_dir = udscatprintf(udsempty(), u"%S%Sfile", yella_settings_get_text(u"agent", u"data-dir"), YELLA_DIR_SEP);
-    yella_settings_set_text(u"file", u"data-dir", data_dir);
+    data_dir = udscatprintf(udsempty(), u"%Sfile", yella_settings_get_dir(u"agent", u"data-dir"));
+    yella_settings_set_dir(u"file", u"data-dir", data_dir);
     udsfree(data_dir);
     yella_settings_set_uint(u"file", u"max-spool-dbs", 100);
     yella_settings_set_uint(u"file", u"max-events-in-cache", 5000000);

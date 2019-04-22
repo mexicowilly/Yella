@@ -15,12 +15,14 @@
  */
 
 #include "common/settings.h"
+#include "common/file.h"
 #include <unicode/ustring.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <cmocka.h>
+#include <unicode/ustring.h>
 
 static void write_config(const char* const fname, const char* const content)
 {
@@ -68,9 +70,9 @@ static void initial_settings(void** arg)
 {
 #if defined(YELLA_POSIX)
     assert_true(u_strcmp(yella_settings_get_text(u"agent", u"config-file"), u"/etc/yella.yaml") == 0);
-    assert_true(u_strcmp(yella_settings_get_text(u"agent", u"data-dir"), u"/var/lib/yella") == 0);
-    assert_true(u_strcmp(yella_settings_get_text(u"agent", u"spool-dir"), u"/var/spool/yella") == 0);
-    assert_true(u_strcmp(yella_settings_get_text(u"agent", u"plugin-dir"), u"/usr/local/plugin") == 0);
+    assert_true(u_strcmp(yella_settings_get_dir(u"agent", u"data-dir"), u"/var/lib/yella/") == 0);
+    assert_true(u_strcmp(yella_settings_get_dir(u"agent", u"spool-dir"), u"/var/spool/yella/") == 0);
+    assert_true(u_strcmp(yella_settings_get_dir(u"agent", u"plugin-dir"), u"/usr/local/plugin/") == 0);
 #endif
 }
 
@@ -78,6 +80,7 @@ static void get_set(void** arg)
 {
     const uint64_t* val;
     const UChar* str;
+    uds dir;
 
     yella_load_settings_doc();
     yella_destroy_settings_doc();
@@ -97,6 +100,20 @@ static void get_set(void** arg)
     assert_null(str);
     str = yella_settings_get_text(u"lumpy", u"lumpy-garbage");
     assert_null(str);
+    dir = udscatprintf(udsempty(), u"%Sone%Stwo%Sthree", YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP);
+    yella_settings_set_dir(u"dirs", u"simple", dir);
+    str = yella_settings_get_dir(u"dirs", u"simple");
+    dir = udscat(dir, YELLA_DIR_SEP);
+    assert_int_equal(u_strcmp(str, dir), 0);
+    udsfree(dir);
+    dir = udscatprintf(udsempty(), u"%S%Sone%S%S%Stwo%S%S%S%Sthree%S%S", YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP);
+    yella_settings_set_dir(u"dirs", u"simple", dir);
+    str = yella_settings_get_dir(u"dirs", u"simple");
+    dir = udscat(dir, YELLA_DIR_SEP);
+    udsfree(dir);
+    dir = udscatprintf(udsempty(), u"%Sone%Stwo%Sthree%S", YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP);
+    assert_int_equal(u_strcmp(str, dir), 0);
+    udsfree(dir);
 }
 
 static void load_1(void** arg)

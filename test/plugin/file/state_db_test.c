@@ -145,7 +145,7 @@ int main()
 
     yella_load_settings_doc();
     yella_destroy_settings_doc();
-    yella_settings_set_text(u"file", u"data-dir", u"state-db-test-data");
-    yella_remove_all(yella_settings_get_text(u"file", u"data-dir"));
+    yella_settings_set_dir(u"file", u"data-dir", u"state-db-test-data");
+    yella_remove_all(yella_settings_get_dir(u"file", u"data-dir"));
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

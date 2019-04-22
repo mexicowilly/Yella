@@ -148,7 +148,7 @@ static void load_plugins(yella_agent* agent)
 
     agent_api.agent_id = udsnew(agent->state->id->text);
     agent_api.send_message = send_plugin_message;
-    itor = yella_create_directory_iterator(yella_settings_get_text(u"agent", u"plugin-dir"));
+    itor = yella_create_directory_iterator(yella_settings_get_dir(u"agent", u"plugin-dir"));
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
     {
@@ -323,8 +323,8 @@ yella_agent* yella_create_agent(void)
 
     yella_load_settings_doc();
     retrieve_agent_settings();
-    dirs[0] = yella_settings_get_text(u"agent", u"data-dir");
-    dirs[1] = yella_settings_get_text(u"agent", u"plugin-dir");
+    dirs[0] = yella_settings_get_dir(u"agent", u"data-dir");
+    dirs[1] = yella_settings_get_dir(u"agent", u"plugin-dir");
     for (i = 0; i < 2; i++)
     {
         yrc = yella_ensure_dir_exists(dirs[i]);

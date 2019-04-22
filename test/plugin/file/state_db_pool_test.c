@@ -22,7 +22,7 @@ static int set_up(void** arg)
 {
     pool_test* pt;
 
-    yella_remove_all(yella_settings_get_text(u"file", u"data-dir"));
+    yella_remove_all(yella_settings_get_dir(u"file", u"data-dir"));
     pt = malloc(sizeof(pool_test));
     pt->pool = create_state_db_pool();
     pt->configs = yella_create_uds_ptr_vector();
@@ -118,7 +118,7 @@ int main()
 
     yella_load_settings_doc();
     yella_destroy_settings_doc();
-    yella_settings_set_text(u"file", u"data-dir", u"state-db-pool-test-data");
+    yella_settings_set_dir(u"file", u"data-dir", u"state-db-pool-test-data");
     yella_settings_set_uint(u"file", u"max-spool-dbs", 2);
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

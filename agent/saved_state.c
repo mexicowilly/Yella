@@ -58,7 +58,7 @@ static bool mac_addresses_changed(yella_fb_mac_addr_vec_t old_addrs, chucho_logg
 
 static uds ss_file_name(void)
 {
-    return udscatprintf(udsempty(), u"%S%S%S", yella_settings_get_text(u"agent", u"data-dir"), YELLA_DIR_SEP, u"saved_state.flatb");
+    return udscatprintf(udsempty(), u"%S%S", yella_settings_get_dir(u"agent", u"data-dir"), u"saved_state.flatb");
 }
 
 static void reset_ss(yella_saved_state* st, chucho_logger_t* lgr)

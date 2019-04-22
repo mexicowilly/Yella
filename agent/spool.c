@@ -85,7 +85,7 @@ static uds spool_file_name(uint32_t major_seq, uint32_t minor_seq)
 {
     return udscatprintf(udsempty(),
                         u"%S%S%lu-%lu.yella.spool",
-                        yella_settings_get_text(u"agent", u"spool-dir"),
+                        yella_settings_get_dir(u"agent", u"spool-dir"),
                         YELLA_DIR_SEP,
                         (unsigned long)major_seq,
                         (unsigned long)minor_seq);
@@ -172,7 +172,7 @@ static uds find_file(spool* sp, spool_pos* pos, bool (*cmp_func)(spool* sp, cons
 
     candidate = NULL;
     to_remove = yella_create_uds_ptr_vector();
-    itor = yella_create_directory_iterator(yella_settings_get_text(u"agent", u"spool-dir"));
+    itor = yella_create_directory_iterator(yella_settings_get_dir(u"agent", u"spool-dir"));
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
     {
@@ -521,7 +521,7 @@ static size_t current_spool_size()
     size_t cur_size;
 
     result = 0;
-    itor = yella_create_directory_iterator(yella_settings_get_text(u"agent", u"spool-dir"));
+    itor = yella_create_directory_iterator(yella_settings_get_dir(u"agent", u"spool-dir"));
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
     {
@@ -543,10 +543,10 @@ spool* create_spool(void)
     yella_rc yrc;
     char* utf8;
 
-    yrc = yella_ensure_dir_exists(yella_settings_get_text(u"agent", u"spool-dir"));
+    yrc = yella_ensure_dir_exists(yella_settings_get_dir(u"agent", u"spool-dir"));
     if (yrc != YELLA_NO_ERROR)
     {
-        utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"spool-dir"));
+        utf8 = yella_to_utf8(yella_settings_get_dir(u"agent", u"spool-dir"));
         CHUCHO_C_FATAL("yella.spool",
                        "Unable to create the directory %s: %s",
                        utf8,

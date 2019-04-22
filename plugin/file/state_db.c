@@ -33,7 +33,7 @@ static uds create_db_name(const UChar* const config_name)
     unsigned sz;
     unsigned i;
 
-    result = udsnew(yella_settings_get_text(u"file", u"data-dir"));
+    result = udsnew(yella_settings_get_dir(u"file", u"data-dir"));
     yella_ensure_dir_exists(result);
     if (result[0] != 0 && result[u_strlen(result) - 1] != YELLA_DIR_SEP[0])
         result = udscat(result, YELLA_DIR_SEP);
