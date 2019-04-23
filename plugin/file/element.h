@@ -16,7 +16,9 @@ YELLA_PRIV_EXPORT void destroy_element(element* elem);
 /* post: elem1 contains the symmetric difference of attributes between the two */
 YELLA_PRIV_EXPORT void diff_elements(element* elem1, element* elem2);
 YELLA_PRIV_EXPORT const UChar* element_name(const element* const elem);
+/* This array of bytes will go into the database */
 YELLA_PRIV_EXPORT uint8_t* pack_element_attributes(const element* const elem, size_t* sz);
-YELLA_PRIV_EXPORT yella_fb_file_attr_array_ref_t pack_element_attributes_to_table(const element* const elem, flatcc_builder_t* bld);
+/* This attr vector will go into the outgoing change message for this element */
+YELLA_PRIV_EXPORT yella_fb_file_attr_vec_ref_t pack_element_attributes_to_vector(const element* const elem, flatcc_builder_t* bld);
 
 #endif

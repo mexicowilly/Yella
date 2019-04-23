@@ -1,0 +1,10 @@
+include "file.fbs";
+
+namespace yella.fb.file;
+
+// This is used to store attributes in the database
+table attr_array
+{
+    attrs: [attr];
+}
+

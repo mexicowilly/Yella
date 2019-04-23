@@ -3,6 +3,7 @@
 #include "common/uds.h"
 #include "common/ptr_vector.h"
 #include "file_builder.h"
+#include "db_attrs_builder.h"
 #include <unicode/ustring.h>
 
 typedef struct attr_node
@@ -21,21 +22,6 @@ struct element
 
 SGLIB_DEFINE_SORTED_LIST_PROTOTYPES(attr_node, ATTR_COMPARATOR, next);
 SGLIB_DEFINE_SORTED_LIST_FUNCTIONS(attr_node, ATTR_COMPARATOR, next);
-
-static yella_fb_file_attr_vec_ref_t build_attr_vector(const element* const elem, flatcc_builder_t* bld)
-{
-    attr_node* al;
-    struct sglib_attr_node_iterator itor;
-
-    yella_fb_file_attr_array_attrs_start(bld);
-    for (al = sglib_attr_node_it_init(&itor, elem->attrs);
-         al != NULL;
-         al = sglib_attr_node_it_next(&itor))
-    {
-        yella_fb_file_attr_array_attrs_push(bld, pack_attribute(al->attr, bld));
-    }
-    return yella_fb_file_attr_array_attrs_end(bld);
-}
 
 void add_element_attribute(element* elem, attribute* attr)
 {
@@ -181,7 +167,7 @@ uint8_t* pack_element_attributes(const element* const elem, size_t* sz)
     {
         flatcc_builder_init(&bld);
         yella_fb_file_attr_array_start_as_root(&bld);
-        yella_fb_file_attr_array_attrs_add(&bld, build_attr_vector(elem, &bld));
+        yella_fb_file_attr_array_attrs_add(&bld, pack_element_attributes_to_vector(elem, &bld));
         yella_fb_file_attr_array_end_as_root(&bld);
         result = flatcc_builder_finalize_buffer(&bld, sz);
         flatcc_builder_clear(&bld);
@@ -189,9 +175,18 @@ uint8_t* pack_element_attributes(const element* const elem, size_t* sz)
     return result;
 }
 
-yella_fb_file_attr_array_ref_t pack_element_attributes_to_table(const element* const elem, flatcc_builder_t* bld)
+yella_fb_file_attr_vec_ref_t pack_element_attributes_to_vector(const element* const elem, flatcc_builder_t* bld)
 {
-    yella_fb_file_attr_array_start(bld);
-    yella_fb_file_attr_array_attrs_add(bld, build_attr_vector(elem, bld));
-    return yella_fb_file_attr_array_end(bld);
+    attr_node* al;
+    struct sglib_attr_node_iterator itor;
+
+    yella_fb_file_attr_vec_start(bld);
+    for (al = sglib_attr_node_it_init(&itor, elem->attrs);
+         al != NULL;
+         al = sglib_attr_node_it_next(&itor))
+    {
+        yella_fb_file_attr_vec_push(bld, pack_attribute(al->attr, bld));
+    }
+    return yella_fb_file_attr_vec_end(bld);
+
 }

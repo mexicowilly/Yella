@@ -52,18 +52,12 @@ table file_state
     config_name: string;
     cond: condition = ADDED;
     file_name: string;
-    attrs: attr_array;
+    attrs: [attr];
 }
 
 //
 // Attribute definitions
 //
-
-// This is used to store attributes in the database
-table attr_array
-{
-    attrs: [attr];
-}
 
 table attr
 {

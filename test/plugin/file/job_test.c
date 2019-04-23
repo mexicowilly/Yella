@@ -139,7 +139,7 @@ static void send_message(void* agnt, const UChar* const tpc, const uint8_t* cons
     assert_int_equal(yella_fb_file_file_state_cond(st), found->cond);
     if (yella_fb_file_file_state_attrs_is_present(st))
     {
-        attrv = yella_fb_file_attr_array_attrs(yella_fb_file_file_state_attrs(st));
+        attrv = yella_fb_file_file_state_attrs(st);
         for (i = 0; i < yella_fb_file_attr_vec_len(attrv); i++)
         {
             attr = yella_fb_file_attr_vec_at(attrv, i);

@@ -41,7 +41,7 @@ static void send_message(const UChar* const name, const element* elem, const job
     free(utf8);
     yella_fb_file_file_state_cond_add(&bld, cond);
     if (elem != NULL)
-        yella_fb_file_file_state_attrs_add(&bld, pack_element_attributes_to_table(elem, &bld));
+        yella_fb_file_file_state_attrs_add(&bld, pack_element_attributes_to_vector(elem, &bld));
     yella_fb_file_file_state_end_as_root(&bld);
     raw = flatcc_builder_finalize_buffer(&bld, &sz);
     flatcc_builder_clear(&bld);
