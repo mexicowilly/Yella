@@ -188,7 +188,7 @@ static void load_plugins(yella_agent* agent)
                         utf8_n = yella_to_utf8(plugin->name);
                         utf8_v = yella_to_utf8(plugin->version);
                         CHUCHO_C_INFO_L(agent->lgr,
-                                        "Loaded plugin %s, version %s",
+                                        "Loaded plugin '%s', version '%s'",
                                         utf8_n,
                                         utf8_v);
                         free(utf8_n);
@@ -287,9 +287,10 @@ static void retrieve_agent_settings(void)
 {
     yella_setting_desc descs[] =
     {
-        { u"data-dir", YELLA_SETTING_VALUE_TEXT },
-        { u"plugin-dir", YELLA_SETTING_VALUE_TEXT },
-        { u"spool-dir", YELLA_SETTING_VALUE_TEXT },
+        { u"data-dir", YELLA_SETTING_VALUE_DIR },
+        { u"plugin-dir", YELLA_SETTING_VALUE_DIR },
+        { u"spool-dir", YELLA_SETTING_VALUE_DIR },
+        { u"bin-dir", YELLA_SETTING_VALUE_DIR },
         { u"max-spool-partitions", YELLA_SETTING_VALUE_UINT },
         { u"max-spool-partition-size", YELLA_SETTING_VALUE_UINT },
         { u"heartbeat-seconds", YELLA_SETTING_VALUE_UINT },
