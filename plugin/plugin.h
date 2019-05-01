@@ -4,16 +4,19 @@
 #include "common/return_code.h"
 #include "common/ptr_vector.h"
 #include "common/uds.h"
+#include "common/message_header.h"
+#include "common/message_part.h"
 #include "plugin_reader.h"
 #include <chucho/logger.h>
 
 typedef struct yella_agent_api
 {
     uds agent_id;
-    void (*send_message)(void* agent, const UChar* const tpc, const uint8_t* const msg, size_t sz);
+    /* mhdr is owned by the caller. */
+    void (*send_message)(void* agent, yella_message_header* mhdr, const uint8_t* const msg, size_t sz);
 } yella_agent_api;
 
-typedef yella_rc (*yella_in_cap_handler)(const uint8_t* const msg, size_t sz, void* udata);
+typedef yella_rc (*yella_in_cap_handler)(const yella_message_header* const mhdr, const yella_message_part* const msg, void* udata);
 
 typedef struct yella_plugin_in_cap
 {
