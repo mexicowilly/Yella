@@ -91,7 +91,7 @@ static int set_up(void** arg)
     yella_settings_set_uint(u"agent", u"max-spool-partition-size", 1000000);
     yella_settings_set_uint(u"agent", u"max-spool-partitions", 100);
     yella_settings_set_text(u"agent", u"compression-type", u"lz4");
-    yella_settings_set_text(u"agent", u"agent-topic", u"kafka.test");
+    yella_settings_set_text(u"agent", u"agent-recipient", u"kafka.test");
     yella_settings_set_uint(u"agent", u"connection-interval-seconds", 1);
     yella_settings_set_text(u"agent", u"kafka-debug-contexts", u"all");
     return 0;

@@ -177,6 +177,11 @@ void yella_sleep_this_thread(size_t milliseconds)
     } while (rc != 0 && errno == EINTR);
 }
 
+void* yella_this_thread(void)
+{
+    return pthread_self();
+}
+
 void yella_unlock_mutex(yella_mutex* mtx)
 {
     pthread_mutex_unlock(&mtx->mtx);

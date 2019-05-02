@@ -20,7 +20,6 @@
 #include "agent/saved_state.h"
 #include "agent/runtime_link.h"
 #include "agent/heartbeat.h"
-#include "agent/envelope.h"
 #include "common/settings.h"
 #include "common/file.h"
 #include "common/thread.h"
@@ -58,6 +57,15 @@ typedef struct plugin_api
     void* udata;
 } plugin_api;
 
+typedef struct plugin_sender
+{
+    void* thread;
+    sender* sndr;
+    char color;
+    struct plugin_sender* left;
+    struct plugin_sender* right;
+} plugin_sender;
+
 typedef struct yella_agent
 {
     yella_saved_state* state;
@@ -67,12 +75,18 @@ typedef struct yella_agent
     in_handler* in_handlers;
     chucho_logger_t* lgr;
     router* rtr;
+    plugin_sender* plugin_senders;
 } yella_agent;
 
 #define YELLA_KEY_COMPARE(x, y) u_strcmp((x->key), (y->key))
 
 SGLIB_DEFINE_RBTREE_PROTOTYPES(in_handler, left, right, color, YELLA_KEY_COMPARE);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(in_handler, left, right, color, YELLA_KEY_COMPARE);
+
+#define YELLA_SENDER_COMPARE(x, y) (x->thread - y->thread)
+
+SGLIB_DEFINE_RBTREE_PROTOTYPES(plugin_sender, left, right, color, YELLA_SENDER_COMPARE);
+SGLIB_DEFINE_RBTREE_FUNCTIONS(plugin_sender, left, right, color, YELLA_SENDER_COMPARE);
 
 static void plugin_dtor(void* plg, void* udata)
 {
@@ -85,7 +99,6 @@ static void heartbeat_thr(void* udata)
     size_t to_wait = *yella_settings_get_uint(u"agent", u"heartbeat-seconds");
     yella_agent* ag = (yella_agent*)udata;
     plugin_api* api;
-    yella_plugin* plg;
     int i;
     yella_ptr_vector* plugins;
     sender* sndr;
@@ -143,20 +156,41 @@ static void heartbeat_thr(void* udata)
 }
 
 static void send_plugin_message(void* agent,
-                                const yella_message_header* const mhdr,
+                                yella_message_header* mhdr,
                                 const uint8_t* const msg,
                                 size_t sz)
 {
     yella_agent* ag;
     yella_message_part parts[2];
     size_t hsz;
+    plugin_sender to_find;
+    plugin_sender* found;
 
     ag = (yella_agent*)agent;
+    mhdr->sender = udsnew(ag->state->id->text);
+    mhdr->seq.major = ag->state->boot_count;
+    to_find.thread = yella_this_thread();
+    found = sglib_plugin_sender_find_member(ag->plugin_senders, &to_find);
+    if (found == NULL)
+    {
+        found = malloc(sizeof(plugin_sender));
+        found->thread = to_find.thread;
+        found->sndr = create_sender(ag->rtr);
+        sglib_plugin_sender_add(&ag->plugin_senders, found);
+    }
     parts[0].data = yella_pack_mhdr(mhdr, &hsz);
     parts[0].size = hsz;
-    parts[1].data = (uint8_t*)msg;
-    parts[1].size = sz;
-    send_router_message(ag->rtr, parts, 2);
+    if (mhdr->cmp == YELLA_COMPRESSION_LZ4)
+    {
+        parts[1].size = sz;
+        parts[1].data = yella_lz4_compress(msg, &parts[1].size);
+    }
+    else
+    {
+        parts[1].data = (uint8_t*)msg;
+        parts[1].size = sz;
+    }
+    send_router_message(found->sndr, parts, 2);
 }
 
 static void load_plugins(yella_agent* agent)
@@ -272,12 +306,11 @@ static void message_received(const yella_message_part* const hdr, const yella_me
     in_handler* found;
     yella_message_header* mhdr;
     yella_agent* ag;
-    uint8_t* decmp;
-    size_t decmp_sz;
     in_handler* hndlr;
     in_handler hndlr_to_find;
     yella_rc rc;
     char* utf8;
+    yella_message_part part;
 
     mhdr = yella_unpack_mhdr(hdr->data);
     ag = (yella_agent*)udata;
@@ -294,14 +327,14 @@ static void message_received(const yella_message_part* const hdr, const yella_me
     {
         if (mhdr->cmp == YELLA_COMPRESSION_LZ4)
         {
-            decmp_sz = body->size;
-            decmp = yella_lz4_decompress(body->data, &decmp_sz);
-            rc = hndlr->func(mhdr, decmp, decmp_sz);
-            free(decmp);
+            part.size = body->size;
+            part.data = yella_lz4_decompress(body->data, &part.size);
+            rc = hndlr->func(mhdr, &part, hndlr->udata);
+            free(part.data);
         }
         else
         {
-            rc = hndlr->func(mhdr, body->data, body->size);
+            rc = hndlr->func(mhdr, body, hndlr->udata);
         }
         if (rc != YELLA_NO_ERROR)
         {
@@ -343,8 +376,8 @@ static void retrieve_agent_settings(void)
         { u"latency-milliseconds", YELLA_SETTING_VALUE_UINT },
         { u"compression-type", YELLA_SETTING_VALUE_TEXT },
         { u"connection-interval-seconds", YELLA_SETTING_VALUE_UINT },
-        { u"agent-topic", YELLA_SETTING_VALUE_TEXT },
-        { u"heartbeat-topic", YELLA_SETTING_VALUE_TEXT },
+        { u"agent-recipient", YELLA_SETTING_VALUE_TEXT },
+        { u"heartbeat-recipient", YELLA_SETTING_VALUE_TEXT },
         { u"start-connection-seconds", YELLA_SETTING_VALUE_UINT },
         { u"max-message-size", YELLA_SETTING_VALUE_UINT }
     };
@@ -355,8 +388,8 @@ static void retrieve_agent_settings(void)
     yella_settings_set_uint(u"agent", u"heartbeat-seconds", 30);
     yella_settings_set_text(u"agent", u"compression-type", u"lz4");
     yella_settings_set_uint(u"agent", u"connection-interval-seconds", 15);
-    yella_settings_set_text(u"agent", u"agent-topic", u"yella-agent");
-    yella_settings_set_text(u"agent", u"heartbeat-topic", u"yella-heartbeat");
+    yella_settings_set_text(u"agent", u"agent-recipient", u"yella-agent");
+    yella_settings_set_text(u"agent", u"heartbeat-recipient", u"yella-heartbeat");
     yella_settings_set_uint(u"agent", u"start-connection-seconds", 2);
     yella_settings_set_uint(u"agent", u"max-message-size", 1 * YELLA_MEGABYTE);
 
@@ -434,11 +467,20 @@ void yella_destroy_agent(yella_agent* agent)
 {
     in_handler* hndlr;
     struct sglib_in_handler_iterator itor;
+    plugin_sender* sndr;
+    struct sglib_plugin_sender_iterator sitor;
 
     agent->should_stop = true;
-    destroy_router(agent->rtr);
     yella_join_thread(agent->heartbeat);
     yella_destroy_thread(agent->heartbeat);
+    for (sndr = sglib_plugin_sender_it_init(&sitor, agent->plugin_senders);
+         sndr != NULL;
+         sndr = sglib_plugin_sender_it_next(&sitor))
+    {
+        destroy_sender(sndr->sndr);
+        free(sndr);
+    }
+    destroy_router(agent->rtr);
     for (hndlr = sglib_in_handler_it_init(&itor, agent->in_handlers);
          hndlr != NULL;
          hndlr = sglib_in_handler_it_next(&itor))

@@ -5,7 +5,7 @@ file_identifier "YLFC";
 table config
 {
     name: string;
-    topic: string;
+    recipient: string;
     includes: [string];
     excludes: [string];
     // These are the flatbuffers types from file.fbs

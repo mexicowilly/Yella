@@ -25,10 +25,6 @@ SET(YELLA_SOURCES
     agent.h
     argparse.c
     argparse.h
-    envelope.c
-    envelope.h
-#    kafka.c
-#    kafka.h
     heartbeat.c
     heartbeat.h
     mac_addresses.c
@@ -78,7 +74,6 @@ IF(DEFINED YELLA_SO_FLAGS)
 ENDIF()
 
 YELLA_GEN_TARGET(agent
-                 serialization/public/envelope.fbs
                  serialization/public/heartbeat.fbs
                  serialization/private/saved_state.fbs)
 

@@ -183,7 +183,7 @@ static int set_up(void** arg)
     td->data_dir = udscat(td->data_dir, YELLA_DIR_SEP);
     td->db_pool = create_state_db_pool();
     td->files = NULL;
-    td->topic = udsnew(u"my cool topic");
+    td->topic = udsnew(u"my cool recipient");
     yella_remove_all(td->data_dir);
     yella_ensure_dir_exists(td->data_dir);
     *arg = td;

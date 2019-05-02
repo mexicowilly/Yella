@@ -12,7 +12,7 @@
 typedef struct yella_agent_api
 {
     uds agent_id;
-    /* mhdr is owned by the caller. */
+    /* mhdr is owned by the caller, but the agent needs to mutate it. */
     void (*send_message)(void* agent, yella_message_header* mhdr, const uint8_t* const msg, size_t sz);
 } yella_agent_api;
 
