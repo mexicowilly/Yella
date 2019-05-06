@@ -89,7 +89,7 @@ static void worker_main(void* arg)
              cur != NULL;
              cur = sglib_msg_node_it_next(&itor))
         {
-            if (time_limit_reached || flatcc_builder_get_buffer_size(&cur->bld) >= max_msg_sz)
+            if (cur->count > 0 && (time_limit_reached || flatcc_builder_get_buffer_size(&cur->bld) >= max_msg_sz))
             {
                 mhdr = yella_create_mhdr();
                 mhdr->recipient = udsnew(cur->recipient);
