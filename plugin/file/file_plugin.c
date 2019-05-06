@@ -9,6 +9,7 @@
 #include "plugin/file/job_queue.h"
 #include "plugin/file/event_source.h"
 #include "plugin/file/state_db_pool.h"
+#include "plugin/file/accumulator.h"
 #undef flatbuffers_identifier
 #include "file_reader.h"
 #include "file_config_builder.h"
@@ -36,12 +37,11 @@ typedef struct file_plugin
     chucho_logger_t* lgr;
     yella_mutex* guard;
     yella_reader_writer_lock* config_guard;
-    yella_agent_api* agent_api;
     job_queue* jq;
     config_node* configs;
     event_source* esrc;
-    void* agent;
     state_db_pool* db_pool;
+    accumulator* acc;
 } file_plugin;
 
 #define CONFIG_MAP_COMPARATOR(lhs, rhs) (u_strcmp(lhs->name, rhs->name))
@@ -77,7 +77,7 @@ static void event_received(const UChar* const config_name, const UChar* const fn
     found = sglib_config_node_find_member(fplg->configs, &to_find);
     if (found != NULL)
     {
-        jb = create_job(config_name, fplg->agent_api, found->recipient, fplg->agent);
+        jb = create_job(config_name, found->recipient, fplg->acc);
         yella_push_back_ptr_vector(jb->includes, udsnew(fname));
         jb->attr_type_count = found->attr_type_count;
         jb->attr_types = malloc(sizeof(attribute_type) * jb->attr_type_count);
@@ -500,12 +500,11 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
                                yella_create_plugin_in_cap(u"file.monitor_request", 1, monitor_handler, fplg));
     yella_push_back_ptr_vector(fplg->desc->out_caps,
                                yella_create_plugin_out_cap(u"file.change", 1));
-    fplg->agent_api = yella_copy_agent_api(api);
     fplg->db_pool = create_state_db_pool();
+    fplg->acc = create_accumulator(agnt, api);
     fplg->jq = create_job_queue(fplg->db_pool);
     fplg->configs = NULL;
     fplg->esrc = create_event_source(event_received, fplg);
-    fplg->agent = agnt;
     load_configs(fplg);
     return yella_copy_plugin(fplg->desc);
 }
@@ -538,10 +537,10 @@ YELLA_EXPORT yella_rc plugin_stop(void* udata)
     }
     destroy_job_queue(fplg->jq);
     destroy_state_db_pool(fplg->db_pool);
+    destroy_accumulator(fplg->acc);
     yella_destroy_plugin(fplg->desc);
     yella_destroy_mutex(fplg->guard);
     yella_destroy_reader_writer_lock(fplg->config_guard);
-    yella_destroy_agent_api(fplg->agent_api);
     chucho_release_logger(fplg->lgr);
     free(fplg);
     return YELLA_NO_ERROR;

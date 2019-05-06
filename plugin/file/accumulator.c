@@ -33,7 +33,7 @@ struct accumulator
 SGLIB_DEFINE_RBTREE_PROTOTYPES(msg_node, left, right, color, MSG_NODE_COMPARATOR);
 SGLIB_DEFINE_RBTREE_FUNCTIONS(msg_node, left, right, color, MSG_NODE_COMPARATOR);
 
-static bool no_size_excess(const msg_node* const nodes, uint64_t max_sz)
+static bool no_size_excess(msg_node* nodes, uint64_t max_sz)
 {
     struct sglib_msg_node_iterator itor;
     msg_node* cur;
@@ -73,7 +73,7 @@ static void worker_main(void* arg)
         yella_lock_mutex(acc->guard);
         millis_to_wait = latency_millis;
         while (!acc->should_stop &&
-               ucal_getNow() < time_limit() &&
+               ucal_getNow() < time_limit &&
                no_size_excess(acc->recipients, max_msg_sz))
         {
             yella_wait_milliseconds_for_condition_variable(acc->cond, acc->guard, millis_to_wait);
@@ -138,7 +138,7 @@ void add_accumulator_message(accumulator* acc,
     msg_node to_find;
     msg_node* found;
 
-    to_find.recipient = recipient;
+    to_find.recipient = (UChar*)recipient;
     yella_lock_mutex(acc->guard);
     found = sglib_msg_node_find_member(acc->recipients, &to_find);
     if (found == NULL)
@@ -166,13 +166,13 @@ void add_accumulator_message(accumulator* acc,
     yella_unlock_mutex(acc->guard);
 }
 
-accumulator* create_accumulator(void* agent, yella_agent_api* api)
+accumulator* create_accumulator(void* agent, const yella_agent_api* const api)
 {
     accumulator* result;
 
     result = malloc(sizeof(accumulator));
     result->agent = agent;
-    result->api = api;
+    result->api = yella_copy_agent_api(api);
     result->guard = yella_create_mutex();
     result->cond = yella_create_condition_variable();
     result->should_stop = false;
@@ -204,6 +204,7 @@ void destroy_accumulator(accumulator* acc)
         }
         yella_destroy_condition_variable(acc->cond);
         yella_destroy_mutex(acc->guard);
+        yella_destroy_agent_api(acc->api);
         free(acc);
     }
 }
