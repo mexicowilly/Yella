@@ -48,11 +48,15 @@ enum file_type : byte
 
 table file_state
 {
-    sender: string;
     config_name: string;
     cond: condition = ADDED;
     file_name: string;
     attrs: [attr];
+}
+
+table file_states
+{
+    states: [file_state];
 }
 
 //

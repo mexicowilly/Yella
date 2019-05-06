@@ -157,7 +157,7 @@ static void heartbeat_thr(void* udata)
 
 static void send_plugin_message(void* agent,
                                 yella_message_header* mhdr,
-                                const uint8_t* const msg,
+                                uint8_t* msg,
                                 size_t sz)
 {
     yella_agent* ag;
@@ -371,25 +371,14 @@ static void retrieve_agent_settings(void)
         { u"max-spool-partitions", YELLA_SETTING_VALUE_UINT },
         { u"max-spool-partition-size", YELLA_SETTING_VALUE_UINT },
         { u"heartbeat-seconds", YELLA_SETTING_VALUE_UINT },
-        { u"brokers", YELLA_SETTING_VALUE_TEXT },
-        { u"kafka-debug-contexts", YELLA_SETTING_VALUE_TEXT },
-        { u"latency-milliseconds", YELLA_SETTING_VALUE_UINT },
-        { u"compression-type", YELLA_SETTING_VALUE_TEXT },
-        { u"connection-interval-seconds", YELLA_SETTING_VALUE_UINT },
-        { u"agent-recipient", YELLA_SETTING_VALUE_TEXT },
-        { u"heartbeat-recipient", YELLA_SETTING_VALUE_TEXT },
+        { u"router", YELLA_SETTING_VALUE_TEXT },
         { u"start-connection-seconds", YELLA_SETTING_VALUE_UINT },
         { u"max-message-size", YELLA_SETTING_VALUE_UINT }
     };
 
     yella_settings_set_uint(u"agent", u"max-spool-partitions", 1000);
     yella_settings_set_uint(u"agent", u"max-spool-partition-size", 2 * YELLA_MEGABYTE);
-    yella_settings_set_uint(u"agent", u"reconnect-timeout-seconds", 5);
     yella_settings_set_uint(u"agent", u"heartbeat-seconds", 30);
-    yella_settings_set_text(u"agent", u"compression-type", u"lz4");
-    yella_settings_set_uint(u"agent", u"connection-interval-seconds", 15);
-    yella_settings_set_text(u"agent", u"agent-recipient", u"yella-agent");
-    yella_settings_set_text(u"agent", u"heartbeat-recipient", u"yella-heartbeat");
     yella_settings_set_uint(u"agent", u"start-connection-seconds", 2);
     yella_settings_set_uint(u"agent", u"max-message-size", 1 * YELLA_MEGABYTE);
 

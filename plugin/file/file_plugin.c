@@ -280,7 +280,7 @@ static config_node* process_plugin_config(file_plugin* fplg, yella_fb_file_monit
         CHUCHO_C_ERROR(fplg->lgr, "monitor_request: config.name field is missing");
         return NULL;
     }
-    CHUCHO_C_INFO(fplg->lgr, "Received monitor request %s", yella_fb_plugin_config_name(fb_cfg));
+    CHUCHO_C_INFO(fplg->lgr, "Received monitor request '%s'", yella_fb_plugin_config_name(fb_cfg));
     cfg = malloc(sizeof(config_node));
     cfg->name = udsnew(yella_from_utf8(yella_fb_plugin_config_name(fb_cfg)));
     *act = yella_fb_plugin_config_action(fb_cfg);
@@ -471,7 +471,8 @@ static void retrieve_file_settings(void)
         { u"data-dir", YELLA_SETTING_VALUE_DIR },
         { u"max-spool-dbs", YELLA_SETTING_VALUE_UINT },
         { u"max-events-in-cache", YELLA_SETTING_VALUE_UINT },
-        { u"fs-monitor-latency-seconds", YELLA_SETTING_VALUE_UINT }
+        { u"fs-monitor-latency-seconds", YELLA_SETTING_VALUE_UINT },
+        { u"send-latency-seconds", YELLA_SETTING_VALUE_UINT }
     };
 
     data_dir = udscatprintf(udsempty(), u"%Sfile", yella_settings_get_dir(u"agent", u"data-dir"));
@@ -480,6 +481,7 @@ static void retrieve_file_settings(void)
     yella_settings_set_uint(u"file", u"max-spool-dbs", 100);
     yella_settings_set_uint(u"file", u"max-events-in-cache", 5000000);
     yella_settings_set_uint(u"file", u"fs-monitor-latency-seconds", 5);
+    yella_settings_set_uint(u"file", u"send-latency-seconds", 15);
 
     yella_retrieve_settings(u"file", descs, YELLA_ARRAY_SIZE(descs));
 }
