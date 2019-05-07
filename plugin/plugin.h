@@ -11,7 +11,6 @@
 
 typedef struct yella_agent_api
 {
-    uds agent_id;
     /* mhdr is owned by the caller, but the agent needs to mutate it. The msg is owned by the callee. */
     void (*send_message)(void* agent, yella_message_header* mhdr, uint8_t* msg, size_t sz);
 } yella_agent_api;
@@ -43,12 +42,10 @@ typedef struct yella_plugin
     void* udata;
 } yella_plugin;
 
-YELLA_EXPORT yella_agent_api* yella_copy_agent_api(const yella_agent_api* const api);
 YELLA_EXPORT yella_plugin* yella_copy_plugin(const yella_plugin* const plug);
 YELLA_EXPORT yella_plugin* yella_create_plugin(const UChar* const name, const UChar* const version, void* udata);
 YELLA_EXPORT yella_plugin_in_cap* yella_create_plugin_in_cap(const UChar* const name, int version, yella_in_cap_handler handler, void* udata);
 YELLA_EXPORT yella_plugin_out_cap* yella_create_plugin_out_cap(const UChar* const name, int version);
-YELLA_EXPORT void yella_destroy_agent_api(yella_agent_api* api);
 YELLA_EXPORT void yella_destroy_plugin(yella_plugin* plug);
 YELLA_EXPORT void yella_log_plugin_config(chucho_logger_t* lgr, yella_fb_plugin_config_table_t cfg);
 

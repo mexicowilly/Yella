@@ -105,6 +105,7 @@ static void worker_main(void* arg)
                 yella_destroy_mhdr(mhdr);
             }
         }
+        yella_unlock_mutex(acc->guard);
     }
     for (cur = sglib_msg_node_it_init(&itor, acc->recipients);
          cur != NULL;
@@ -172,7 +173,8 @@ accumulator* create_accumulator(void* agent, const yella_agent_api* const api)
 
     result = malloc(sizeof(accumulator));
     result->agent = agent;
-    result->api = yella_copy_agent_api(api);
+    result->api = malloc(sizeof(yella_agent_api));
+    result->api->send_message = api->send_message;
     result->guard = yella_create_mutex();
     result->cond = yella_create_condition_variable();
     result->should_stop = false;
@@ -204,7 +206,7 @@ void destroy_accumulator(accumulator* acc)
         }
         yella_destroy_condition_variable(acc->cond);
         yella_destroy_mutex(acc->guard);
-        yella_destroy_agent_api(acc->api);
+        free(acc->api);
         free(acc);
     }
 }
