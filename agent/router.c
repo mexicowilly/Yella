@@ -28,7 +28,6 @@
 
 static const char* MONITOR_SOCKET = "inproc://monitor";
 static const char* OUTGOING_SOCKET = "inproc://outgoing";
-static long POLL_TIMEOUT_MILLIS = 500;
 
 struct router
 {
@@ -409,6 +408,7 @@ static void socket_worker_main(void* arg)
     void* out_sock;
     zmq_pollitem_t pis[3];
     int poll_count;
+    long poll_timeout_millis;
 
     rtr = (router*)arg;
     CHUCHO_C_INFO_L(rtr->lgr,
@@ -431,9 +431,10 @@ static void socket_worker_main(void* arg)
     pis[1].events = ZMQ_POLLIN;
     pis[2].socket = mon_sock;
     pis[2].events = ZMQ_POLLIN;
+    poll_timeout_millis = *yella_settings_get_uint(u"agent", u"poll-milliseconds");
     while (true)
     {
-        poll_count = zmq_poll(pis, 3, POLL_TIMEOUT_MILLIS);
+        poll_count = zmq_poll(pis, 3, poll_timeout_millis);
         if (rtr->should_stop)
             break;
         if (poll_count > 0)

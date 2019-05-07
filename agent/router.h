@@ -40,23 +40,23 @@ typedef void (*router_message_received_callback)(const yella_message_part* const
                                                  const yella_message_part* const body,
                                                  void* caller_data);
 
-router* create_router(yella_uuid* id);
-void destroy_router(router* rtr);
-router_state get_router_state(router* rtr);
-void set_router_state_callback(router* rtr,
-                               router_state_callback cb,
-                               void* data);
-void set_router_message_received_callback(router* rtr,
-                                          router_message_received_callback cb,
-                                          void* data);
+YELLA_PRIV_EXPORT router* create_router(yella_uuid* id);
+YELLA_PRIV_EXPORT void destroy_router(router* rtr);
+YELLA_PRIV_EXPORT router_state get_router_state(router* rtr);
+YELLA_PRIV_EXPORT void set_router_state_callback(router* rtr,
+                                                 router_state_callback cb,
+                                                 void* data);
+YELLA_PRIV_EXPORT void set_router_message_received_callback(router* rtr,
+                                                            router_message_received_callback cb,
+                                                            void* data);
 
-sender* create_sender(router* rtr);
-void destroy_sender(sender* sndr);
+YELLA_PRIV_EXPORT sender* create_sender(router* rtr);
+YELLA_PRIV_EXPORT void destroy_sender(sender* sndr);
 /**
  * @note This function takes ownership of the data, but not of the msgs
  * array itself.
  */
-bool send_router_message(sender* sndr, yella_message_part* msgs, size_t count);
-bool send_transient_router_message(sender* sndr, yella_message_part* msgs, size_t count);
+YELLA_PRIV_EXPORT bool send_router_message(sender* sndr, yella_message_part* msgs, size_t count);
+YELLA_PRIV_EXPORT bool send_transient_router_message(sender* sndr, yella_message_part* msgs, size_t count);
 
 #endif

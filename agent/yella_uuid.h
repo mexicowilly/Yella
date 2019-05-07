@@ -17,6 +17,7 @@
 #if !defined(YELLA_UUID_H__)
 #define YELLA_UUID_H__
 
+#include "export.h"
 #include <unicode/utypes.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -27,8 +28,8 @@ typedef struct yella_uuid
     UChar text[37];
 } yella_uuid;
 
-yella_uuid* yella_create_uuid(void);
-yella_uuid* yella_create_uuid_from_bytes(const uint8_t* bytes);
-void yella_destroy_uuid(yella_uuid* id);
+YELLA_PRIV_EXPORT yella_uuid* yella_create_uuid(void);
+YELLA_PRIV_EXPORT yella_uuid* yella_create_uuid_from_bytes(const uint8_t* bytes);
+YELLA_PRIV_EXPORT void yella_destroy_uuid(yella_uuid* id);
 
 #endif

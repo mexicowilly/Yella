@@ -209,7 +209,6 @@ static void load_plugins(yella_agent* agent)
     char* utf8_n;
     char* utf8_v;
 
-    agent_api.agent_id = udsnew(agent->state->id->text);
     agent_api.send_message = send_plugin_message;
     itor = yella_create_directory_iterator(yella_settings_get_dir(u"agent", u"plugin-dir"));
     cur = yella_directory_iterator_next(itor);
@@ -296,7 +295,6 @@ static void load_plugins(yella_agent* agent)
         cur = yella_directory_iterator_next(itor);
     }
     yella_destroy_directory_iterator(itor);
-    udsfree(agent_api.agent_id);
     yella_log_settings();
 }
 
@@ -373,7 +371,9 @@ static void retrieve_agent_settings(void)
         { u"heartbeat-seconds", YELLA_SETTING_VALUE_UINT },
         { u"router", YELLA_SETTING_VALUE_TEXT },
         { u"start-connection-seconds", YELLA_SETTING_VALUE_UINT },
-        { u"max-message-size", YELLA_SETTING_VALUE_UINT }
+        { u"max-message-size", YELLA_SETTING_VALUE_UINT },
+        { u"reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
+        { u"poll-milliseconds", YELLA_SETTING_VALUE_UINT }
     };
 
     yella_settings_set_uint(u"agent", u"max-spool-partitions", 1000);
@@ -381,6 +381,8 @@ static void retrieve_agent_settings(void)
     yella_settings_set_uint(u"agent", u"heartbeat-seconds", 30);
     yella_settings_set_uint(u"agent", u"start-connection-seconds", 2);
     yella_settings_set_uint(u"agent", u"max-message-size", 1 * YELLA_MEGABYTE);
+    yella_settings_set_uint(u"agent", u"reconnect-timeout-seconds", 5);
+    yella_settings_set_uint(u"agent", u"poll-milliseconds", 500);
 
     yella_retrieve_settings(u"agent", descs, YELLA_ARRAY_SIZE(descs));
 }
