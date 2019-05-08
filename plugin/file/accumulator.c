@@ -5,6 +5,7 @@
 #include "common/message_header.h"
 #include "common/sglib.h"
 #include "file_builder.h"
+#include <chucho/log.h>
 #include <unicode/ucal.h>
 
 typedef struct msg_node
@@ -26,6 +27,7 @@ struct accumulator
     yella_condition_variable* cond;
     bool should_stop;
     msg_node* recipients;
+    chucho_logger_t* lgr;
 };
 
 #define MSG_NODE_COMPARATOR(lhs, rhs) (u_strcmp(lhs->recipient, rhs->recipient))
@@ -62,16 +64,18 @@ static void worker_main(void* arg)
     uint8_t* packed;
     size_t packed_sz;
     bool time_limit_reached;
+    char* utf8;
 
     acc = arg;
+    CHUCHO_C_INFO(acc->lgr, "The accumulator thread is starting");
     minor_seq = 0;
     max_msg_sz = *yella_settings_get_uint(u"agent", u"max-message-size");
     latency_millis = *yella_settings_get_uint(u"file", u"send-latency-seconds") * 1000;
-    time_limit = ucal_getNow() + latency_millis;
     while (true)
     {
-        yella_lock_mutex(acc->guard);
         millis_to_wait = latency_millis;
+        time_limit = ucal_getNow() + millis_to_wait;
+        yella_lock_mutex(acc->guard);
         while (!acc->should_stop &&
                ucal_getNow() < time_limit &&
                no_size_excess(acc->recipients, max_msg_sz))
@@ -98,15 +102,22 @@ static void worker_main(void* arg)
                 mhdr->seq.minor = minor_seq++;
                 yella_fb_file_file_states_end_as_root(&cur->bld);
                 packed = flatcc_builder_finalize_buffer(&cur->bld, &packed_sz);
-                flatcc_builder_reset(&cur->bld);
-                yella_fb_file_file_states_start_as_root(&cur->bld);
-                cur->count = 0;
                 acc->api->send_message(acc->agent, mhdr, packed, packed_sz);
                 yella_destroy_mhdr(mhdr);
+                flatcc_builder_reset(&cur->bld);
+                yella_fb_file_file_states_start_as_root(&cur->bld);
+                if (chucho_logger_permits(acc->lgr, CHUCHO_INFO))
+                {
+                    utf8 = yella_to_utf8(cur->recipient);
+                    CHUCHO_C_INFO(acc->lgr, "Sent %zu events to recipient '%s'", cur->count, utf8);
+                    free(utf8);
+                }
+                cur->count = 0;
             }
         }
         yella_unlock_mutex(acc->guard);
     }
+    yella_lock_mutex(acc->guard);
     for (cur = sglib_msg_node_it_init(&itor, acc->recipients);
          cur != NULL;
          cur = sglib_msg_node_it_next(&itor))
@@ -120,12 +131,20 @@ static void worker_main(void* arg)
             mhdr->seq.minor = minor_seq++;
             yella_fb_file_file_states_end_as_root(&cur->bld);
             packed = flatcc_builder_finalize_buffer(&cur->bld, &packed_sz);
-            cur->count = 0;
             acc->api->send_message(acc->agent, mhdr, packed, packed_sz);
             yella_destroy_mhdr(mhdr);
+            if (chucho_logger_permits(acc->lgr, CHUCHO_INFO))
+            {
+                utf8 = yella_to_utf8(cur->recipient);
+                CHUCHO_C_INFO(acc->lgr, "Sent %zu events to recipient '%s'", cur->count, utf8);
+                free(utf8);
+            }
+            cur->count = 0;
         }
         flatcc_builder_clear(&cur->bld);
     }
+    yella_unlock_mutex(acc->guard);
+    CHUCHO_C_INFO(acc->lgr, "The accumulator thread is exiting");
 }
 
 void add_accumulator_message(accumulator* acc,
@@ -138,6 +157,8 @@ void add_accumulator_message(accumulator* acc,
     char* utf8;
     msg_node to_find;
     msg_node* found;
+    char* utf81;
+    char* utf82;
 
     to_find.recipient = (UChar*)recipient;
     yella_lock_mutex(acc->guard);
@@ -163,6 +184,16 @@ void add_accumulator_message(accumulator* acc,
         yella_fb_file_file_state_attrs_add(&found->bld, pack_element_attributes_to_vector(elem, &found->bld));
     yella_fb_file_file_states_states_add(&found->bld, yella_fb_file_file_state_end(&found->bld));
     ++found->count;
+    if (chucho_logger_permits(acc->lgr, CHUCHO_DEBUG))
+    {
+        utf8 = yella_to_utf8(recipient);
+        utf81 = yella_to_utf8(config_name);
+        utf82 = yella_to_utf8(elem_name);
+        CHUCHO_C_DEBUG(acc->lgr, "Added event for recipient '%s', config '%s', element '%s'", utf8, utf81, utf82);
+        free(utf82);
+        free(utf81);
+        free(utf8);
+    }
     yella_signal_condition_variable(acc->cond);
     yella_unlock_mutex(acc->guard);
 }
@@ -172,6 +203,7 @@ accumulator* create_accumulator(void* agent, const yella_agent_api* const api)
     accumulator* result;
 
     result = malloc(sizeof(accumulator));
+    result->lgr = chucho_get_logger("file.accumulator");
     result->agent = agent;
     result->api = malloc(sizeof(yella_agent_api));
     result->api->send_message = api->send_message;
@@ -207,6 +239,7 @@ void destroy_accumulator(accumulator* acc)
         yella_destroy_condition_variable(acc->cond);
         yella_destroy_mutex(acc->guard);
         free(acc->api);
+        chucho_release_logger(acc->lgr);
         free(acc);
     }
 }
