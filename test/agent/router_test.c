@@ -233,7 +233,7 @@ static int set_up(void** arg)
     yella_settings_set_text(u"agent", u"router", u"tcp://127.0.0.1:19567");
     yella_settings_set_uint(u"agent", u"reconnect-timeout-seconds", 5);
     yella_settings_set_uint(u"agent", u"poll-milliseconds", 500);
-    yella_settings_set_uint(u"agent", u"max-spool-partition-size", 10000000);
+    yella_settings_set_byte_size(u"agent", u"max-spool-partition-size", u"10M");
     yella_settings_set_uint(u"agent", u"max-spool-partitions", 100);
     yella_settings_set_dir(u"agent", u"spool-dir", u"test-router-spool");
     targ->id = yella_create_uuid();

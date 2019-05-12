@@ -1,4 +1,5 @@
 #include "plugin/file/job.h"
+#include "plugin/file/attribute.h"
 #include "common/file.h"
 #include "common/sglib.h"
 #include "common/text_util.h"
@@ -13,7 +14,6 @@
 #include <unicode/ustdio.h>
 #include <unicode/ustring.h>
 #include <openssl/evp.h>
-#include <plugin/file/attribute.h>
 
 typedef struct attr_node
 {

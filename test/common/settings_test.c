@@ -116,31 +116,95 @@ static void get_set(void** arg)
     udsfree(dir);
 }
 
+static void get_set_byte_size(void** arg)
+{
+    const uint64_t* val;
+
+    yella_load_settings_doc();
+    yella_destroy_settings_doc();
+    yella_settings_set_byte_size(u"you", u"dummy", u"1b");
+    val = yella_settings_get_byte_size(u"you", u"dummy");
+    assert_non_null(val);
+    assert_int_equal(*val, 1);
+    yella_settings_set_byte_size(u"you", u"dummy", u"1");
+    val = yella_settings_get_byte_size(u"you", u"dummy");
+    assert_non_null(val);
+    assert_int_equal(*val, 1);
+    yella_settings_set_byte_size(u"you", u"dummy", u"740K");
+    val = yella_settings_get_byte_size(u"you", u"dummy");
+    assert_non_null(val);
+    assert_int_equal(*val, 740 * 1024);
+    yella_settings_set_byte_size(u"you", u"dummy", u"740mB");
+    val = yella_settings_get_byte_size(u"you", u"dummy");
+    assert_non_null(val);
+    assert_int_equal(*val, 740 * 1024 * 1024);
+    yella_settings_set_byte_size(u"you", u"dummy", u"1G");
+    val = yella_settings_get_byte_size(u"you", u"dummy");
+    assert_non_null(val);
+    assert_int_equal(*val, 1 * 1024 * 1024 * 1024);
+}
+
+static void get_set_byte_size_bad(void** arg)
+{
+    const uint64_t* val;
+
+    yella_load_settings_doc();
+    yella_destroy_settings_doc();
+    yella_settings_set_byte_size(u"you", u"dummy", u"1bbbbbb");
+    val = yella_settings_get_byte_size(u"you", u"dummy");
+    assert_null(val);
+    yella_settings_set_byte_size(u"you", u"dummy", u"1mn");
+    val = yella_settings_get_byte_size(u"you", u"dummy");
+    assert_null(val);
+    yella_settings_set_byte_size(u"you", u"dummy", u"b");
+    val = yella_settings_get_byte_size(u"you", u"dummy");
+    assert_null(val);
+}
+
 static void load_1(void** arg)
 {
     const UChar* val;
+    const uint64_t* ival;
+    uds dir_name;
     yella_setting_desc desc[] =
     {
         { u"load-1-mine-1", YELLA_SETTING_VALUE_TEXT },
-        { u"load-1-mine-2", YELLA_SETTING_VALUE_TEXT }
+        { u"load-1-mine-2", YELLA_SETTING_VALUE_UINT },
+        { u"load-1-mine-3", YELLA_SETTING_VALUE_DIR },
+        { u"load-1-mine-4", YELLA_SETTING_VALUE_BYTE_SIZE }
     };
 
     load_preamble("agent:\n"
-                  "    load-1-not-mine: howdy\n"
+                  "    load-1-not-mine-1: howdy\n"
                   "    load-1-mine-1: whaddup\n"
-                  "    load-1-more-not-mine: bye\n"
-                  "    load-1-mine-2: yummy",
+                  "    load-1-not-mine-2: bye\n"
+                  "    load-1-mine-2: 700\n"
+                  "    load-1-not-mine-3: scrump\n"
+                  "    load-1-mine-3: doggies\n"
+                  "    load-1-not-mine-4: blump\n"
+                  "    load-1-mine-4: 7m\n",
                   u"agent",
                   desc,
-                  2);
+                  4);
+    yella_log_settings();
     val = yella_settings_get_text(u"agent", u"load-1-mine-1");
     assert_non_null(val);
     assert_true(u_strcmp(val, u"whaddup") == 0);
-    val = yella_settings_get_text(u"agent", u"load-1-mine-2");
+    ival = yella_settings_get_uint(u"agent", u"load-1-mine-2");
     assert_non_null(val);
-    assert_true(u_strcmp(val, u"yummy") == 0);
-    assert_null(yella_settings_get_text(u"agent", u"non-mine"));
-    assert_null(yella_settings_get_text(u"agent", u"more-non-mine"));
+    assert_int_equal(*ival, 700);
+    val = yella_settings_get_dir(u"agent", u"load-1-mine-3");
+    assert_non_null(val);
+    dir_name = udscatprintf(udsempty(), u"doggies%S", YELLA_DIR_SEP);
+    assert_int_equal(u_strcmp(val, dir_name), 0);
+    udsfree(dir_name);
+    ival = yella_settings_get_byte_size(u"agent", u"load-1-mine-4");
+    assert_non_null(ival);
+    assert_int_equal(*ival, 7 * 1024 * 1024);
+    assert_null(yella_settings_get_text(u"agent", u"load-1-not-mine-1"));
+    assert_null(yella_settings_get_text(u"agent", u"load-1-not-mine-2"));
+    assert_null(yella_settings_get_text(u"agent", u"load-1-not-mine-3"));
+    assert_null(yella_settings_get_text(u"agent", u"load-1-not-mine-4"));
 }
 
 static void load_2(void** arg)
@@ -160,6 +224,7 @@ static void load_2(void** arg)
                   u"agent",
                   &desc,
                   1);
+    yella_log_settings();
     val = yella_settings_get_text(u"agent", u"load-2-mine");
     assert_non_null(val);
     assert_true(u_strcmp(val, u"doggy") == 0);
@@ -190,7 +255,10 @@ int main()
         cmocka_unit_test_setup_teardown(get_set, set_up, tear_down),
         cmocka_unit_test_setup_teardown(load_1, set_up, tear_down),
         cmocka_unit_test_setup_teardown(load_2, set_up, tear_down),
-        cmocka_unit_test_setup_teardown(too_big, set_up, tear_down)
+        cmocka_unit_test_setup_teardown(too_big, set_up, tear_down),
+        cmocka_unit_test_setup_teardown(get_set_byte_size, set_up, tear_down),
+        cmocka_unit_test_setup_teardown(get_set_byte_size_bad, set_up, tear_down)
     };
+
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

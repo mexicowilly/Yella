@@ -559,7 +559,7 @@ spool* create_spool(void)
     sp->guard = yella_create_mutex();
     sp->was_written_cond = yella_create_condition_variable();
     sp->stats.current_size = current_spool_size();
-    sp->stats.max_partition_size = *yella_settings_get_uint(u"agent", u"max-spool-partition-size");
+    sp->stats.max_partition_size = *yella_settings_get_byte_size(u"agent", u"max-spool-partition-size");
     sp->stats.max_partitions = *yella_settings_get_uint(u"agent", u"max-spool-partitions");
     sp->stats.smallest_event_size = (size_t)-1;
     if (!init_writer(sp) || !init_reader(sp))

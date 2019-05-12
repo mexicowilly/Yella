@@ -380,7 +380,7 @@ static void retrieve_agent_settings(void)
     yella_settings_set_uint(u"agent", u"max-spool-partition-size", 2 * YELLA_MEGABYTE);
     yella_settings_set_uint(u"agent", u"heartbeat-seconds", 30);
     yella_settings_set_uint(u"agent", u"start-connection-seconds", 2);
-    yella_settings_set_uint(u"agent", u"max-message-size", 1 * YELLA_MEGABYTE);
+    yella_settings_set_byte_size(u"agent", u"max-message-size", u"1M");
     yella_settings_set_uint(u"agent", u"reconnect-timeout-seconds", 5);
     yella_settings_set_uint(u"agent", u"poll-milliseconds", 500);
 

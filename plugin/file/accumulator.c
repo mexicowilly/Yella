@@ -69,7 +69,7 @@ static void worker_main(void* arg)
     acc = arg;
     CHUCHO_C_INFO(acc->lgr, "The accumulator thread is starting");
     minor_seq = 0;
-    max_msg_sz = *yella_settings_get_uint(u"agent", u"max-message-size");
+    max_msg_sz = *yella_settings_get_byte_size(u"agent", u"max-message-size");
     latency_millis = *yella_settings_get_uint(u"file", u"send-latency-seconds") * 1000;
     while (true)
     {
