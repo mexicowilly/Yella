@@ -7,6 +7,7 @@
 
 typedef struct accumulator accumulator;
 
+YELLA_PRIV_EXPORT size_t accumulator_size(accumulator* acc);
 YELLA_PRIV_EXPORT void add_accumulator_message(accumulator* acc,
                                                const UChar* const recipient,
                                                const UChar* const config_name,

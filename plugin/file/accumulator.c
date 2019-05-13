@@ -147,6 +147,24 @@ static void worker_main(void* arg)
     CHUCHO_C_INFO(acc->lgr, "The accumulator thread is exiting");
 }
 
+size_t accumulator_size(accumulator* acc)
+{
+    struct sglib_msg_node_iterator itor;
+    msg_node* cur;
+    size_t result;
+
+    result = 0;
+    yella_lock_mutex(acc->guard);
+    for (cur = sglib_msg_node_it_init(&itor, acc->recipients);
+         cur != NULL;
+         cur = sglib_msg_node_it_next(&itor))
+    {
+        result += flatcc_builder_get_buffer_size(&cur->bld);
+    }
+    yella_unlock_mutex(acc->guard);
+    return result;
+}
+
 void add_accumulator_message(accumulator* acc,
                              const UChar* const recipient,
                              const UChar* const config_name,

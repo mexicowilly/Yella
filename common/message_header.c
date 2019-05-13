@@ -58,11 +58,12 @@ void yella_log_mhdr(const yella_message_header* const mhdr, chucho_logger_t* lgr
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
         uerr = U_ZERO_ERROR;
-        dfmt = udat_open(UDAT_PATTERN, UDAT_PATTERN, NULL, u"UTC", 3, u"yyyyMMddTHHmmssZ", -1, &uerr);
-        assert(uerr = U_ZERO_ERROR);
+        dfmt = udat_open(UDAT_PATTERN, UDAT_PATTERN, NULL, u"UTC", 3, u"yyyyMMdd'T'HHmmss'Z'", -1, &uerr);
+        assert(U_SUCCESS(uerr));
+        uerr = U_ZERO_ERROR;
         urc = udat_format(dfmt, mhdr->time, dbuf, sizeof(dbuf) / sizeof(UChar), NULL, &uerr);
-        assert(urc == 17);
         udat_close(dfmt);
+        assert(urc == 16);
         cmp = (mhdr->cmp == YELLA_COMPRESSION_NONE) ? u"NONE" : u"LZ4";
         if (mhdr->grp == NULL)
         {
@@ -85,7 +86,7 @@ void yella_log_mhdr(const yella_message_header* const mhdr, chucho_logger_t* lgr
                                  group);
         utf8 = yella_to_utf8(formatted);
         udsfree(group);
-        free(formatted);
+        udsfree(formatted);
         CHUCHO_C_INFO(lgr, utf8);
         free(utf8);
     }
