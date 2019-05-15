@@ -100,6 +100,7 @@ static void worker_main(void* arg)
                 mhdr->type = udsnew(u"file.change");
                 mhdr->cmp = YELLA_COMPRESSION_LZ4;
                 mhdr->seq.minor = minor_seq++;
+                yella_fb_file_file_states_states_add(&cur->bld, yella_fb_file_file_state_vec_end(&cur->bld));
                 yella_fb_file_file_states_end_as_root(&cur->bld);
                 packed = flatcc_builder_finalize_buffer(&cur->bld, &packed_sz);
                 acc->api->send_message(acc->agent, mhdr, packed, packed_sz);
@@ -129,6 +130,7 @@ static void worker_main(void* arg)
             mhdr->type = udsnew(u"file.change");
             mhdr->cmp = YELLA_COMPRESSION_LZ4;
             mhdr->seq.minor = minor_seq++;
+            yella_fb_file_file_states_states_add(&cur->bld, yella_fb_file_file_state_vec_end(&cur->bld));
             yella_fb_file_file_states_end_as_root(&cur->bld);
             packed = flatcc_builder_finalize_buffer(&cur->bld, &packed_sz);
             acc->api->send_message(acc->agent, mhdr, packed, packed_sz);
@@ -187,6 +189,7 @@ void add_accumulator_message(accumulator* acc,
         found->recipient = udsnew(recipient);
         flatcc_builder_init(&found->bld);
         yella_fb_file_file_states_start_as_root(&found->bld);
+        yella_fb_file_file_state_vec_start(&found->bld);
         found->count = 0;
         sglib_msg_node_add(&acc->recipients, found);
     }
@@ -200,7 +203,7 @@ void add_accumulator_message(accumulator* acc,
     free(utf8);
     if (elem != NULL)
         yella_fb_file_file_state_attrs_add(&found->bld, pack_element_attributes_to_vector(elem, &found->bld));
-    yella_fb_file_file_states_states_add(&found->bld, yella_fb_file_file_state_end(&found->bld));
+    yella_fb_file_file_state_vec_push(&found->bld, yella_fb_file_file_state_end(&found->bld));
     ++found->count;
     if (chucho_logger_permits(acc->lgr, CHUCHO_DEBUG))
     {

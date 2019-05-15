@@ -4,6 +4,7 @@
 #include "common/sglib.h"
 #include "common/text_util.h"
 #include "common/settings.h"
+#include "common/thread.h"
 #include "file_reader.h"
 #include <stdio.h>
 #include <stdarg.h>
@@ -38,7 +39,8 @@ typedef struct test_data
     uds data_dir;
     test_node* files;
     state_db_pool* db_pool;
-    uds topic;
+    uds recipient;
+    accumulator* acc;
 } test_data;
 
 #define TEST_NODE_COMPARATOR(lhs, rhs) (u_strcmp(lhs->file_name, rhs->file_name))
@@ -107,9 +109,11 @@ static void get_sha256(const UChar* const file_name, unsigned char* buf)
     assert_int_equal(md_len, 32);
 }
 
-static void send_message(void* agnt, const UChar* const tpc, const uint8_t* const msg, size_t sz)
+static void send_message(void* agnt, yella_message_header* mhdr, uint8_t* msg, size_t sz)
 {
+    yella_fb_file_file_states_table_t sts;
     yella_fb_file_file_state_table_t st;
+    yella_fb_file_file_state_vec_t stv;
     yella_fb_file_attr_vec_t attrv;
     yella_fb_file_attr_table_t attr;
     const char* str;
@@ -120,56 +124,60 @@ static void send_message(void* agnt, const UChar* const tpc, const uint8_t* cons
     int i;
     attr_node* found_attr;
     attr_node attr_to_find;
+    int j;
 
     td = agnt;
-    assert_int_equal(u_strcmp(tpc, td->topic), 0);
-    st = yella_fb_file_file_state_as_root(msg);
-    str = yella_fb_file_file_state_sender(st);
-    assert_string_equal(str, "job-test-agent");
-    str = yella_fb_file_file_state_file_name(st);
-    utf16 = yella_from_utf8(str);
-    to_find.file_name = udsnew(utf16);
-    free(utf16);
-    found = sglib_test_node_find_member(td->files, &to_find);
-    assert_non_null(found);
-    str = yella_fb_file_file_state_config_name(st);
-    utf16 = yella_from_utf8(str);
-    assert_int_equal(u_strcmp(utf16, found->config_name), 0);
-    free(utf16);
-    assert_int_equal(yella_fb_file_file_state_cond(st), found->cond);
-    if (yella_fb_file_file_state_attrs_is_present(st))
+    assert_int_equal(u_strcmp(mhdr->recipient, td->recipient), 0);
+    sts = yella_fb_file_file_states_as_root(msg);
+    stv = yella_fb_file_file_states_states(sts);
+    for (i = 0; i < yella_fb_file_file_state_vec_len(stv); i++)
     {
-        attrv = yella_fb_file_file_state_attrs(st);
-        for (i = 0; i < yella_fb_file_attr_vec_len(attrv); i++)
+        st = yella_fb_file_file_state_vec_at(stv, i);
+        str = yella_fb_file_file_state_file_name(st);
+        utf16 = yella_from_utf8(str);
+        to_find.file_name = udsnew(utf16);
+        free(utf16);
+        found = sglib_test_node_find_member(td->files, &to_find);
+        assert_non_null(found);
+        str = yella_fb_file_file_state_config_name(st);
+        utf16 = yella_from_utf8(str);
+        assert_int_equal(u_strcmp(utf16, found->config_name), 0);
+        free(utf16);
+        assert_int_equal(yella_fb_file_file_state_cond(st), found->cond);
+        if (yella_fb_file_file_state_attrs_is_present(st))
         {
-            attr = yella_fb_file_attr_vec_at(attrv, i);
-            switch (yella_fb_file_attr_type(attr))
+            attrv = yella_fb_file_file_state_attrs(st);
+            for (j = 0; j < yella_fb_file_attr_vec_len(attrv); j++)
             {
-            case yella_fb_file_attr_type_FILE_TYPE:
-                attr_to_find.attr.type = ATTR_TYPE_FILE_TYPE;
-                found_attr = sglib_attr_node_find_member(found->attrs, &attr_to_find);
-                assert_non_null(found_attr);
-                assert_int_equal(fb_to_file_type(yella_fb_file_attr_ftype(attr)), found_attr->attr.value.integer);
-                break;
-            case yella_fb_file_attr_type_SHA256:
-                attr_to_find.attr.type = ATTR_TYPE_SHA256;
-                found_attr = sglib_attr_node_find_member(found->attrs, &attr_to_find);
-                assert_non_null(found_attr);
-                assert_int_equal(flatbuffers_uint8_vec_len(yella_fb_file_attr_bytes(attr)),
-                                 found_attr->attr.value.byte_array.sz);
-                assert_memory_equal(yella_fb_file_attr_bytes(attr), found_attr->attr.value.byte_array.mem,
-                                    found_attr->attr.value.byte_array.sz);
-                break;
+                attr = yella_fb_file_attr_vec_at(attrv, j);
+                switch (yella_fb_file_attr_type(attr))
+                {
+                case yella_fb_file_attr_type_FILE_TYPE:
+                    attr_to_find.attr.type = ATTR_TYPE_FILE_TYPE;
+                    found_attr = sglib_attr_node_find_member(found->attrs, &attr_to_find);
+                    assert_non_null(found_attr);
+                    assert_int_equal(fb_to_file_type(yella_fb_file_attr_ftype(attr)), found_attr->attr.value.integer);
+                    break;
+                case yella_fb_file_attr_type_SHA256:
+                    attr_to_find.attr.type = ATTR_TYPE_SHA256;
+                    found_attr = sglib_attr_node_find_member(found->attrs, &attr_to_find);
+                    assert_non_null(found_attr);
+                    assert_int_equal(flatbuffers_uint8_vec_len(yella_fb_file_attr_bytes(attr)),
+                                     found_attr->attr.value.byte_array.sz);
+                    assert_memory_equal(yella_fb_file_attr_bytes(attr), found_attr->attr.value.byte_array.mem,
+                                        found_attr->attr.value.byte_array.sz);
+                    break;
+                }
+                sglib_attr_node_delete(&found->attrs, found_attr);
+                free(found_attr);
             }
-            sglib_attr_node_delete(&found->attrs, found_attr);
-            free(found_attr);
         }
+        assert_int_equal(sglib_attr_node_len(found->attrs), 0);
+        sglib_test_node_delete(&td->files, found);
+        udsfree(found->file_name);
+        udsfree(found->config_name);
+        free(found);
     }
-    assert_int_equal(sglib_attr_node_len(found->attrs), 0);
-    sglib_test_node_delete(&td->files, found);
-    udsfree(found->file_name);
-    udsfree(found->config_name);
-    free(found);
 }
 
 static int set_up(void** arg)
@@ -177,13 +185,13 @@ static int set_up(void** arg)
     test_data* td;
 
     td = malloc(sizeof(test_data));
-    td->api.agent_id = udsnew(u"job-test-agent");
     td->api.send_message = send_message;
     td->data_dir = udsnew(u"job-test-data");
     td->data_dir = udscat(td->data_dir, YELLA_DIR_SEP);
     td->db_pool = create_state_db_pool();
     td->files = NULL;
-    td->topic = udsnew(u"my cool recipient");
+    td->recipient = udsnew(u"my cool recipient");
+    td->acc = create_accumulator(td, &td->api);
     yella_remove_all(td->data_dir);
     yella_ensure_dir_exists(td->data_dir);
     *arg = td;
@@ -195,9 +203,9 @@ static int tear_down(void** arg)
     test_data* td;
 
     td = *arg;
-    udsfree(td->api.agent_id);
+    destroy_accumulator(td->acc);
     destroy_state_db_pool(td->db_pool);
-    udsfree(td->topic);
+    udsfree(td->recipient);
     free(td);
     return 0;
 }
@@ -226,7 +234,7 @@ static void single(void** arg)
         {
             yella_remove_file(file_name);
         }
-        j = create_job(u"single-cfg", &td->api, td->topic, td);
+        j = create_job(u"single-cfg", td->recipient, td->acc);
         yella_push_back_ptr_vector(j->includes, udsdup(file_name));
         j->attr_type_count = 2;
         j->attr_types = malloc(sizeof(attribute_type) * j->attr_type_count);
@@ -259,6 +267,7 @@ static void single(void** arg)
         }
         sglib_test_node_add(&td->files, tn);
         run_job(j, td->db_pool);
+        yella_sleep_this_thread(1250);
         destroy_job(j);
         assert_int_equal(sglib_test_node_len(td->files), 0);
     }
@@ -274,7 +283,7 @@ void wild(void** arg)
     UFILE* uf;
 
     td = *arg;
-    j = create_job(u"wild-cfg", &td->api, td->topic, td);
+    j = create_job(u"wild-cfg", td->recipient, td->acc);
     yella_push_back_ptr_vector(j->includes, udscatprintf(udsempty(), u"%S**", td->data_dir));
     j->attr_type_count = 1;
     j->attr_types = malloc(sizeof(attribute_type));
@@ -312,6 +321,7 @@ void wild(void** arg)
     uf = u_fopen_u(tn->file_name, "w", NULL, NULL);
     u_fclose(uf);
     run_job(j, td->db_pool);
+    yella_sleep_this_thread(1250);
     destroy_job(j);
     assert_int_equal(sglib_test_node_len(td->files), 0);
 }
@@ -329,5 +339,7 @@ int main()
     yella_settings_set_dir(u"file", u"data-dir", u"state-db-test-data");
     yella_remove_all(yella_settings_get_dir(u"file", u"data-dir"));
     yella_settings_set_uint(u"file", u"max-spool-dbs", 10);
+    yella_settings_set_byte_size(u"agent", u"max-message-size", u"1MB");
+    yella_settings_set_uint(u"file", u"send-latency-seconds", 1);
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
