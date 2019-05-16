@@ -1,9 +1,0 @@
-namespace yella.fb;
-
-table envelope
-{
-    type: string;
-    message: [ubyte];
-}
-
-root_type envelope;

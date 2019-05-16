@@ -20,6 +20,7 @@
 #include "file.h"
 #include "sglib.h"
 #include "thread.h"
+#include "ptr_vector.h"
 #include <chucho/log.h>
 #include <yaml.h>
 #include <stdlib.h>
@@ -27,6 +28,8 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <unicode/ustring.h>
+#include <unicode/uchar.h>
+#include <unicode/ustdio.h>
 
 void yella_initialize_platform_settings(void);
 
@@ -84,10 +87,21 @@ static void handle_yaml_node(const yaml_node_t* node,
     {
         if (key_desc != NULL)
         {
-            if (key_desc->type == YELLA_SETTING_VALUE_TEXT)
+            if (key_desc->type == YELLA_SETTING_VALUE_TEXT || key_desc->type == YELLA_SETTING_VALUE_DIR || key_desc->type == YELLA_SETTING_VALUE_BYTE_SIZE)
             {
                 value = yella_from_utf8((const char*)node->data.scalar.value);
-                yella_settings_set_text(section, key_desc->key, value);
+                switch (key_desc->type)
+                {
+                case YELLA_SETTING_VALUE_BYTE_SIZE:
+                    yella_settings_set_byte_size(section, key_desc->key, value);
+                    break;
+                case YELLA_SETTING_VALUE_DIR:
+                    yella_settings_set_dir(section, key_desc->key, value);
+                    break;
+                default:
+                    yella_settings_set_text(section, key_desc->key, value);
+                    break;
+                }
                 free(value);
             }
             else if (key_desc->type == YELLA_SETTING_VALUE_UINT)
@@ -156,11 +170,17 @@ static void handle_yaml_node(const yaml_node_t* node,
 
 static const char* type_to_str(yella_setting_value_type tp)
 {
-    if (tp == YELLA_SETTING_VALUE_TEXT)
+    switch (tp)
+    {
+    case YELLA_SETTING_VALUE_TEXT:
         return "text";
-    else if (tp == YELLA_SETTING_VALUE_DIR)
+    case YELLA_SETTING_VALUE_DIR:
         return "dir";
-    return "uint";
+    case YELLA_SETTING_VALUE_BYTE_SIZE:
+        return "byte size";
+    default:
+        return "uint";
+    }
 }
 
 static const void* get_value(const UChar* const sct, const UChar* const key, yella_setting_value_type type)
@@ -206,13 +226,23 @@ static const void* get_value(const UChar* const sct, const UChar* const key, yel
             return NULL;
         }
     }
-    if (type == YELLA_SETTING_VALUE_UINT)
+    if (type == YELLA_SETTING_VALUE_UINT || type == YELLA_SETTING_VALUE_BYTE_SIZE)
         return &set_found->value.uint;
     else
         return set_found->value.text;
 }
 
-void set_text_impl(const UChar* const sct, const UChar* const key, const UChar* const val, yella_setting_value_type type)
+static int qsort_ustr_comparator(const void * lhs, const void * rhs)
+{
+    const UChar* ulhs;
+    const UChar* urhs;
+
+    ulhs = *(const UChar**)lhs;
+    urhs = *(const UChar**)rhs;
+    return u_strcmp(ulhs, urhs);
+}
+
+static void set_text_impl(const UChar* const sct, const UChar* const key, const UChar* const val, yella_setting_value_type type)
 {
     setting set_to_find;
     setting* set_found;
@@ -242,6 +272,38 @@ void set_text_impl(const UChar* const sct, const UChar* const key, const UChar* 
     {
         udsfree(set_found->value.text);
         set_found->value.text = udsnew(val);
+    }
+}
+
+static void set_uint_impl(const UChar* const sct, const UChar* const key, uint64_t val, yella_setting_value_type type)
+{
+    setting set_to_find;
+    setting* set_found;
+    section sct_to_find;
+    section* sct_found;
+
+    sct_to_find.key = (UChar*)sct;
+    sct_found = sglib_section_find_member(sections, &sct_to_find);
+    if (sct_found == NULL)
+    {
+        sct_found = malloc(sizeof(section));
+        sct_found->key = udsnew(sct);
+        sct_found->settings = NULL;
+        sglib_section_add(&sections, sct_found);
+    }
+    set_to_find.key = (UChar*)key;
+    set_found = sglib_setting_find_member(sct_found->settings, &set_to_find);
+    if (set_found == NULL)
+    {
+        set_found = malloc(sizeof(setting));
+        set_found->key = udsnew(key);
+        set_found->value.uint = val;
+        set_found->type = type;
+        sglib_setting_add(&sct_found->settings, set_found);
+    }
+    else
+    {
+        set_found->value.uint = val;
     }
 }
 
@@ -368,32 +430,56 @@ void yella_log_settings(void)
     struct sglib_section_iterator sct_itor;
     uds out;
     char* utf8;
+    yella_ptr_vector* sct_vec;
+    yella_ptr_vector* set_vec;
+    size_t i;
+    size_t j;
+    section sct_to_find;
+    setting set_to_find;
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
-        out = udscatprintf(udsempty(), u"Settings:%S%S", YELLA_NL, YELLA_NL);
+        sct_vec = yella_create_ptr_vector();
+        yella_set_ptr_vector_destructor(sct_vec, NULL, NULL);
         yella_lock_mutex(guard);
         for (sct_elem = sglib_section_it_init(&sct_itor, sections);
              sct_elem != NULL;
              sct_elem = sglib_section_it_next(&sct_itor))
         {
-            out = udscatprintf(out, u"%S:%S", sct_elem->key, YELLA_NL);
+            yella_push_back_ptr_vector(sct_vec, sct_elem->key);
+        }
+        qsort(yella_ptr_vector_data(sct_vec), yella_ptr_vector_size(sct_vec), sizeof(void*), qsort_ustr_comparator);
+        out = udscatprintf(udsempty(), u"Settings:%S", YELLA_NL);
+        for (i = 0; i < yella_ptr_vector_size(sct_vec); i++)
+        {
+            sct_to_find.key = yella_ptr_vector_at(sct_vec, i);
+            sct_elem = sglib_section_find_member(sections, &sct_to_find);
+            assert(sct_elem != NULL);
+            out = udscatprintf(out, u"  %S:%S", sct_elem->key, YELLA_NL);
+            set_vec = yella_create_ptr_vector();
+            yella_set_ptr_vector_destructor(set_vec, NULL, NULL);
             for (set_elem = sglib_setting_it_init(&set_itor, sct_elem->settings);
                  set_elem != NULL;
                  set_elem = sglib_setting_it_next(&set_itor))
             {
-                out = udscatprintf(out, u"  %S=", set_elem->key);
-                if (set_elem->type == YELLA_SETTING_VALUE_TEXT)
-                {
+                yella_push_back_ptr_vector(set_vec, set_elem->key);
+            }
+            qsort(yella_ptr_vector_data(set_vec), yella_ptr_vector_size(set_vec), sizeof(void*), qsort_ustr_comparator);
+            for (j = 0; j < yella_ptr_vector_size(set_vec); j++)
+            {
+                set_to_find.key = yella_ptr_vector_at(set_vec, j);
+                set_elem = sglib_setting_find_member(sct_elem->settings, &set_to_find);
+                assert(set_elem != NULL);
+                out = udscatprintf(out, u"    %S=", set_elem->key);
+                if (set_elem->type == YELLA_SETTING_VALUE_TEXT || set_elem->type == YELLA_SETTING_VALUE_DIR)
                     out = udscatprintf(out, u"'%S'", set_elem->value.text);
-                }
                 else
-                {
                     out = udscatprintf(out, u"%lld", set_elem->value.uint);
-                }
                 out = udscat(out, YELLA_NL);
             }
+            yella_destroy_ptr_vector(set_vec);
         }
+        yella_destroy_ptr_vector(sct_vec);
         yella_unlock_mutex(guard);
         out = udstrim(out, u"\n\r");
         utf8 = yella_to_utf8(out);
@@ -420,6 +506,11 @@ void yella_retrieve_settings(const UChar* const section, const yella_setting_des
     }
 }
 
+const uint64_t* yella_settings_get_byte_size(const UChar* const sct, const UChar* const key)
+{
+    return get_value(sct, key, YELLA_SETTING_VALUE_BYTE_SIZE);
+}
+
 const UChar* yella_settings_get_dir(const UChar* const sct, const UChar* const key)
 {
     return get_value(sct, key, YELLA_SETTING_VALUE_DIR);
@@ -433,6 +524,83 @@ const UChar* yella_settings_get_text(const UChar* const sct, const UChar* const 
 const uint64_t* yella_settings_get_uint(const UChar* const sct, const UChar* const key)
 {
     return get_value(sct, key, YELLA_SETTING_VALUE_UINT);
+}
+
+void yella_settings_set_byte_size(const UChar* const sct, const UChar* const key, const UChar* const val)
+{
+    int32_t val_len;
+    int32_t len;
+    UChar lower[4];
+    UErrorCode uerr;
+    char* utf8;
+    uint32_t num;
+    UChar suffix[4];
+
+    num = 0;
+    val_len = u_strlen(val);
+    if (val_len == 0 || !u_isdigit(val[0]))
+    {
+        utf8 = yella_to_utf8(val);
+        CHUCHO_C_ERROR(lgr, "The value '%s' cannot be used as a byte size because it does not start with a digit", utf8);
+        free(utf8);
+    }
+    else
+    {
+        memset(suffix, 0, sizeof(UChar) * 4);
+        len = u_sscanf_u(val, u"%u%3S", &num, &suffix);
+        if (len != 1 && len != 2)
+        {
+            utf8 = yella_to_utf8(val);
+            CHUCHO_C_ERROR(lgr, "Invalid byte size format: '%s'", utf8);
+            free(utf8);
+            num = 0;
+        }
+        else if (len == 2)
+        {
+            val_len = u_strlen(suffix);
+            uerr = U_ZERO_ERROR;
+            len = u_strToLower(lower, 4, suffix, val_len, NULL, &uerr);
+            if (uerr != U_ZERO_ERROR)
+            {
+                utf8 = yella_to_utf8(val);
+                CHUCHO_C_ERROR(lgr, "Error converting '%s' to lowercase: %s", utf8, u_errorName(uerr));
+                free(utf8);
+            }
+            else
+            {
+                if (len > 2 ||
+                    (len == 2 && lower[1] != u'b') ||
+                    (len == 2 && lower[0] == u'b') ||
+                    (u_strchr(u"bkmg", lower[0]) == NULL))
+                {
+                    utf8 = yella_to_utf8(val);
+                    CHUCHO_C_ERROR(lgr, "The suffix of value '%s' is invalid (case-insensitive b, k[b], m[b], g[b])", utf8);
+                    free(utf8);
+                    num = 0;
+                }
+                else
+                {
+                    switch (lower[0])
+                    {
+                    case u'b':
+                        break;
+                    case u'k':
+                        num *= 1024;
+                        break;
+                    case u'm':
+                        num *= 1024 * 1024;
+                        break;
+                    case u'g':
+                        num *= 1024 * 1024 * 1024;
+                        break;
+                    }
+
+                }
+            }
+        }
+    }
+    if (num > 0)
+        set_uint_impl(sct, key, num, YELLA_SETTING_VALUE_BYTE_SIZE);
 }
 
 void yella_settings_set_dir(const UChar* const sct, const UChar* const key, const UChar* const val)
@@ -454,33 +622,6 @@ void yella_settings_set_text(const UChar* const sct, const UChar* const key, con
 
 void yella_settings_set_uint(const UChar* const sct, const UChar* const key, uint64_t val)
 {
-    setting set_to_find;
-    setting* set_found;
-    section sct_to_find;
-    section* sct_found;
-
-    sct_to_find.key = (UChar*)sct;
-    sct_found = sglib_section_find_member(sections, &sct_to_find);
-    if (sct_found == NULL)
-    {
-        sct_found = malloc(sizeof(section));
-        sct_found->key = udsnew(sct);
-        sct_found->settings = NULL;
-        sglib_section_add(&sections, sct_found);
-    }
-    set_to_find.key = (UChar*)key;
-    set_found = sglib_setting_find_member(sct_found->settings, &set_to_find);
-    if (set_found == NULL)
-    {
-        set_found = malloc(sizeof(setting));
-        set_found->key = udsnew(key);
-        set_found->value.uint = val;
-        set_found->type = YELLA_SETTING_VALUE_UINT;
-        sglib_setting_add(&sct_found->settings, set_found);
-    }
-    else
-    {
-        set_found->value.uint = val;
-    }
+    set_uint_impl(sct, key, val, YELLA_SETTING_VALUE_UINT);
 }
 

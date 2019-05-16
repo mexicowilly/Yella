@@ -25,14 +25,12 @@ SET(YELLA_SOURCES
     agent.h
     argparse.c
     argparse.h
-    envelope.c
-    envelope.h
-    kafka.c
-    kafka.h
     heartbeat.c
     heartbeat.h
     mac_addresses.c
     mac_addresses.h
+    router.c
+    router.h
     runtime_link.h
     saved_state.c
     saved_state.h
@@ -76,7 +74,6 @@ IF(DEFINED YELLA_SO_FLAGS)
 ENDIF()
 
 YELLA_GEN_TARGET(agent
-                 serialization/public/envelope.fbs
                  serialization/public/heartbeat.fbs
                  serialization/private/saved_state.fbs)
 
@@ -84,6 +81,7 @@ TARGET_LINK_LIBRARIES(agent
                       plugin
                       "${YELLA_RDKAFKA_LIB}"
                       "${YELLA_CJSON_LIB}"
+                      "${YELLA_ZEROMQ_LIB}"
                       m)
 IF(YELLA_MACINTOSH)
     TARGET_LINK_LIBRARIES(agent "-framework IOKit" "-framework CoreFoundation")

@@ -48,16 +48,6 @@ static void out_cap_destructor(void* p, void* udata)
     free(in);
 }
 
-yella_agent_api* yella_copy_agent_api(const yella_agent_api* const api)
-{
-    yella_agent_api* result;
-
-    result = malloc(sizeof(yella_agent_api));
-    result->agent_id = udsdup(api->agent_id);
-    result->send_message = api->send_message;
-    return result;
-}
-
 yella_plugin* yella_copy_plugin(const yella_plugin* const plug)
 {
     yella_plugin* result;
@@ -110,12 +100,6 @@ yella_plugin_out_cap* yella_create_plugin_out_cap(const UChar* const name, int v
     return result;
 }
 
-void yella_destroy_agent_api(yella_agent_api* api)
-{
-    udsfree(api->agent_id);
-    free(api);
-}
-
 void yella_destroy_plugin(yella_plugin* plug)
 {
     udsfree(plug->name);
@@ -128,8 +112,7 @@ void yella_destroy_plugin(yella_plugin* plug)
 void yella_log_plugin_config(chucho_logger_t* lgr, yella_fb_plugin_config_table_t cfg)
 {
     CHUCHO_C_INFO_L(lgr,
-                    "yella.fb.plugin.config: name = %s, topic = %s, action = %s",
+                    "yella.fb.plugin.config: name = %s, action = %s",
                     yella_fb_plugin_config_name(cfg),
-                    yella_fb_plugin_config_topic(cfg),
                     yella_fb_plugin_config_action_name(yella_fb_plugin_config_action(cfg)));
 }

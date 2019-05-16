@@ -21,7 +21,6 @@ INCLUDE_DIRECTORIES("${YELLA_LIBYAML_INCLUDE_DIR}"
 
 IF(YELLA_POSIX)
     SET(COMMON_PLATFORM_SOURCES
-        platform/posix/calendar_posix.c
         platform/posix/file_posix.c
         platform/posix/process_posix.c
         platform/posix/settings_posix.c
@@ -34,10 +33,14 @@ IF(YELLA_POSIX)
 ENDIF()
 
 ADD_LIBRARY(common SHARED
-            calendar.h
+            compression.c
+            compression.h
             file.c
             file.h
             macro_util.h
+            message_header.c
+            message_header.h
+            message_part.h
             process.h
             ptr_helper.c
             ptr_helper.h
@@ -66,10 +69,13 @@ IF(DEFINED YELLA_SO_FLAGS)
     SET_TARGET_PROPERTIES(common PROPERTIES
                           COMPILE_FLAGS "${YELLA_SO_FLAGS}")
 ENDIF()
+YELLA_GEN_TARGET(common
+                 serialization/public/message_header.fbs)
 TARGET_LINK_LIBRARIES(common
                       "${YELLA_FLATCC_LIB}"
                       "${YELLA_CHUCHO_LIB}"
                       "${YELLA_LIBYAML_LIB}"
+                      "${YELLA_LZ4_LIB}"
                       ICU::io
                       ICU::i18n
                       ICU::uc

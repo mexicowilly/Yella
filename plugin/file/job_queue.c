@@ -80,6 +80,7 @@ void destroy_job_queue(job_queue* jq)
 
     yella_lock_mutex(jq->guard);
     jq->should_stop = true;
+    yella_signal_condition_variable(jq->cond);
     yella_unlock_mutex(jq->guard);
     yella_join_thread(jq->runner);
     yella_destroy_thread(jq->runner);

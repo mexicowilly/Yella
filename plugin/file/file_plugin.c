@@ -9,6 +9,7 @@
 #include "plugin/file/job_queue.h"
 #include "plugin/file/event_source.h"
 #include "plugin/file/state_db_pool.h"
+#include "plugin/file/accumulator.h"
 #undef flatbuffers_identifier
 #include "file_reader.h"
 #include "file_config_builder.h"
@@ -20,7 +21,7 @@
 typedef struct config_node
 {
     uds name;
-    uds topic;
+    uds recipient;
     yella_ptr_vector* includes;
     yella_ptr_vector* excludes;
     attribute_type* attr_types;
@@ -36,12 +37,11 @@ typedef struct file_plugin
     chucho_logger_t* lgr;
     yella_mutex* guard;
     yella_reader_writer_lock* config_guard;
-    yella_agent_api* agent_api;
     job_queue* jq;
     config_node* configs;
     event_source* esrc;
-    void* agent;
     state_db_pool* db_pool;
+    accumulator* acc;
 } file_plugin;
 
 #define CONFIG_MAP_COMPARATOR(lhs, rhs) (u_strcmp(lhs->name, rhs->name))
@@ -54,7 +54,7 @@ static void destroy_config_node(config_node* cn)
     if (cn != NULL)
     {
         udsfree(cn->name);
-        udsfree(cn->topic);
+        udsfree(cn->recipient);
         yella_destroy_ptr_vector(cn->includes);
         yella_destroy_ptr_vector(cn->excludes);
         free(cn->attr_types);
@@ -77,7 +77,7 @@ static void event_received(const UChar* const config_name, const UChar* const fn
     found = sglib_config_node_find_member(fplg->configs, &to_find);
     if (found != NULL)
     {
-        jb = create_job(config_name, fplg->agent_api, found->topic, fplg->agent);
+        jb = create_job(config_name, found->recipient, fplg->acc);
         yella_push_back_ptr_vector(jb->includes, udsnew(fname));
         jb->attr_type_count = found->attr_type_count;
         jb->attr_types = malloc(sizeof(attribute_type) * jb->attr_type_count);
@@ -145,8 +145,8 @@ static void load_configs(file_plugin* fplg)
                 utf16 = yella_from_utf8(yella_fb_file_config_name(cfg));
                 cur->name = udsnew(utf16);
                 free(utf16);
-                utf16 = yella_from_utf8(yella_fb_file_config_topic(cfg));
-                cur->topic = udsnew(utf16);
+                utf16 = yella_from_utf8(yella_fb_file_config_recipient(cfg));
+                cur->recipient = udsnew(utf16);
                 free(utf16);
                 inex = yella_fb_file_config_includes(cfg);
                 cur->includes = yella_create_uds_ptr_vector();
@@ -211,8 +211,8 @@ static void save_configs(const file_plugin* const fplg)
         utf8 = yella_to_utf8(cur->name);
         yella_fb_file_config_name_create_str(&bld, utf8);
         free(utf8);
-        utf8 = yella_to_utf8(cur->topic);
-        yella_fb_file_config_topic_create_str(&bld, utf8);
+        utf8 = yella_to_utf8(cur->recipient);
+        yella_fb_file_config_recipient_create_str(&bld, utf8);
         free(utf8);
         yella_fb_file_config_includes_start(&bld);
         for (i = 0; i < yella_ptr_vector_size(cur->includes); i++)
@@ -280,13 +280,9 @@ static config_node* process_plugin_config(file_plugin* fplg, yella_fb_file_monit
         CHUCHO_C_ERROR(fplg->lgr, "monitor_request: config.name field is missing");
         return NULL;
     }
-    CHUCHO_C_INFO(fplg->lgr, "Received monitor request %s", yella_fb_plugin_config_name(fb_cfg));
+    CHUCHO_C_INFO(fplg->lgr, "Received monitor request '%s'", yella_fb_plugin_config_name(fb_cfg));
     cfg = malloc(sizeof(config_node));
     cfg->name = udsnew(yella_from_utf8(yella_fb_plugin_config_name(fb_cfg)));
-    if (yella_fb_plugin_config_topic_is_present(fb_cfg))
-        cfg->topic = udsnew(yella_from_utf8(yella_fb_plugin_config_topic(fb_cfg)));
-    else
-        cfg->topic = NULL;
     *act = yella_fb_plugin_config_action(fb_cfg);
     return cfg;
 }
@@ -444,7 +440,7 @@ static void install_config_node(file_plugin* fplg, config_node* cfg, bool is_emp
     yella_unlock_reader_writer_lock(fplg->config_guard);
 }
 
-static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata)
+static yella_rc monitor_handler(const yella_message_header* const mhdr, const yella_message_part* const body, void* udata)
 {
     yella_fb_file_monitor_request_table_t req;
     yella_fb_plugin_config_action_enum_t act;
@@ -454,10 +450,12 @@ static yella_rc monitor_handler(const uint8_t* const msg, size_t sz, void* udata
     bool is_empty;
 
     fplg = (file_plugin*)udata;
-    req = yella_fb_file_monitor_request_as_root(msg);
+    assert(u_strcmp(mhdr->type, u"file.monitor_request") == 0);
+    req = yella_fb_file_monitor_request_as_root(body->data);
     cfg = process_plugin_config(fplg, req, &act);
     if (cfg == NULL)
         return YELLA_INVALID_FORMAT;
+    cfg->recipient = udsnew(mhdr->sender);
     process_includes_excludes(fplg, cfg, req, &is_empty);
     process_attributes(fplg, cfg, req);
     install_config_node(fplg, cfg, is_empty, act);
@@ -473,7 +471,8 @@ static void retrieve_file_settings(void)
         { u"data-dir", YELLA_SETTING_VALUE_DIR },
         { u"max-spool-dbs", YELLA_SETTING_VALUE_UINT },
         { u"max-events-in-cache", YELLA_SETTING_VALUE_UINT },
-        { u"fs-monitor-latency-seconds", YELLA_SETTING_VALUE_UINT }
+        { u"fs-monitor-latency-seconds", YELLA_SETTING_VALUE_UINT },
+        { u"send-latency-seconds", YELLA_SETTING_VALUE_UINT }
     };
 
     data_dir = udscatprintf(udsempty(), u"%Sfile", yella_settings_get_dir(u"agent", u"data-dir"));
@@ -482,6 +481,7 @@ static void retrieve_file_settings(void)
     yella_settings_set_uint(u"file", u"max-spool-dbs", 100);
     yella_settings_set_uint(u"file", u"max-events-in-cache", 5000000);
     yella_settings_set_uint(u"file", u"fs-monitor-latency-seconds", 5);
+    yella_settings_set_uint(u"file", u"send-latency-seconds", 15);
 
     yella_retrieve_settings(u"file", descs, YELLA_ARRAY_SIZE(descs));
 }
@@ -497,15 +497,14 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     fplg->config_guard = yella_create_reader_writer_lock();
     fplg->desc = yella_create_plugin(u"file", u"1", fplg);
     yella_push_back_ptr_vector(fplg->desc->in_caps,
-                               yella_create_plugin_in_cap(u"file.monitor_requests", 1, monitor_handler, fplg));
+                               yella_create_plugin_in_cap(u"file.monitor_request", 1, monitor_handler, fplg));
     yella_push_back_ptr_vector(fplg->desc->out_caps,
                                yella_create_plugin_out_cap(u"file.change", 1));
-    fplg->agent_api = yella_copy_agent_api(api);
     fplg->db_pool = create_state_db_pool();
+    fplg->acc = create_accumulator(agnt, api);
     fplg->jq = create_job_queue(fplg->db_pool);
     fplg->configs = NULL;
     fplg->esrc = create_event_source(event_received, fplg);
-    fplg->agent = agnt;
     load_configs(fplg);
     return yella_copy_plugin(fplg->desc);
 }
@@ -538,10 +537,10 @@ YELLA_EXPORT yella_rc plugin_stop(void* udata)
     }
     destroy_job_queue(fplg->jq);
     destroy_state_db_pool(fplg->db_pool);
+    destroy_accumulator(fplg->acc);
     yella_destroy_plugin(fplg->desc);
     yella_destroy_mutex(fplg->guard);
     yella_destroy_reader_writer_lock(fplg->config_guard);
-    yella_destroy_agent_api(fplg->agent_api);
     chucho_release_logger(fplg->lgr);
     free(fplg);
     return YELLA_NO_ERROR;

@@ -22,6 +22,11 @@
 #include <stddef.h>
 
 /**
+ * Self
+ */
+YELLA_EXPORT void* yella_this_thread(void);
+
+/**
  * Events
  */
 typedef struct yella_event yella_event;

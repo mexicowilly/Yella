@@ -19,6 +19,7 @@
 
 #include "export.h"
 #include "common/return_code.h"
+#include "common/message_part.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -42,20 +43,14 @@ typedef struct spool_stats
     size_t cull_events;
 } spool_stats;
 
-typedef struct message_part
-{
-    uint8_t* data;
-    size_t size;
-} message_part;
-
 YELLA_PRIV_EXPORT spool* create_spool(void);
 YELLA_PRIV_EXPORT void destroy_spool(spool* sp);
 YELLA_PRIV_EXPORT bool spool_empty_of_messages(spool * sp);
 YELLA_PRIV_EXPORT spool_stats spool_get_stats(spool* sp);
 YELLA_PRIV_EXPORT yella_rc spool_pop(spool* sp,
                                      size_t milliseconds_to_wait,
-                                     message_part** parts,
+                                     yella_message_part** parts,
                                      size_t* count);
-YELLA_PRIV_EXPORT yella_rc spool_push(spool* sp, const message_part* msgs, size_t count);
+YELLA_PRIV_EXPORT yella_rc spool_push(spool* sp, const yella_message_part* msgs, size_t count);
 
 #endif

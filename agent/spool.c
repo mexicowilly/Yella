@@ -559,7 +559,7 @@ spool* create_spool(void)
     sp->guard = yella_create_mutex();
     sp->was_written_cond = yella_create_condition_variable();
     sp->stats.current_size = current_spool_size();
-    sp->stats.max_partition_size = *yella_settings_get_uint(u"agent", u"max-spool-partition-size");
+    sp->stats.max_partition_size = *yella_settings_get_byte_size(u"agent", u"max-spool-partition-size");
     sp->stats.max_partitions = *yella_settings_get_uint(u"agent", u"max-spool-partitions");
     sp->stats.smallest_event_size = (size_t)-1;
     if (!init_writer(sp) || !init_reader(sp))
@@ -626,7 +626,7 @@ spool_stats spool_get_stats(spool * sp)
 
 yella_rc spool_pop(spool* sp,
                          size_t milliseconds_to_wait,
-                         message_part** parts,
+                         yella_message_part** parts,
                          size_t* count)
 {
     uint16_t msg_count;
@@ -655,7 +655,7 @@ yella_rc spool_pop(spool* sp,
         if (msg_count > 0)
         {
             msg_off = ftell(sp->readf) - sizeof(msg_count);
-            *parts = calloc(msg_count, sizeof(message_part));
+            *parts = calloc(msg_count, sizeof(yella_message_part));
             for (i = 0; i < msg_count; i++)
             {
                 if (fread(&msg_size, 1, sizeof(msg_size), sp->readf) != sizeof(msg_size))
@@ -732,7 +732,7 @@ yella_rc spool_pop(spool* sp,
     return yrc;
 }
 
-yella_rc spool_push(spool* sp, const message_part* msgs, size_t count)
+yella_rc spool_push(spool* sp, const yella_message_part* msgs, size_t count)
 {
     uint16_t num;
     uint32_t len;

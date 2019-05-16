@@ -12,6 +12,8 @@ ELSEIF(YELLA_LIBFSWATCH)
 ENDIF()
 
 ADD_LIBRARY(file SHARED
+            accumulator.c
+            accumulator.h
             attribute.c
             attribute.h
             collect_attributes.c
