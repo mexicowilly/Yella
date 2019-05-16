@@ -109,9 +109,10 @@ static void size(void** arg)
     size_t count;
 
     td = *arg;
-    /* Add 2% extra because the message will only be sent once the max size is exceeded */
+    /* Add 20% extra because when add_accumulator_message is running full speed,
+     * there is latency on the size check. */
     max_sz = *yella_settings_get_byte_size(u"agent", u"max-message-size");
-    max_sz += max_sz * .02;
+    max_sz *= 1.2;
     latency_time = ucal_getNow() + (*yella_settings_get_uint(u"file", u"send-latency-seconds") * 1000);
     elem = create_element(u"jumpy lumpy");
     attr = malloc(sizeof(attribute));
@@ -137,7 +138,9 @@ static void size(void** arg)
     assert_true(ucal_getNow() <= latency_time);
     yella_lock_mutex(td->guard);
     rec = yella_ptr_vector_at(td->recs, 0);
-    assert_true(rec->sz < max_sz);
+    /* Don't put assert_true here, because it never returns */
+    print_message("*** rec->sz %zu, max_sz %llu\n", rec->sz, max_sz);
+    assert(rec->sz < max_sz);
     yella_unlock_mutex(td->guard);
 }
 
