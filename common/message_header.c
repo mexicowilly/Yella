@@ -19,6 +19,7 @@
 #include "common/macro_util.h"
 #include "common/text_util.h"
 #include <unicode/udat.h>
+#include <cjson/cJSON.h>
 
 yella_message_header* yella_create_mhdr(void)
 {
@@ -44,19 +45,18 @@ void yella_destroy_mhdr(yella_message_header* mhdr)
 
 void yella_log_mhdr(const yella_message_header* const mhdr, chucho_logger_t* lgr)
 {
-    char* timestamp;
-    const UChar* cmp;
-    uds group;
-    const UChar* dis;
     UDateFormat* dfmt;
     UErrorCode uerr;
     UChar dbuf[17];
     int32_t urc;
-    uds formatted;
     char* utf8;
+    cJSON* json;
+    cJSON* grp;
+    cJSON* seq;
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
+        json = cJSON_CreateObject();
         uerr = U_ZERO_ERROR;
         dfmt = udat_open(UDAT_PATTERN, UDAT_PATTERN, NULL, u"UTC", 3, u"yyyyMMdd'T'HHmmss'Z'", -1, &uerr);
         assert(U_SUCCESS(uerr));
@@ -64,29 +64,46 @@ void yella_log_mhdr(const yella_message_header* const mhdr, chucho_logger_t* lgr
         urc = udat_format(dfmt, mhdr->time, dbuf, sizeof(dbuf) / sizeof(UChar), NULL, &uerr);
         udat_close(dfmt);
         assert(urc == 16);
-        cmp = (mhdr->cmp == YELLA_COMPRESSION_NONE) ? u"NONE" : u"LZ4";
-        if (mhdr->grp == NULL)
+        utf8 = yella_to_utf8(dbuf);
+        cJSON_AddStringToObject(json, "time", utf8);
+        free(utf8);
+        if (mhdr->sender == NULL)
         {
-            group = udsempty();
+            cJSON_AddNullToObject(json, "sender");
         }
         else
         {
-            dis = (mhdr->grp->disposition == YELLA_GROUP_DISPOSITION_END) ? u"END" : u"MORE";
-            group = udscatprintf(udsempty(), u", group { identifier = %S, disposition = %S }", mhdr->grp->identifier, dis);
+            utf8 = yella_to_utf8(mhdr->sender);
+            cJSON_AddStringToObject(json, "sender", utf8);
+            free(utf8);
         }
-        formatted = udscatprintf(udsempty(),
-                                 u"Message header: time = %S, sender = %S, recipient = %S, type = %S, compression = %S, sequence { major = %u, minor = %u }%S",
-                                 dbuf,
-                                 mhdr->sender,
-                                 mhdr->recipient,
-                                 mhdr->type,
-                                 cmp,
-                                 mhdr->seq.major,
-                                 mhdr->seq.minor,
-                                 group);
-        utf8 = yella_to_utf8(formatted);
-        udsfree(group);
-        udsfree(formatted);
+        if (mhdr->recipient == NULL)
+        {
+            cJSON_AddNullToObject(json, "recipient");
+        }
+        else
+        {
+            utf8 = yella_to_utf8(mhdr->recipient);
+            cJSON_AddStringToObject(json, "recipient", utf8);
+            free(utf8);
+        }
+        utf8 = yella_to_utf8(mhdr->type);
+        cJSON_AddStringToObject(json, "type", utf8);
+        free(utf8);
+        cJSON_AddStringToObject(json, "compression", (mhdr->cmp == YELLA_COMPRESSION_NONE ? "NONE" : "LZ4"));
+        seq = cJSON_AddObjectToObject(json, "sequence");
+        cJSON_AddNumberToObject(seq, "major", mhdr->seq.major);
+        cJSON_AddNumberToObject(seq, "minor", mhdr->seq.minor);
+        if (mhdr->grp != NULL)
+        {
+            grp = cJSON_AddObjectToObject(json, "group");
+            utf8 = yella_to_utf8(mhdr->grp->identifier);
+            cJSON_AddStringToObject(grp, "identifier", utf8);
+            free(utf8);
+            cJSON_AddStringToObject(grp, "disposition", (mhdr->grp->disposition == YELLA_GROUP_DISPOSITION_END ? "END" : "MORE"));
+        }
+        utf8 = cJSON_PrintUnformatted(json);
+        cJSON_Delete(json);
         CHUCHO_C_INFO(lgr, utf8);
         free(utf8);
     }

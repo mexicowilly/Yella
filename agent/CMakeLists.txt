@@ -16,8 +16,7 @@
 
 SET(AGENT_SO_VERSION 1)
 
-INCLUDE_DIRECTORIES("${YELLA_RDKAFKA_INCLUDE_DIR}"
-                    "${YELLA_FLATCC_INCLUDE_DIR}"
+INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}"
                     "${YELLA_CJSON_INCLUDE_DIR}")
 
 SET(YELLA_SOURCES
@@ -79,8 +78,6 @@ YELLA_GEN_TARGET(agent
 
 TARGET_LINK_LIBRARIES(agent
                       plugin
-                      "${YELLA_RDKAFKA_LIB}"
-                      "${YELLA_CJSON_LIB}"
                       "${YELLA_ZEROMQ_LIB}"
                       m)
 IF(YELLA_MACINTOSH)

@@ -17,7 +17,8 @@
 SET(COMMON_SO_VERSION 1)
 
 INCLUDE_DIRECTORIES("${YELLA_LIBYAML_INCLUDE_DIR}"
-                    "${YELLA_FLATCC_INCLUDE_DIR}")
+                    "${YELLA_FLATCC_INCLUDE_DIR}"
+                    "${YELLA_CJSON_INCLUDE_DIR}")
 
 IF(YELLA_POSIX)
     SET(COMMON_PLATFORM_SOURCES
@@ -80,5 +81,6 @@ TARGET_LINK_LIBRARIES(common
                       ICU::i18n
                       ICU::uc
                       ICU::data
+                      "${YELLA_CJSON_LIB}"
                       Threads::Threads
                       ${YELLA_MEM_LIBS})

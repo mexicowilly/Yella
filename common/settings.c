@@ -30,6 +30,7 @@
 #include <unicode/ustring.h>
 #include <unicode/uchar.h>
 #include <unicode/ustdio.h>
+#include <cjson/cJSON.h>
 
 void yella_initialize_platform_settings(void);
 
@@ -428,7 +429,6 @@ void yella_log_settings(void)
     setting* set_elem;
     struct sglib_setting_iterator set_itor;
     struct sglib_section_iterator sct_itor;
-    uds out;
     char* utf8;
     yella_ptr_vector* sct_vec;
     yella_ptr_vector* set_vec;
@@ -436,6 +436,9 @@ void yella_log_settings(void)
     size_t j;
     section sct_to_find;
     setting set_to_find;
+    cJSON* json;
+    cJSON* sct;
+    char* val_utf8;
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
@@ -449,13 +452,15 @@ void yella_log_settings(void)
             yella_push_back_ptr_vector(sct_vec, sct_elem->key);
         }
         qsort(yella_ptr_vector_data(sct_vec), yella_ptr_vector_size(sct_vec), sizeof(void*), qsort_ustr_comparator);
-        out = udscatprintf(udsempty(), u"Settings:%S", YELLA_NL);
+        json = cJSON_CreateObject();
         for (i = 0; i < yella_ptr_vector_size(sct_vec); i++)
         {
             sct_to_find.key = yella_ptr_vector_at(sct_vec, i);
             sct_elem = sglib_section_find_member(sections, &sct_to_find);
             assert(sct_elem != NULL);
-            out = udscatprintf(out, u"  %S:%S", sct_elem->key, YELLA_NL);
+            utf8 = yella_to_utf8(sct_elem->key);
+            sct = cJSON_AddObjectToObject(json, utf8);
+            free(utf8);
             set_vec = yella_create_ptr_vector();
             yella_set_ptr_vector_destructor(set_vec, NULL, NULL);
             for (set_elem = sglib_setting_it_init(&set_itor, sct_elem->settings);
@@ -470,22 +475,29 @@ void yella_log_settings(void)
                 set_to_find.key = yella_ptr_vector_at(set_vec, j);
                 set_elem = sglib_setting_find_member(sct_elem->settings, &set_to_find);
                 assert(set_elem != NULL);
-                out = udscatprintf(out, u"    %S=", set_elem->key);
+                utf8 = yella_to_utf8(set_elem->key);
                 if (set_elem->type == YELLA_SETTING_VALUE_TEXT || set_elem->type == YELLA_SETTING_VALUE_DIR)
-                    out = udscatprintf(out, u"'%S'", set_elem->value.text);
+                {
+                    val_utf8 = yella_to_utf8(set_elem->value.text);
+                    cJSON_AddStringToObject(sct, utf8, val_utf8);
+                    free(val_utf8);
+                }
                 else
-                    out = udscatprintf(out, u"%lld", set_elem->value.uint);
-                out = udscat(out, YELLA_NL);
+                {
+                    cJSON_AddNumberToObject(sct, utf8, set_elem->value.uint);
+                }
+                free(utf8);
             }
             yella_destroy_ptr_vector(set_vec);
         }
         yella_destroy_ptr_vector(sct_vec);
         yella_unlock_mutex(guard);
-        out = udstrim(out, u"\n\r");
-        utf8 = yella_to_utf8(out);
-        CHUCHO_C_INFO_L(lgr, "%s", utf8);
+        utf8 = cJSON_Print(json);
+        cJSON_Delete(json);
+        val_utf8 = yella_to_utf8(YELLA_NL);
+        CHUCHO_C_INFO(lgr, "Settings:%s%s", val_utf8, utf8);
+        free(val_utf8);
         free(utf8);
-        udsfree(out);
     }
 }
 

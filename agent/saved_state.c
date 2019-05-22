@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
+#include <cjson/cJSON.h>
 
 static bool mac_addresses_changed(yella_fb_mac_addr_vec_t old_addrs, chucho_logger_t* lgr)
 {
@@ -87,9 +88,11 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
     yella_fb_mac_addr_vec_t mac_addrs_vec;
     flatbuffers_uint8_vec_t addr_bytes;
     int i;
-    uds addr_text;
     char* utf8_addr;
     char* utf8_id;
+    cJSON* json;
+    cJSON* mac_addrs;
+    char* log_msg;
 
     ss = malloc(sizeof(yella_saved_state));
     is_corrupt = false;
@@ -172,26 +175,25 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
     ++ss->boot_count;
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
-        addr_text = udsempty();
+        json = cJSON_CreateObject();
+        utf8_id = yella_to_utf8(ss->id->text);
+        cJSON_AddStringToObject(json, "id", utf8_id);
+        free(utf8_id);
+        cJSON_AddNumberToObject(json, "boot_count", ss->boot_count);
+        mac_addrs = cJSON_AddArrayToObject(json, "mac_addresses");
         if (ss->mac_addresses->count > 0)
         {
             for (i = 0; i < ss->mac_addresses->count; i++)
             {
-                addr_text = udscat(addr_text, ss->mac_addresses->addrs[i].text);
-                addr_text = udscat(addr_text, u",");
+                utf8_addr = yella_to_utf8(ss->mac_addresses->addrs[i].text);
+                cJSON_AddItemToArray(mac_addrs, cJSON_CreateString(utf8_addr));
+                free(utf8_addr);
             }
-            addr_text[u_strlen(addr_text) - 1] = 0;
         }
-        utf8_addr = yella_to_utf8(addr_text);
-        utf8_id = yella_to_utf8(ss->id->text);
-        CHUCHO_C_INFO_L(lgr,
-                        "Saved state: boot_count = %u, id = %s, mac_addresses = { %s }",
-                        ss->boot_count,
-                        utf8_id,
-                        utf8_addr);
-        free(utf8_id);
-        free(utf8_addr);
-        udsfree(addr_text);
+        log_msg = cJSON_PrintUnformatted(json);
+        CHUCHO_C_INFO(lgr, "Saved state: %s", log_msg);
+        free(log_msg);
+        cJSON_Delete(json);
     }
     return ss;
 }

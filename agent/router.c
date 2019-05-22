@@ -470,6 +470,7 @@ static void spool_main(void* udata)
     sender* sndr;
 
     rtr = (router*)udata;
+    CHUCHO_C_INFO(rtr->lgr, "Spool thread starting");
     sndr = create_sender(rtr);
     while (true)
     {

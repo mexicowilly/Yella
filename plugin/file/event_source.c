@@ -25,24 +25,22 @@ static char* spec_to_json(const event_source_spec* const spec)
 
     json = cJSON_CreateObject();
     utf8 = yella_to_utf8(spec->name);
-    cJSON_AddItemToObject(json, "name", cJSON_CreateString(utf8));
+    cJSON_AddStringToObject(json, "name", utf8);
     free(utf8);
-    arr = cJSON_CreateArray();
+    arr = cJSON_AddArrayToObject(json, "includes");
     for (i = 0; i < yella_ptr_vector_size(spec->includes); i++)
     {
         utf8 = yella_to_utf8((UChar*)yella_ptr_vector_at(spec->includes, i));
         cJSON_AddItemToArray(arr, cJSON_CreateString(utf8));
         free(utf8);
     }
-    cJSON_AddItemToObject(json, "includes", arr);
-    arr = cJSON_CreateArray();
+    arr = cJSON_AddArrayToObject(json, "excludes");
     for (i = 0; i < yella_ptr_vector_size(spec->excludes); i++)
     {
         utf8 = yella_to_utf8((UChar*)yella_ptr_vector_at(spec->excludes, i));
         cJSON_AddItemToArray(arr, cJSON_CreateString(utf8));
         free(utf8);
     }
-    cJSON_AddItemToObject(json, "excludes", arr);
     result = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
     return result;
