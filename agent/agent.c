@@ -133,7 +133,7 @@ static void heartbeat_thr(void* udata)
             mhdr = yella_create_mhdr();
             mhdr->time = time(NULL);
             mhdr->sender = udsnew(ag->state->id->text);
-            mhdr->recipient = udsnew(yella_settings_get_text(u"agent", u"router"));
+            mhdr->recipient = udsnew(yella_settings_get_text(u"agent", u"heartbeat-recipient"));
             mhdr->type = udsnew(u"yella.heartbeat");
             mhdr->cmp = YELLA_COMPRESSION_NONE;
             mhdr->seq.major = ag->state->boot_count;
@@ -373,7 +373,8 @@ static void retrieve_agent_settings(void)
         { u"start-connection-seconds", YELLA_SETTING_VALUE_UINT },
         { u"max-message-size", YELLA_SETTING_VALUE_UINT },
         { u"reconnect-timeout-seconds", YELLA_SETTING_VALUE_UINT },
-        { u"poll-milliseconds", YELLA_SETTING_VALUE_UINT }
+        { u"poll-milliseconds", YELLA_SETTING_VALUE_UINT },
+        { u"heartbeat-recipient", YELLA_SETTING_VALUE_TEXT }
     };
 
     yella_settings_set_uint(u"agent", u"max-spool-partitions", 1000);
@@ -383,6 +384,7 @@ static void retrieve_agent_settings(void)
     yella_settings_set_byte_size(u"agent", u"max-message-size", u"1M");
     yella_settings_set_uint(u"agent", u"reconnect-timeout-seconds", 5);
     yella_settings_set_uint(u"agent", u"poll-milliseconds", 500);
+    yella_settings_set_text(u"agent", u"heartbeat-recipient", u"yella.stethoscope");
 
     yella_retrieve_settings(u"agent", descs, YELLA_ARRAY_SIZE(descs));
 }

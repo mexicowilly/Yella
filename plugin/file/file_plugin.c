@@ -497,9 +497,9 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     fplg->config_guard = yella_create_reader_writer_lock();
     fplg->desc = yella_create_plugin(u"file", u"1", fplg);
     yella_push_back_ptr_vector(fplg->desc->in_caps,
-                               yella_create_plugin_in_cap(u"file.monitor_request", 1, monitor_handler, fplg));
+                               yella_create_plugin_in_cap(u"yella.file.monitor_request", 1, monitor_handler, fplg));
     yella_push_back_ptr_vector(fplg->desc->out_caps,
-                               yella_create_plugin_out_cap(u"file.change", 1));
+                               yella_create_plugin_out_cap(u"yella.file.change", 1));
     fplg->db_pool = create_state_db_pool();
     fplg->acc = create_accumulator(agnt, api);
     fplg->jq = create_job_queue(fplg->db_pool);

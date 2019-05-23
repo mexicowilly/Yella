@@ -504,7 +504,6 @@ void yella_log_settings(void)
 void yella_retrieve_settings(const UChar* const section, const yella_setting_desc* desc, size_t count)
 {
     yaml_node_t* node;
-    yella_setting_desc* desc_copy;
 
     if (yaml_doc != NULL)
     {
@@ -572,7 +571,7 @@ void yella_settings_set_byte_size(const UChar* const sct, const UChar* const key
             val_len = u_strlen(suffix);
             uerr = U_ZERO_ERROR;
             len = u_strToLower(lower, 4, suffix, val_len, NULL, &uerr);
-            if (uerr != U_ZERO_ERROR)
+            if (!U_SUCCESS(uerr))
             {
                 utf8 = yella_to_utf8(val);
                 CHUCHO_C_ERROR(lgr, "Error converting '%s' to lowercase: %s", utf8, u_errorName(uerr));
