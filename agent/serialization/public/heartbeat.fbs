@@ -17,9 +17,11 @@ table operating_system
 
 table heartbeat
 {
-    id: string;
-    host: operating_system;
     seconds_since_epoch: ulong;
+    id: string;
+    host: string;
+    ip_addresses: [string];
+    os: operating_system;
     in_capabilities: [capability];
     out_capabilities: [capability];
 }

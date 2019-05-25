@@ -7,7 +7,7 @@
 #include <stdarg.h>
 #include <cmocka.h>
 
-yella_rc in_cap_handler(const uint8_t* const msg, size_t sz, void* udata)
+yella_rc in_cap_handler(const yella_message_header* const mhdr, const yella_message_part* const msg, void* udata)
 {
     return YELLA_NO_ERROR;
 }
@@ -29,6 +29,8 @@ static void simple(void** targ)
     yella_fb_capability_table_t cap;
     flatbuffers_string_vec_t configs;
     yella_fb_operating_system_table_t os;
+    int i;
+    flatbuffers_string_vec_t addrs;
 
     plugins = yella_create_ptr_vector();
     yella_set_ptr_vector_destructor(plugins, plugin_dtor, NULL);
@@ -64,12 +66,29 @@ static void simple(void** targ)
     assert_true(yella_fb_heartbeat_id_is_present(hb));
     assert_string_equal(yella_fb_heartbeat_id(hb), "eye dee");
     assert_true(yella_fb_heartbeat_host_is_present(hb));
-    os = yella_fb_heartbeat_host(hb);
+    assert_true(yella_fb_heartbeat_os_is_present(hb));
+    os = yella_fb_heartbeat_os(hb);
     assert_true(yella_fb_operating_system_machine_is_present(os));
     assert_true(yella_fb_operating_system_system_is_present(os));
     assert_true(yella_fb_operating_system_version_is_present(os));
     assert_true(yella_fb_operating_system_release_is_present(os));
-    assert_true(yella_fb_heartbeat_seconds_since_epoch_is_present(hb));
+    print_message("Host: %s\n", yella_fb_heartbeat_host(hb));
+    print_message("Machine: %s\n", yella_fb_operating_system_machine(os));
+    print_message("System: %s\n", yella_fb_operating_system_system(os));
+    print_message("Version: %s\n", yella_fb_operating_system_version(os));
+    print_message("Release: %s\n", yella_fb_operating_system_release(os));
+    if (yella_fb_heartbeat_ip_addresses_is_present(hb))
+    {
+        print_message("IP Addresses: ");
+        addrs = yella_fb_heartbeat_ip_addresses(hb);
+        for (i = 0; i < flatbuffers_string_vec_len(addrs); i++)
+        {
+            print_message("%s", flatbuffers_string_vec_at(addrs, i));
+            if (i < flatbuffers_string_vec_len(addrs) - 1)
+                print_message(", ");
+        }
+        print_message("\n");
+    }
     caps = yella_fb_heartbeat_in_capabilities(hb);
     assert_int_equal(yella_fb_capability_vec_len(caps), 5);
     cap = yella_fb_capability_vec_at(caps, 0);
