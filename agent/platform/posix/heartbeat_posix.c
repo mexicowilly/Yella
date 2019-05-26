@@ -6,6 +6,52 @@
 #include <netdb.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
+
+/* Returns NULL if address is not accetable, or struct sockaddr_in.sin_addr for
+ * IPv4, or struct sockaddr_in6.sin6_addr for IPv6. */
+static void* acceptable_addr(const struct sockaddr* addr)
+{
+    void* result;
+    uint32_t loopback4;
+    struct in6_addr loopback6 = IN6ADDR_LOOPBACK_INIT;
+    struct sockaddr_in* v4;
+    struct sockaddr_in6* v6;
+    uint32_t hv4_addr;
+    uint32_t llv4_start;
+    uint32_t llv4_end;
+    uint16_t llv6_start;
+    uint16_t llv6_end;
+    uint16_t hv6_top;
+
+    result = NULL;
+    if (addr->sa_family == AF_INET)
+    {
+        v4 = (struct sockaddr_in*)addr;
+        loopback4 = htonl(INADDR_LOOPBACK);
+        if (memcmp(&v4->sin_addr, &loopback4, 4) != 0)
+        {
+            hv4_addr = ntohl(v4->sin_addr.s_addr);
+            llv4_start = ntohs(0xa9fe) << 16;
+            llv4_end = ntohl(0xa9feffff);
+            if (hv4_addr < llv4_start || hv4_addr > llv4_end)
+                result = &v4->sin_addr;
+        }
+    }
+    else if (addr->sa_family == AF_INET6)
+    {
+        v6 = (struct sockaddr_in6*)addr;
+        if (memcmp(&v6->sin6_addr, loopback6.s6_addr, 16) != 0)
+        {
+            hv6_top = *((uint16_t*)(v6->sin6_addr.s6_addr));
+            llv6_start = ntohs(0xfe80);
+            llv6_end = ntohs(0xfec0);
+            if (hv6_top < llv6_start || hv6_top >= llv6_end)
+                result = &v6->sin6_addr;
+        }
+    }
+    return result;
+}
 
 static void set_host_name(flatcc_builder_t* bld, const char* const node_name)
 {
@@ -33,42 +79,27 @@ static void set_ip_addresses(flatcc_builder_t* bld)
     struct ifaddrs* addrs;
     struct ifaddrs* cur;
     char text[NI_MAXHOST];
-    uint32_t loopback4;
-    struct in6_addr loopback6 = IN6ADDR_LOOPBACK_INIT;
-    size_t good_count;
+    bool got_one;
     void* cur_addr;
 
-    loopback4 = htonl(INADDR_LOOPBACK);
-    good_count = 0;
     if (getifaddrs(&addrs) == 0)
     {
+        got_one = false;
         for (cur = addrs; cur != NULL; cur = cur->ifa_next)
         {
-            if (cur->ifa_addr->sa_family == AF_INET)
-                cur_addr = &((struct sockaddr_in*)cur->ifa_addr)->sin_addr;
-            else if (cur->ifa_addr->sa_family == AF_INET6)
-                cur_addr = &((struct sockaddr_in6*)cur->ifa_addr)->sin6_addr;
-            else
-                continue;
-            if ((cur->ifa_addr->sa_family == AF_INET && memcmp(cur_addr, &loopback4, 4) != 0) ||
-                (cur->ifa_addr->sa_family == AF_INET6 && memcmp(cur_addr, loopback6.__u6_addr.__u6_addr8, 16) != 0))
+            if (acceptable_addr(cur->ifa_addr) != NULL)
             {
-                ++good_count;
+                got_one = true;
+                break;
             }
         }
-        if (good_count > 0)
+        if (got_one)
         {
             flatbuffers_string_vec_start(bld);
             for (cur = addrs; cur != NULL; cur = cur->ifa_next)
             {
-                if (cur->ifa_addr->sa_family == AF_INET)
-                    cur_addr = &((struct sockaddr_in*)cur->ifa_addr)->sin_addr;
-                else if (cur->ifa_addr->sa_family == AF_INET6)
-                    cur_addr = &((struct sockaddr_in6*)cur->ifa_addr)->sin6_addr;
-                else
-                    continue;
-                if ((cur->ifa_addr->sa_family == AF_INET && memcmp(cur_addr, &loopback4, 4) != 0) ||
-                    (cur->ifa_addr->sa_family == AF_INET6 && memcmp(cur_addr, loopback6.__u6_addr.__u6_addr8, 16) != 0))
+                cur_addr = acceptable_addr(cur->ifa_addr);
+                if (cur_addr != NULL)
                 {
                     inet_ntop(cur->ifa_addr->sa_family, cur_addr, text, INET6_ADDRSTRLEN);
                     flatbuffers_string_vec_push(bld, flatbuffers_string_create_str(bld, text));
