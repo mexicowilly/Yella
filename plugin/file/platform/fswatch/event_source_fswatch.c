@@ -68,7 +68,7 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
               yella_ptr_vector_size(paths),
               sizeof(UChar*),
               qsort_compare);
-        uniq = yella_create_ptr_vector();
+        uniq = yella_create_uds_ptr_vector();
         yella_push_back_ptr_vector(uniq, udsdup(yella_ptr_vector_at(paths, 0)));
         for (i = 1; i < yella_ptr_vector_size(paths); i++)
         {
@@ -113,7 +113,14 @@ static void worker_callback(fsw_cevent const* const evts, const unsigned count, 
 
 static void worker_main(void* udata)
 {
-    fsw_start_monitor(((event_source_fswatch*)udata)->fsw);
+    event_source* esrc;
+    event_source_fswatch* esf;
+
+    esrc = udata;
+    CHUCHO_C_INFO(esrc->lgr, "Fswatch event source thread starting");
+    esf = esrc->impl;
+    fsw_start_monitor(esf->fsw);
+    CHUCHO_C_INFO(esrc->lgr, "Fswatch event source thread exiting");
 }
 
 static void update_specs(const event_source* const esrc)
@@ -124,28 +131,38 @@ static void update_specs(const event_source* const esrc)
     yella_ptr_vector* paths;
 
     esf = (event_source_fswatch*)esrc->impl;
-    if (fsw_is_running(esf->fsw))
-        fsw_stop_monitor(esf->fsw);
-    if (esf->worker != NULL)
+    if (esf != NULL)
     {
-        yella_join_thread(esf->worker);
-        fsw_destroy_session(esf->fsw);
-        yella_destroy_thread(esf->worker);
+        if (esf->fsw != NULL && fsw_is_running(esf->fsw))
+            fsw_stop_monitor(esf->fsw);
+        if (esf->worker != NULL)
+        {
+            yella_join_thread(esf->worker);
+            yella_destroy_thread(esf->worker);
+            esf->worker = NULL;
+        }
+        if (esf->fsw != NULL)
+        {
+            fsw_destroy_session(esf->fsw);
+            esf->fsw = NULL;
+        }
+        paths = get_paths(esrc);
+        if (yella_ptr_vector_size(paths) > 0)
+        {
+            esf->fsw = fsw_init_session(system_default_monitor_type);
+            fsw_set_callback(esf->fsw, worker_callback, (void *) esrc);
+            fsw_set_recursive(esf->fsw, true);
+            fsw_set_latency(esf->fsw, *yella_settings_get_uint(u"file", u"fs-monitor-latency-seconds"));
+            for (i = 0; i < yella_ptr_vector_size(paths); i++)
+            {
+                utf8 = yella_to_utf8(yella_ptr_vector_at(paths, i));
+                fsw_add_path(esf->fsw, utf8);
+                free(utf8);
+            }
+            esf->worker = yella_create_thread(worker_main, (void*)esrc);
+        }
+        yella_destroy_ptr_vector(paths);
     }
-    esf->fsw = fsw_init_session(system_default_monitor_type);
-    fsw_set_callback(esf->fsw, worker_callback, (void*)esrc);
-    fsw_set_recursive(esf->fsw, true);
-    fsw_set_latency(esf->fsw, *yella_settings_get_uint(u"file", u"fs-monitor-latency-seconds"));
-    paths = get_paths(esrc);
-    for (i = 0; i < yella_ptr_vector_size(paths); i++)
-    {
-        utf8 = yella_to_utf8(yella_ptr_vector_at(paths, i));
-        fsw_add_path(esf->fsw, utf8);
-        free(utf8);
-    }
-    yella_destroy_ptr_vector(paths);
-    esf->worker = yella_create_thread(worker_main, esf);
-
 }
 
 void add_or_replace_event_source_impl_spec(event_source* esrc, event_source_spec* spec)
@@ -163,12 +180,17 @@ void destroy_event_source_impl(event_source* esrc)
     event_source_fswatch* esf;
 
     esf = esrc->impl;
-    if (fsw_is_running(esf->fsw))
+    if (esf->fsw != NULL && fsw_is_running(esf->fsw))
         fsw_stop_monitor(esf->fsw);
-    yella_join_thread(esf->worker);
-    fsw_destroy_session(esf->fsw);
-    yella_destroy_thread(esf->worker);
+    if (esf->worker != NULL)
+    {
+        yella_join_thread(esf->worker);
+        yella_destroy_thread(esf->worker);
+    }
+    if (esf->fsw != NULL)
+        fsw_destroy_session(esf->fsw);
     free(esf);
+    esrc->impl = NULL;
 }
 
 void init_event_source_impl(event_source* esrc)

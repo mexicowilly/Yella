@@ -44,10 +44,10 @@ void init_event_source_impl(event_source* esrc);
 void remove_event_source_impl_spec(event_source* esrc, const UChar* const config_name);
 /* End private */
 
-void add_or_replace_event_source_spec(event_source* esrc, event_source_spec* spec);
-void clear_event_source_specs(event_source* esrc);
-event_source* create_event_source(event_source_callback cb, void* cb_udata);
-void destroy_event_source(event_source* esrc);
-void remove_event_source_spec(event_source* esrc, const UChar* const name);
+YELLA_PRIV_EXPORT void add_or_replace_event_source_spec(event_source* esrc, event_source_spec* spec);
+YELLA_PRIV_EXPORT void clear_event_source_specs(event_source* esrc);
+YELLA_PRIV_EXPORT event_source* create_event_source(event_source_callback cb, void* cb_udata);
+YELLA_PRIV_EXPORT void destroy_event_source(event_source* esrc);
+YELLA_PRIV_EXPORT void remove_event_source_spec(event_source* esrc, const UChar* const name);
 
 #endif
