@@ -130,6 +130,41 @@ static void dir(void** arg)
     yella_unlock_mutex(td->guard);
 }
 
+static void exclude(void** arg)
+{
+    test_data* td;
+    event_source_spec* spec;
+    UFILE* f;
+    expected* exp;
+    uds inc;
+    uds ex;
+
+    td = *arg;
+    spec = malloc(sizeof(event_source_spec));
+    spec->name = udsnew(u"monkees");
+    spec->includes = yella_create_uds_ptr_vector();
+    spec->excludes = yella_create_uds_ptr_vector();
+    inc = udsdup(td->dir_name);
+    inc = udscat(inc, u"*");
+    yella_push_back_ptr_vector(spec->includes, inc);
+    exp = malloc(sizeof(expected));
+    exp->config_name = udsdup(spec->name);
+    exp->file_name = udsdup(td->dir_name);
+    exp->file_name = udscat(exp->file_name, u"one");
+    yella_push_back_ptr_vector(td->exp, exp);
+    ex = udsdup(td->dir_name);
+    ex = udscat(ex, u"two");
+    yella_push_back_ptr_vector(spec->excludes, ex);
+    add_or_replace_event_source_spec(td->esrc, spec);
+    yella_sleep_this_thread(250);
+    touch_file(((expected*)yella_ptr_vector_at(td->exp, 0))->file_name);
+    touch_file(ex);
+    yella_lock_mutex(td->guard);
+    assert_true(yella_wait_milliseconds_for_condition_variable(td->cond, td->guard, 2000));
+    check_exp(td->exp);
+    yella_unlock_mutex(td->guard);
+}
+
 static void one_file(void** arg)
 {
     test_data* td;
@@ -199,7 +234,8 @@ int main()
     const struct CMUnitTest tests[] =
     {
         cmocka_unit_test_setup_teardown(one_file, set_up, tear_down),
-        cmocka_unit_test_setup_teardown(dir, set_up, tear_down)
+        cmocka_unit_test_setup_teardown(dir, set_up, tear_down),
+        cmocka_unit_test_setup_teardown(exclude, set_up, tear_down)
     };
 
     yella_load_settings_doc();
