@@ -153,6 +153,7 @@ static void update_specs(const event_source* const esrc)
             fsw_set_callback(esf->fsw, worker_callback, (void *) esrc);
             fsw_set_recursive(esf->fsw, true);
             fsw_set_latency(esf->fsw, *yella_settings_get_uint(u"file", u"fs-monitor-latency-seconds"));
+            /* fsw_set_verbose(true); */
             for (i = 0; i < yella_ptr_vector_size(paths); i++)
             {
                 utf8 = yella_to_utf8(yella_ptr_vector_at(paths, i));
