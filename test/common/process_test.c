@@ -52,7 +52,7 @@ static void interrupted(void** arg)
 
     proc = yella_create_process(u"sleep 5");
     assert_non_null(proc);
-    yella_sleep_this_thread(2000);
+    yella_sleep_this_thread_milliseconds(2000);
     yella_destroy_process(proc);
 }
 

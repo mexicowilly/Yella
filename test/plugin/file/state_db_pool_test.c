@@ -70,13 +70,13 @@ static void exceed_max(void** arg)
     assert_non_null(db);
     assert_int_equal(state_db_pool_size(pt->pool), 1);
     assert_int_equal(u_strcmp(state_db_name(db), u"one"), 0);
-    yella_sleep_this_thread(100);
+    yella_sleep_this_thread_milliseconds(100);
     db = get_state_db_from_pool(pt->pool, u"two");
     assert_non_null(db);
     assert_int_equal(state_db_pool_size(pt->pool), 2);
     assert_int_equal(u_strcmp(state_db_name(db), u"two"), 0);
     yella_push_back_ptr_vector(pt->configs, udsnew(u"two"));
-    yella_sleep_this_thread(100);
+    yella_sleep_this_thread_milliseconds(100);
     db = get_state_db_from_pool(pt->pool, u"three");
     assert_non_null(db);
     assert_int_equal(state_db_pool_size(pt->pool), 2);

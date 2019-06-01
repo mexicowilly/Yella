@@ -84,7 +84,7 @@ static void full_speed_main(void* data)
         memcpy(parts[0].data, &i, sizeof(i));
         memcpy(parts[1].data, &i, sizeof(i));
         spool_push(targ->sp, parts, 2);
-        yella_sleep_this_thread(targ->milliseconds_delay);
+        yella_sleep_this_thread_milliseconds(targ->milliseconds_delay);
     }
     free(parts[0].data);
     free(parts[1].data);
@@ -134,7 +134,7 @@ static void cull(void** targ)
     thr_arg.sp = sp;
     thr = yella_create_thread(full_speed_main, &thr_arg);
     assert_non_null(thr);
-    yella_sleep_this_thread(3000);
+    yella_sleep_this_thread_milliseconds(3000);
     total_popped_events = 0;
     do
     {

@@ -113,7 +113,7 @@ static void heartbeat_thr(void* udata)
     {
         while (time(NULL) < next)
         {
-            yella_sleep_this_thread(1000);
+            yella_sleep_this_thread_milliseconds(1000);
             if (ag->should_stop)
                 break;
         }
@@ -397,7 +397,7 @@ static void maybe_wait_for_router(yella_agent* ag)
     while (get_router_state(ag->rtr) != ROUTER_CONNECTED && time(NULL) < stop)
     {
         CHUCHO_C_INFO_L(ag->lgr, "Waiting for router connection");
-        yella_sleep_this_thread(250);
+        yella_sleep_this_thread_milliseconds(250);
     }
     if (get_router_state(ag->rtr) != ROUTER_CONNECTED)
         CHUCHO_C_INFO_L(ag->lgr, "Initial router connection failed");
