@@ -73,7 +73,7 @@ YELLA_EXPORT bool yella_wait_milliseconds_for_condition_variable(yella_condition
 /**
  * Sleep
  */
-YELLA_EXPORT void yella_sleep_this_thread(size_t milliseconds);
+YELLA_EXPORT void yella_sleep_this_thread_milliseconds(size_t milliseconds);
 
 /**
  * Threads

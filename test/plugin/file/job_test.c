@@ -267,7 +267,7 @@ static void single(void** arg)
         }
         sglib_test_node_add(&td->files, tn);
         run_job(j, td->db_pool);
-        yella_sleep_this_thread(1250);
+        yella_sleep_this_thread_milliseconds(1250);
         destroy_job(j);
         assert_int_equal(sglib_test_node_len(td->files), 0);
     }
@@ -321,7 +321,7 @@ void wild(void** arg)
     uf = u_fopen_u(tn->file_name, "w", NULL, NULL);
     u_fclose(uf);
     run_job(j, td->db_pool);
-    yella_sleep_this_thread(1250);
+    yella_sleep_this_thread_milliseconds(1250);
     destroy_job(j);
     assert_int_equal(sglib_test_node_len(td->files), 0);
 }

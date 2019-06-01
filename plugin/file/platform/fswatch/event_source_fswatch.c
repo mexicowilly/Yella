@@ -150,7 +150,7 @@ static void update_specs(const event_source* const esrc)
         if (yella_ptr_vector_size(paths) > 0)
         {
             esf->fsw = fsw_init_session(system_default_monitor_type);
-            fsw_set_callback(esf->fsw, worker_callback, (void *) esrc);
+            fsw_set_callback(esf->fsw, worker_callback, (void*)esrc);
             fsw_set_recursive(esf->fsw, true);
             fsw_set_latency(esf->fsw, *yella_settings_get_uint(u"file", u"fs-monitor-latency-seconds"));
             /* fsw_set_verbose(true); */
@@ -161,6 +161,10 @@ static void update_specs(const event_source* const esrc)
                 free(utf8);
             }
             esf->worker = yella_create_thread(worker_main, (void*)esrc);
+            /* There is no way to synchronize the start of the monitor with libfswatch.
+             * And if we don't let it start, then stopping it right away will hang the
+             * join of the monitor thread. */
+            yella_sleep_this_thread_milliseconds(100);
         }
         yella_destroy_ptr_vector(paths);
     }

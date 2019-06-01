@@ -91,7 +91,7 @@ static void latency(void** arg)
                             elem,
                             yella_fb_file_condition_CHANGED);
     destroy_element(elem);
-    yella_sleep_this_thread(*yella_settings_get_uint(u"file", u"send-latency-seconds") * 1000 * 3);
+    yella_sleep_this_thread_milliseconds(*yella_settings_get_uint(u"file", u"send-latency-seconds") * 1000 * 3);
     yella_lock_mutex(td->guard);
     assert_int_equal(yella_ptr_vector_size(td->recs), 1);
     yella_unlock_mutex(td->guard);

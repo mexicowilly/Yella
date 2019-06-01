@@ -162,7 +162,7 @@ void yella_signal_event(yella_event* evt)
     pthread_mutex_unlock(&evt->mtx);
 }
 
-void yella_sleep_this_thread(size_t milliseconds)
+void yella_sleep_this_thread_milliseconds(size_t milliseconds)
 {
     struct timespec to_wait;
     struct timespec remaining;
