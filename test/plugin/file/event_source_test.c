@@ -14,6 +14,7 @@ typedef struct excpected
 {
     uds config_name;
     uds file_name;
+    bool should_pause;
 } expected;
 
 typedef struct test_data
@@ -75,6 +76,8 @@ static void file_changed(const UChar* const config_name, const UChar* const fnam
         cur = yella_ptr_vector_at(td->exp, i);
         if (u_strcmp(cur->config_name, config_name) == 0 && u_strcmp(cur->file_name, fname) == 0)
         {
+            if (cur->should_pause)
+                pause_event_source(td->esrc);
             yella_erase_ptr_vector_at(td->exp, i);
             if (yella_ptr_vector_size(td->exp) == 0)
                 yella_signal_condition_variable(td->cond);
@@ -113,7 +116,7 @@ static void clear(void** arg)
     fname = udsdup(td->dir_name);
     fname = udscat(fname, u"one");
     yella_push_back_ptr_vector(spec->includes, fname);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
@@ -125,7 +128,7 @@ static void clear(void** arg)
     fname = udsdup(td->dir_name);
     fname = udscat(fname, u"two");
     yella_push_back_ptr_vector(spec->includes, fname);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
@@ -165,12 +168,12 @@ static void dir(void** arg)
     inc = udsdup(td->dir_name);
     inc = udscat(inc, u"*");
     yella_push_back_ptr_vector(spec->includes, inc);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(td->dir_name);
     exp->file_name = udscat(exp->file_name, u"one");
     yella_push_back_ptr_vector(td->exp, exp);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(td->dir_name);
     exp->file_name = udscat(exp->file_name, u"two");
@@ -202,12 +205,12 @@ static void duplicates(void** arg)
     inc = udscat(inc, u"*");
     yella_push_back_ptr_vector(spec->includes, inc);
     yella_push_back_ptr_vector(spec->includes, udsdup(inc));
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(td->dir_name);
     exp->file_name = udscat(exp->file_name, u"one");
     yella_push_back_ptr_vector(td->exp, exp);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(td->dir_name);
     exp->file_name = udscat(exp->file_name, u"two");
@@ -240,7 +243,7 @@ static void exclude(void** arg)
     inc = udsdup(td->dir_name);
     inc = udscat(inc, u"*");
     yella_push_back_ptr_vector(spec->includes, inc);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(td->dir_name);
     exp->file_name = udscat(exp->file_name, u"one");
@@ -273,7 +276,7 @@ static void multiple_configs(void** arg)
     fname = udsdup(td->dir_name);
     fname = udscat(fname, u"one");
     yella_push_back_ptr_vector(spec->includes, fname);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
@@ -285,7 +288,7 @@ static void multiple_configs(void** arg)
     fname = udsdup(td->dir_name);
     fname = udscat(fname, u"two");
     yella_push_back_ptr_vector(spec->includes, fname);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
@@ -315,12 +318,55 @@ static void one_file(void** arg)
     fname = udsdup(td->dir_name);
     fname = udscat(fname, u"one");
     yella_push_back_ptr_vector(spec->includes, fname);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(yella_ptr_vector_at(spec->includes, 0));
     yella_push_back_ptr_vector(td->exp, exp);
     add_or_replace_event_source_spec(td->esrc, spec);
     yella_sleep_this_thread_milliseconds(250);
+    touch_file(yella_ptr_vector_at(spec->includes, 0));
+    yella_lock_mutex(td->guard);
+    assert_true(yella_wait_milliseconds_for_condition_variable(td->cond, td->guard, 2000));
+    check_exp(td->exp);
+    yella_unlock_mutex(td->guard);
+}
+
+static void pause_resume(void** arg)
+{
+    test_data* td;
+    event_source_spec* spec;
+    expected* exp;
+    uds fname;
+
+    td = *arg;
+    spec = malloc(sizeof(event_source_spec));
+    spec->name = udsnew(u"doggies");
+    spec->includes = yella_create_uds_ptr_vector();
+    spec->excludes = yella_create_uds_ptr_vector();
+    fname = udsdup(td->dir_name);
+    fname = udscat(fname, u"one");
+    yella_push_back_ptr_vector(spec->includes, fname);
+    exp = calloc(1, sizeof(expected));
+    exp->config_name = udsdup(spec->name);
+    exp->file_name = udsdup(yella_ptr_vector_at(spec->includes, 0));
+    exp->should_pause = true;
+    yella_push_back_ptr_vector(td->exp, exp);
+    add_or_replace_event_source_spec(td->esrc, spec);
+    yella_sleep_this_thread_milliseconds(250);
+    touch_file(yella_ptr_vector_at(spec->includes, 0));
+    yella_lock_mutex(td->guard);
+    assert_true(yella_wait_milliseconds_for_condition_variable(td->cond, td->guard, 2000));
+    check_exp(td->exp);
+    yella_unlock_mutex(td->guard);
+    yella_sleep_this_thread_milliseconds(250);
+    fname = udsdup(td->dir_name);
+    fname = udscat(fname, u"one");
+    yella_remove_file(fname);
+    resume_event_source(td->esrc);
+    exp = calloc(1, sizeof(expected));
+    exp->config_name = udsdup(spec->name);
+    exp->file_name = udsdup(yella_ptr_vector_at(spec->includes, 0));
+    yella_push_back_ptr_vector(td->exp, exp);
     touch_file(yella_ptr_vector_at(spec->includes, 0));
     yella_lock_mutex(td->guard);
     assert_true(yella_wait_milliseconds_for_condition_variable(td->cond, td->guard, 2000));
@@ -343,7 +389,7 @@ static void remove_one(void** arg)
     fname = udsdup(td->dir_name);
     fname = udscat(fname, u"one");
     yella_push_back_ptr_vector(spec->includes, fname);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
@@ -355,7 +401,7 @@ static void remove_one(void** arg)
     fname = udsdup(td->dir_name);
     fname = udscat(fname, u"two");
     yella_push_back_ptr_vector(spec->includes, fname);
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
@@ -368,7 +414,7 @@ static void remove_one(void** arg)
     check_exp(td->exp);
     yella_unlock_mutex(td->guard);
     remove_event_source_spec(td->esrc, u"config 1");
-    exp = malloc(sizeof(expected));
+    exp = calloc(1, sizeof(expected));
     exp->config_name = udsnew(u"config 2");
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
@@ -435,7 +481,8 @@ int main()
         cmocka_unit_test_setup_teardown(duplicates, set_up, tear_down),
         cmocka_unit_test_setup_teardown(multiple_configs, set_up, tear_down),
         cmocka_unit_test_setup_teardown(remove_one, set_up, tear_down),
-        cmocka_unit_test_setup_teardown(clear, set_up, tear_down)
+        cmocka_unit_test_setup_teardown(clear, set_up, tear_down),
+        cmocka_unit_test_setup_teardown(pause_resume, set_up, tear_down)
     };
 
     yella_load_settings_doc();

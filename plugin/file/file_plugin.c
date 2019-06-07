@@ -17,6 +17,7 @@
 #include <unicode/ustring.h>
 #include <stdio.h>
 #include <errno.h>
+#include <inttypes.h>
 
 typedef struct config_node
 {
@@ -62,6 +63,15 @@ static void destroy_config_node(config_node* cn)
     }
 }
 
+static void job_queue_empty(void* udata)
+{
+    file_plugin* fplg;
+
+    fplg = udata;
+    resume_event_source(fplg->esrc);
+    CHUCHO_C_INFO(fplg->lgr, "The job queue has emptied, so the event source has been resumed.");
+}
+
 static void event_received(const UChar* const config_name, const UChar* const fname, void* udata)
 {
     file_plugin* fplg;
@@ -70,6 +80,8 @@ static void event_received(const UChar* const config_name, const UChar* const fn
     job* jb;
     char* cutf8;
     char* futf8;
+    uint64_t max_jobs;
+    size_t job_count;
 
     fplg = (file_plugin*)udata;
     to_find.name = (uds)config_name;
@@ -83,7 +95,18 @@ static void event_received(const UChar* const config_name, const UChar* const fn
         jb->attr_types = malloc(sizeof(attribute_type) * jb->attr_type_count);
         memcpy(jb->attr_types, found->attr_types, sizeof(attribute_type) * jb->attr_type_count);
         yella_unlock_reader_writer_lock(fplg->config_guard);
-        push_job_queue(fplg->jq, jb);
+        max_jobs = *yella_settings_get_uint(u"file", u"max-queued-jobs");
+        job_count = push_job_queue(fplg->jq, jb);
+        if (job_count >= max_jobs)
+        {
+            pause_event_source(fplg->esrc);
+            /* This callback is removed automatically once it is called */
+            set_job_queue_empty_callback(fplg->jq, job_queue_empty, fplg);
+            CHUCHO_C_WARN(fplg->lgr,
+                          "The job queue is full (%zu >= %" PRIu64 "), so the event source is paused until the queue empties.",
+                          job_count,
+                          max_jobs);
+        }
         if (chucho_logger_permits(fplg->lgr, CHUCHO_TRACE))
         {
             cutf8 = yella_to_utf8(config_name);
@@ -470,18 +493,20 @@ static void retrieve_file_settings(void)
     {
         { u"data-dir", YELLA_SETTING_VALUE_DIR },
         { u"max-spool-dbs", YELLA_SETTING_VALUE_UINT },
-        { u"max-events-in-cache", YELLA_SETTING_VALUE_UINT },
+        /* This is only used in FreeBSD with DTrace { u"max-events-in-cache", YELLA_SETTING_VALUE_UINT }, */
         { u"fs-monitor-latency-seconds", YELLA_SETTING_VALUE_UINT },
-        { u"send-latency-seconds", YELLA_SETTING_VALUE_UINT }
+        { u"send-latency-seconds", YELLA_SETTING_VALUE_UINT },
+        { u"max-queued-jobs", YELLA_SETTING_VALUE_UINT }
     };
 
     data_dir = udscatprintf(udsempty(), u"%Sfile", yella_settings_get_dir(u"agent", u"data-dir"));
     yella_settings_set_dir(u"file", u"data-dir", data_dir);
     udsfree(data_dir);
     yella_settings_set_uint(u"file", u"max-spool-dbs", 100);
-    yella_settings_set_uint(u"file", u"max-events-in-cache", 5000000);
+    /* Only in FreeBSD with DTrace yella_settings_set_uint(u"file", u"max-events-in-cache", 5000000); */
     yella_settings_set_uint(u"file", u"fs-monitor-latency-seconds", 5);
     yella_settings_set_uint(u"file", u"send-latency-seconds", 15);
+    yella_settings_set_uint(u"file", u"max-queued-jobs", 10000);
 
     yella_retrieve_settings(u"file", descs, YELLA_ARRAY_SIZE(descs));
 }

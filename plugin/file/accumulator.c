@@ -146,7 +146,7 @@ static void worker_main(void* arg)
         flatcc_builder_clear(&cur->bld);
     }
     yella_unlock_mutex(acc->guard);
-    CHUCHO_C_INFO(acc->lgr, "The accumulator thread is exiting");
+    CHUCHO_C_INFO(acc->lgr, "The accumulator thread is ending");
 }
 
 size_t accumulator_size(accumulator* acc)

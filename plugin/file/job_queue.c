@@ -3,6 +3,7 @@
 #include "common/sglib.h"
 #include "common/thread.h"
 #include <unicode/ustring.h>
+#include <chucho/log.h>
 
 typedef struct queue
 {
@@ -21,6 +22,9 @@ struct job_queue
     yella_thread* runner;
     bool should_stop;
     state_db_pool* db_pool;
+    chucho_logger_t* lgr;
+    job_queue_empty_callback cb;
+    void* cb_data;
 };
 
 #define JOB_COMPARATOR(lhs, rhs) (u_strcmp(lhs->jb->config_name, rhs->jb->config_name))
@@ -34,11 +38,12 @@ static void job_queue_main(void* udata)
     queue* front;
 
     jq = (job_queue*)udata;
+    CHUCHO_C_INFO(jq->lgr, "Job queue thread starting");
     while (true)
     {
         yella_lock_mutex(jq->guard);
-        while (!jq->should_stop && jq->sz == 0)
-            yella_wait_milliseconds_for_condition_variable(jq->cond, jq->guard, 250);
+        while (!jq->should_stop && jq->sz == 0 && jq->cb == NULL)
+           yella_wait_milliseconds_for_condition_variable(jq->cond, jq->guard, 250);
         if (jq->should_stop)
         {
             yella_unlock_mutex(jq->guard);
@@ -46,6 +51,12 @@ static void job_queue_main(void* udata)
         }
         if (jq->sz == 0)
         {
+            if (jq->cb != NULL)
+            {
+                jq->cb(jq->cb_data);
+                jq->cb = NULL;
+                jq->cb_data = NULL;
+            }
             yella_unlock_mutex(jq->guard);
         }
         else
@@ -59,6 +70,7 @@ static void job_queue_main(void* udata)
             free(front);
         }
     }
+    CHUCHO_C_INFO(jq->lgr, "Job queue thread ending");
 }
 
 job_queue* create_job_queue(state_db_pool* pool)
@@ -70,6 +82,7 @@ job_queue* create_job_queue(state_db_pool* pool)
     result->cond = yella_create_condition_variable();
     result->runner = yella_create_thread(job_queue_main, result);
     result->db_pool = pool;
+    result->lgr = chucho_get_logger("yella.file.job-queue");
     return result;
 }
 
@@ -93,23 +106,32 @@ void destroy_job_queue(job_queue* jq)
         destroy_job(q->jb);
         free(q);
     }
+    chucho_release_logger(jq->lgr);
     free(jq);
 }
 
-void push_job_queue(job_queue* jq, job* jb)
+size_t push_job_queue(job_queue* jq, job* jb)
 {
     queue* q;
+    size_t cur_sz;
 
     q = malloc(sizeof(queue));
     q->jb = jb;
     yella_lock_mutex(jq->guard);
     sglib_queue_add_after(&jq->last, q);
-    if (jq->last->next != NULL)
-        jq->last = jq->last->next;
-    if (jq->q == NULL)
-        jq->q = jq->last;
-    ++jq->sz;
-    if (jq->sz == 1)
+    jq->last = q;
+    cur_sz = ++jq->sz;
+    if (cur_sz == 1)
         yella_signal_condition_variable(jq->cond);
+    yella_unlock_mutex(jq->guard);
+    return cur_sz;
+}
+
+void set_job_queue_empty_callback(job_queue* jq, job_queue_empty_callback cb, void* udata)
+{
+    yella_lock_mutex(jq->guard);
+    jq->cb = cb;
+    jq->cb_data = udata;
+    yella_signal_condition_variable(jq->cond);
     yella_unlock_mutex(jq->guard);
 }

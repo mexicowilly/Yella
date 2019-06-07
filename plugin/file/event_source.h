@@ -48,6 +48,8 @@ YELLA_PRIV_EXPORT void add_or_replace_event_source_spec(event_source* esrc, even
 YELLA_PRIV_EXPORT void clear_event_source_specs(event_source* esrc);
 YELLA_PRIV_EXPORT event_source* create_event_source(event_source_callback cb, void* cb_udata);
 YELLA_PRIV_EXPORT void destroy_event_source(event_source* esrc);
+YELLA_PRIV_EXPORT void pause_event_source(event_source* esrc);
 YELLA_PRIV_EXPORT void remove_event_source_spec(event_source* esrc, const UChar* const name);
+YELLA_PRIV_EXPORT void resume_event_source(event_source* esrc);
 
 #endif
