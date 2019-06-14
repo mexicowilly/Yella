@@ -23,6 +23,7 @@ typedef void (*job_queue_empty_callback)(void* udata);
 job_queue* create_job_queue(state_db_pool* pool);
 void destroy_job_queue(job_queue* jq);
 job_queue_stats get_job_queue_stats(job_queue* jq);
+void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr);
 /* Returns the size of the queue after the push */
 size_t push_job_queue(job_queue* jq, job* jb);
 /* As soon as the callback is called, it is removed.

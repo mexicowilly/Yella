@@ -5,6 +5,7 @@
 #include "common/time_util.h"
 #include <unicode/ustring.h>
 #include <chucho/log.h>
+#include <cjson/cJSON.h>
 
 typedef struct queue
 {
@@ -144,6 +145,30 @@ job_queue_stats get_job_queue_stats(job_queue* jq)
     result.average_job_microseconds = jq->accumulated_microseconds == 0 ? 0 : jq->accumulated_microseconds / result.jobs_run;
     yella_unlock_mutex(jq->guard);
     return result;
+}
+
+void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr)
+{
+    cJSON* json;
+    job_queue_stats stats;
+    char* log_msg;
+
+    if (chucho_logger_permits(lgr, CHUCHO_INFO))
+    {
+        stats = get_job_queue_stats(jq);
+        json = cJSON_CreateObject();
+        cJSON_AddNumberToObject(json, "average_size", stats.average_size);
+        cJSON_AddNumberToObject(json, "max_size", stats.max_size);
+        cJSON_AddNumberToObject(json, "jobs_pushed", stats.jobs_pushed);
+        cJSON_AddNumberToObject(json, "average_job_microseconds", stats.average_job_microseconds);
+        cJSON_AddNumberToObject(json, "slowest_job_microseconds", stats.slowest_job_microseconds);
+        cJSON_AddNumberToObject(json, "fastest_job_microseconds", stats.fastest_job_microseconds);
+        cJSON_AddNumberToObject(json, "jobs_run", stats.jobs_run);
+        log_msg = cJSON_PrintUnformatted(json);
+        CHUCHO_C_INFO(lgr, "Job queue stats: %s", log_msg);
+        free(log_msg);
+        cJSON_Delete(json);
+    }
 }
 
 size_t push_job_queue(job_queue* jq, job* jb)
