@@ -16,7 +16,6 @@ typedef struct job
     /* These are both vectors of uds */
     yella_ptr_vector* includes;
     yella_ptr_vector* excludes;
-    const yella_agent_api* agent_api;
     attribute_type* attr_types;
     size_t attr_type_count;
 } job;

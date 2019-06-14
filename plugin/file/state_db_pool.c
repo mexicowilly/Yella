@@ -1,16 +1,16 @@
 #include "plugin/file/state_db_pool.h"
 #include "common/sglib.h"
 #include "common/settings.h"
-#include "common/time_util.h"
 #include "common/text_util.h"
 #include <unicode/ustring.h>
+#include <unicode/udat.h>
 #include <chucho/log.h>
 
 typedef struct state_db_node
 {
     const UChar* name;
     state_db* db;
-    uintmax_t time_last_used;
+    UDate time_last_used;
     char color;
     struct state_db_node* left;
     struct state_db_node* right;
@@ -100,7 +100,7 @@ state_db* get_state_db_from_pool(state_db_pool* pool, const UChar* const config_
         sglib_state_db_node_add(&pool->nodes, found);
         ++pool->count;
     }
-    found->time_last_used = yella_millis_since_epoch();
+    found->time_last_used = ucal_getNow();
     return found->db;
 }
 

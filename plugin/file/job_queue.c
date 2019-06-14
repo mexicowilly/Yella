@@ -2,6 +2,7 @@
 #include "plugin/file/job.h"
 #include "common/sglib.h"
 #include "common/thread.h"
+#include "common/time_util.h"
 #include <unicode/ustring.h>
 #include <chucho/log.h>
 
@@ -25,6 +26,9 @@ struct job_queue
     chucho_logger_t* lgr;
     job_queue_empty_callback cb;
     void* cb_data;
+    job_queue_stats stats;
+    size_t accumulated_size;
+    uint64_t accumulated_microseconds;
 };
 
 #define JOB_COMPARATOR(lhs, rhs) (u_strcmp(lhs->jb->config_name, rhs->jb->config_name))
@@ -36,6 +40,8 @@ static void job_queue_main(void* udata)
 {
     job_queue* jq;
     queue* front;
+    uint64_t start_micros;
+    uint64_t job_micros;
 
     jq = (job_queue*)udata;
     CHUCHO_C_INFO(jq->lgr, "Job queue thread starting");
@@ -64,10 +70,28 @@ static void job_queue_main(void* udata)
             front = sglib_queue_get_first(jq->q);
             sglib_queue_delete(&jq->q, front);
             --jq->sz;
+            --jq->accumulated_size;
             yella_unlock_mutex(jq->guard);
+            start_micros = yella_microseconds_since_epoch();
             run_job(front->jb, jq->db_pool);
+            job_micros = yella_microseconds_since_epoch() - start_micros;
+            jq->accumulated_microseconds += job_micros;
             destroy_job(front->jb);
             free(front);
+            yella_lock_mutex(jq->guard);
+            if (++jq->stats.jobs_run == 1)
+            {
+                jq->stats.fastest_job_microseconds = job_micros;
+                jq->stats.slowest_job_microseconds = job_micros;
+            }
+            else
+            {
+                if (job_micros > jq->stats.fastest_job_microseconds)
+                    jq->stats.fastest_job_microseconds = job_micros;
+                if (job_micros < jq->stats.slowest_job_microseconds)
+                    jq->stats.slowest_job_microseconds = job_micros;
+            }
+            yella_unlock_mutex(jq->guard);
         }
     }
     CHUCHO_C_INFO(jq->lgr, "Job queue thread ending");
@@ -110,6 +134,18 @@ void destroy_job_queue(job_queue* jq)
     free(jq);
 }
 
+job_queue_stats get_job_queue_stats(job_queue* jq)
+{
+    job_queue_stats result;
+
+    yella_lock_mutex(jq->guard);
+    result = jq->stats;
+    result.average_size = jq->accumulated_size == 0 ? 0 : jq->accumulated_size / (result.jobs_pushed + result.jobs_run);
+    result.average_job_microseconds = jq->accumulated_microseconds == 0 ? 0 : jq->accumulated_microseconds / result.jobs_run;
+    yella_unlock_mutex(jq->guard);
+    return result;
+}
+
 size_t push_job_queue(job_queue* jq, job* jb)
 {
     queue* q;
@@ -123,6 +159,10 @@ size_t push_job_queue(job_queue* jq, job* jb)
     cur_sz = ++jq->sz;
     if (cur_sz == 1)
         yella_signal_condition_variable(jq->cond);
+    ++jq->stats.jobs_pushed;
+    ++jq->accumulated_size;
+    if (cur_sz > jq->stats.max_size)
+        jq->stats.max_size = cur_sz;
     yella_unlock_mutex(jq->guard);
     return cur_sz;
 }

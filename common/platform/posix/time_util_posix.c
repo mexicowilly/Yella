@@ -16,12 +16,12 @@
 
 #include "common/time_util.h"
 #include <sys/time.h>
-#include <stddef.h>
 
-uintmax_t yella_millis_since_epoch(void)
+uint64_t yella_microseconds_since_epoch(void)
 {
     struct timeval tv;
 
     gettimeofday(&tv, NULL);
-    return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+    return (tv.tv_sec * 1000000) + tv.tv_usec;
 }
+
