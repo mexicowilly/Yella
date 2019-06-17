@@ -17,7 +17,6 @@ typedef struct queue
 struct job_queue
 {
     queue* q;
-    queue* last;
     size_t sz;
     yella_mutex* guard;
     yella_condition_variable* cond;
@@ -103,11 +102,11 @@ job_queue* create_job_queue(state_db_pool* pool)
     job_queue* result;
 
     result = calloc(1, sizeof(job_queue));
+    result->lgr = chucho_get_logger("yella.file.job-queue");
     result->guard = yella_create_mutex();
     result->cond = yella_create_condition_variable();
     result->runner = yella_create_thread(job_queue_main, result);
     result->db_pool = pool;
-    result->lgr = chucho_get_logger("yella.file.job-queue");
     return result;
 }
 
@@ -165,9 +164,9 @@ void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr)
         cJSON_AddNumberToObject(json, "fastest_job_microseconds", stats.fastest_job_microseconds);
         cJSON_AddNumberToObject(json, "jobs_run", stats.jobs_run);
         log_msg = cJSON_PrintUnformatted(json);
+        cJSON_Delete(json);
         CHUCHO_C_INFO(lgr, "Job queue stats: %s", log_msg);
         free(log_msg);
-        cJSON_Delete(json);
     }
 }
 
@@ -176,11 +175,10 @@ size_t push_job_queue(job_queue* jq, job* jb)
     queue* q;
     size_t cur_sz;
 
-    q = malloc(sizeof(queue));
+    q = calloc(1, sizeof(queue));
     q->jb = jb;
     yella_lock_mutex(jq->guard);
-    sglib_queue_add_after(&jq->last, q);
-    jq->last = q;
+    sglib_queue_concat(&jq->q, q);
     cur_sz = ++jq->sz;
     if (cur_sz == 1)
         yella_signal_condition_variable(jq->cond);

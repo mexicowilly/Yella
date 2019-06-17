@@ -20,17 +20,17 @@ typedef struct job_queue_stats
 typedef void (*job_queue_empty_callback)(void* udata);
 
 /* Ownership of the pool is not transferred */
-job_queue* create_job_queue(state_db_pool* pool);
-void destroy_job_queue(job_queue* jq);
-job_queue_stats get_job_queue_stats(job_queue* jq);
-void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr);
+YELLA_PRIV_EXPORT job_queue* create_job_queue(state_db_pool* pool);
+YELLA_PRIV_EXPORT void destroy_job_queue(job_queue* jq);
+YELLA_PRIV_EXPORT job_queue_stats get_job_queue_stats(job_queue* jq);
+YELLA_PRIV_EXPORT void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr);
 /* Returns the size of the queue after the push */
-size_t push_job_queue(job_queue* jq, job* jb);
+YELLA_PRIV_EXPORT size_t push_job_queue(job_queue* jq, job* jb);
 /* As soon as the callback is called, it is removed.
  * The pattern is that once the queue fills, the
  * event source is paused until the queue is empty.
  * Automatic removal if the callback in this scenario
  * simplifies usage. */
-void set_job_queue_empty_callback(job_queue* jq, job_queue_empty_callback cb, void* udata);
+YELLA_PRIV_EXPORT void set_job_queue_empty_callback(job_queue* jq, job_queue_empty_callback cb, void* udata);
 
 #endif
