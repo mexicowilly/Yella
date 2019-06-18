@@ -6,6 +6,7 @@
 #include <ifaddrs.h>
 #include <netpacket/packet.h>
 #include <assert.h>
+#include <unicode/ustdio.h>
 
 yella_mac_addresses* yella_get_mac_addresses(chucho_logger_t* lgr)
 {
@@ -36,10 +37,10 @@ yella_mac_addresses* yella_get_mac_addresses(chucho_logger_t* lgr)
                 sll = (struct sockaddr_ll*)(cur->ifa_addr);
                 assert(sll->sll_halen == 6);
                 memcpy(result->addrs[i].addr, sll->sll_addr, 6);
-                snprintf(result->addrs[i].text,
-                         sizeof(result->addrs[i].text),
-                         "%02x:%02x:%02x:%02x:%02x:%02x",
-                         sll->sll_addr[0], sll->sll_addr[1], sll->sll_addr[2], sll->sll_addr[3], sll->sll_addr[4], sll->sll_addr[5]);
+                u_snprintf(result->addrs[i].text,
+                           sizeof(result->addrs[i].text) / sizeof(UChar),
+                           "%02x:%02x:%02x:%02x:%02x:%02x",
+                           sll->sll_addr[0], sll->sll_addr[1], sll->sll_addr[2], sll->sll_addr[3], sll->sll_addr[4], sll->sll_addr[5]);
                 ++i;
             }
         }

@@ -134,7 +134,8 @@ static void cull(void** targ)
     thr_arg.sp = sp;
     thr = yella_create_thread(full_speed_main, &thr_arg);
     assert_non_null(thr);
-    yella_sleep_this_thread_milliseconds(3000);
+    yella_join_thread(thr);
+    yella_destroy_thread(thr);
     total_popped_events = 0;
     do
     {
@@ -146,14 +147,12 @@ static void cull(void** targ)
             ++total_popped_events;
         }
     } while (rc == YELLA_NO_ERROR);
-    yella_join_thread(thr);
-    yella_destroy_thread(thr);
     stats = spool_get_stats(sp);
+    tstats = stats_to_json(&stats);
+    print_message("Stats: %s\n", tstats);
     destroy_spool(sp);
     assert_true(stats.bytes_culled > 0);
     assert_true(total_popped_events < 1000000);
-    tstats = stats_to_json(&stats);
-    print_message("Stats: %s\n", tstats);
     free(tstats);
 }
 

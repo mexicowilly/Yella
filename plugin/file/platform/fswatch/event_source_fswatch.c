@@ -50,16 +50,12 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
             cur_inc = yella_ptr_vector_at(cur_spec->includes, i);
             spesh = first_unescaped_special_char(cur_inc);
             if (spesh == NULL)
-            {
-                yella_push_back_ptr_vector(paths, udsnew(cur_inc));
-            }
-            else
-            {
-                while (*spesh != YELLA_DIR_SEP[0] && spesh >= cur_inc)
-                    --spesh;
-                if (spesh >= cur_inc)
-                    yella_push_back_ptr_vector(paths, udsnewlen(cur_inc, (spesh == cur_inc) ? 1 : spesh - cur_inc));
-            }
+                spesh = u_strrchr(cur_inc, YELLA_DIR_SEP[0]);
+            assert(spesh != NULL);
+            while (*spesh != YELLA_DIR_SEP[0] && spesh >= cur_inc)
+                --spesh;
+            if (spesh >= cur_inc)
+                yella_push_back_ptr_vector(paths, udsnewlen(cur_inc, (spesh == cur_inc) ? 1 : spesh - cur_inc));
         }
     }
     if (yella_ptr_vector_size(paths) > 0)
@@ -93,22 +89,50 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
     return paths;
 }
 
+static bool has_useful_flags(const fsw_cevent* const evt)
+{
+    unsigned i;
+
+    for (i = 0; i < evt->flags_num; i++)
+    {
+        if (evt->flags[i] != NoOp && evt->flags[i] != PlatformSpecific)
+            return true;
+    }
+    return false;
+}
+
 static void worker_callback(fsw_cevent const* const evts, const unsigned count, void* udata)
 {
     event_source* esrc;
     unsigned i;
     UChar* utf16;
     const UChar* cfg;
+    yella_ptr_vector* called;
+    unsigned j;
 
     esrc = (event_source*)udata;
+    called = yella_create_uds_ptr_vector();
     for (i = 0; i < count; i++)
     {
-        utf16 = yella_from_utf8(evts[i].path);
-        cfg = event_source_file_name_matches_any(esrc, utf16);
-        if (cfg != NULL)
-            esrc->callback(cfg, utf16, esrc->callback_udata);
-        free(utf16);
+        if (has_useful_flags(&evts[i]))
+        {
+            utf16 = yella_from_utf8(evts[i].path);
+            for (j = 0; j < yella_ptr_vector_size(called); j++)
+            {
+                if (u_strcmp(utf16, yella_ptr_vector_at(called, j)) == 0)
+                    break;
+            }
+            if (j == yella_ptr_vector_size(called))
+            {
+                cfg = event_source_file_name_matches_any(esrc, utf16);
+                if (cfg != NULL)
+                    esrc->callback(cfg, utf16, esrc->callback_udata);
+                yella_push_back_ptr_vector(called, udsnew(utf16));
+            }
+            free(utf16);
+        }
     }
+    yella_destroy_ptr_vector(called);
 }
 
 static void worker_main(void* udata)
@@ -180,9 +204,6 @@ static void stop_monitor(event_source_fswatch* esf)
 static void update_specs(const event_source* const esrc)
 {
     event_source_fswatch* esf;
-    char* utf8;
-    size_t i;
-    yella_ptr_vector* paths;
 
     esf = (event_source_fswatch*)esrc->impl;
     stop_monitor(esf);

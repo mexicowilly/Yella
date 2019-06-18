@@ -16,6 +16,7 @@
 
 #include "common/time_util.h"
 #include <sys/time.h>
+#include <stddef.h>
 
 uint64_t yella_microseconds_since_epoch(void)
 {

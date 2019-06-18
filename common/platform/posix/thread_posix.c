@@ -179,7 +179,7 @@ void yella_sleep_this_thread_milliseconds(size_t milliseconds)
 
 void* yella_this_thread(void)
 {
-    return pthread_self();
+    return (void*)pthread_self();
 }
 
 void yella_unlock_mutex(yella_mutex* mtx)
