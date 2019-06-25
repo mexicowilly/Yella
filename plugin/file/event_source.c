@@ -15,51 +15,64 @@ static void destroy_event_source_spec(event_source_spec* spec)
     free(spec);
 }
 
-static char* spec_to_json(const event_source_spec* const spec)
+static char* specs_to_json(event_source_spec** specs, size_t count)
 {
     cJSON* json;
     char* utf8;
     cJSON* arr;
     size_t i;
     char* result;
+    cJSON* spec_arr;
+    size_t j;
+    cJSON* cur;
 
     json = cJSON_CreateObject();
-    utf8 = yella_to_utf8(spec->name);
-    cJSON_AddStringToObject(json, "name", utf8);
-    free(utf8);
-    arr = cJSON_AddArrayToObject(json, "includes");
-    for (i = 0; i < yella_ptr_vector_size(spec->includes); i++)
+    spec_arr = cJSON_AddArrayToObject(json, "specs");
+    for (j = 0; j < count; j++)
     {
-        utf8 = yella_to_utf8((UChar*)yella_ptr_vector_at(spec->includes, i));
-        cJSON_AddItemToArray(arr, cJSON_CreateString(utf8));
+        cur = cJSON_CreateObject();
+        utf8 = yella_to_utf8(specs[j]->name);
+        cJSON_AddStringToObject(cur, "name", utf8);
         free(utf8);
-    }
-    arr = cJSON_AddArrayToObject(json, "excludes");
-    for (i = 0; i < yella_ptr_vector_size(spec->excludes); i++)
-    {
-        utf8 = yella_to_utf8((UChar*)yella_ptr_vector_at(spec->excludes, i));
-        cJSON_AddItemToArray(arr, cJSON_CreateString(utf8));
-        free(utf8);
+        arr = cJSON_AddArrayToObject(cur, "includes");
+        for (i = 0; i < yella_ptr_vector_size(specs[j]->includes); i++)
+        {
+            utf8 = yella_to_utf8((UChar*)yella_ptr_vector_at(specs[j]->includes, i));
+            cJSON_AddItemToArray(arr, cJSON_CreateString(utf8));
+            free(utf8);
+        }
+        arr = cJSON_AddArrayToObject(cur, "excludes");
+        for (i = 0; i < yella_ptr_vector_size(specs[j]->excludes); i++)
+        {
+            utf8 = yella_to_utf8((UChar*)yella_ptr_vector_at(specs[j]->excludes, i));
+            cJSON_AddItemToArray(arr, cJSON_CreateString(utf8));
+            free(utf8);
+        }
+        cJSON_AddItemToArray(spec_arr, cur);
     }
     result = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);
     return result;
 }
 
-void add_or_replace_event_source_spec(event_source* esrc, event_source_spec* spec)
+void add_or_replace_event_source_specs(event_source* esrc, event_source_spec** specs, size_t count)
 {
     event_source_spec* removed;
     char* spec_text;
+    size_t i;
 
     yella_write_lock_reader_writer_lock(esrc->guard);
-    if (sglib_event_source_spec_delete_if_member(&esrc->specs, spec, &removed) != 0)
-        destroy_event_source_spec(removed);
-    sglib_event_source_spec_add(&esrc->specs, spec);
-    add_or_replace_event_source_impl_spec(esrc, spec);
+    for (i = 0; i < count; i++)
+    {
+        if (sglib_event_source_spec_delete_if_member(&esrc->specs, specs[i], &removed) != 0)
+            destroy_event_source_spec(removed);
+        sglib_event_source_spec_add(&esrc->specs, specs[i]);
+    }
     yella_unlock_reader_writer_lock(esrc->guard);
+    add_or_replace_event_source_impl_specs(esrc, specs, count);
     if (chucho_logger_permits(esrc->lgr, CHUCHO_INFO))
     {
-        spec_text = spec_to_json(spec);
+        spec_text = specs_to_json(specs, count);
         CHUCHO_C_INFO(esrc->lgr, "Added config: %s", spec_text);
         free(spec_text);
     }
@@ -91,8 +104,8 @@ void clear_event_source_specs(event_source* esrc)
         destroy_event_source_spec(cur);
     }
     esrc->specs = NULL;
-    clear_event_source_impl_specs(esrc);
     yella_unlock_reader_writer_lock(esrc->guard);
+    clear_event_source_impl_specs(esrc);
     CHUCHO_C_INFO(esrc->lgr, "Cleared all configs");
 }
 
@@ -147,8 +160,8 @@ void remove_event_source_spec(event_source* esrc, const UChar* const name)
     yella_write_lock_reader_writer_lock(esrc->guard);
     if (sglib_event_source_spec_delete_if_member(&esrc->specs, &to_remove, &removed))
         destroy_event_source_spec(removed);
-    remove_event_source_impl_spec(esrc, name);
     yella_unlock_reader_writer_lock(esrc->guard);
+    remove_event_source_impl_spec(esrc, name);
     if (chucho_logger_permits(esrc->lgr, CHUCHO_INFO))
     {
         spec_text = yella_to_utf8(name);

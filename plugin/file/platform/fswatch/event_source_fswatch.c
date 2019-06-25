@@ -15,6 +15,7 @@ typedef struct event_source_fswatch
 {
     FSW_HANDLE fsw;
     yella_thread* worker;
+    yella_event* pause_event;
 } event_source_fswatch;
 
 static int qsort_strcmp(const void* p1, const void* p2)
@@ -198,6 +199,8 @@ static void stop_monitor(event_source_fswatch* esf)
             fsw_destroy_session(esf->fsw);
             esf->fsw = NULL;
         }
+        if (esf->pause_event != NULL)
+            yella_signal_event(esf->pause_event);
     }
 }
 
@@ -210,7 +213,7 @@ static void update_specs(const event_source* const esrc)
     start_monitor(esrc);
 }
 
-void add_or_replace_event_source_impl_spec(event_source* esrc, event_source_spec* spec)
+void add_or_replace_event_source_impl_specs(event_source* esrc, event_source_spec** specs, size_t count)
 {
     update_specs(esrc);
 }
@@ -226,6 +229,8 @@ void destroy_event_source_impl(event_source* esrc)
 
     esf = esrc->impl;
     stop_monitor(esf);
+    if (esf->pause_event != NULL)
+        yella_destroy_event(esf->pause_event);
     free(esf);
     esrc->impl = NULL;
 }
@@ -243,11 +248,15 @@ void pause_event_source(event_source* esrc)
 {
     yella_thread* pauser;
     event_source_fswatch* esf;
+    struct pause_arg* pa;
 
     esf = (event_source_fswatch*)esrc->impl;
     if (esf != NULL)
     {
         /* The monitor cannot be stopped in the event callback thread */
+        if (esf->pause_event != NULL)
+            yella_destroy_event(esf->pause_event);
+        esf->pause_event = yella_create_event();
         pauser = yella_create_thread((yella_thread_func)stop_monitor, esf);
         yella_detach_thread(pauser);
         yella_destroy_thread(pauser);
@@ -268,5 +277,23 @@ void resume_event_source(event_source* esrc)
     {
         assert(esf->worker == NULL);
         start_monitor(esrc);
+        if (esf->pause_event != NULL)
+        {
+            yella_destroy_event(esf->pause_event);
+            esf->pause_event = NULL;
+        }
+    }
+}
+
+void wait_for_event_source_pause(event_source* esrc)
+{
+    event_source_fswatch* esf;
+
+    esf = (event_source_fswatch*)esrc->impl;
+    if (esf != NULL && esf->pause_event != NULL)
+    {
+        yella_wait_for_event(esf->pause_event);
+        yella_destroy_event(esf->pause_event);
+        esf->pause_event = NULL;
     }
 }

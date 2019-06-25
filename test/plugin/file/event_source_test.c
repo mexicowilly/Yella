@@ -14,7 +14,7 @@ typedef struct excpected
 {
     uds config_name;
     uds file_name;
-    bool should_pause;
+    yella_event* pause_evt;
 } expected;
 
 typedef struct test_data
@@ -76,7 +76,7 @@ static void file_changed(const UChar* const config_name, const UChar* const fnam
         cur = yella_ptr_vector_at(td->exp, i);
         if (u_strcmp(cur->config_name, config_name) == 0 && u_strcmp(cur->file_name, fname) == 0)
         {
-            if (cur->should_pause)
+            if (cur->pause_evt != NULL)
                 pause_event_source(td->esrc);
             yella_erase_ptr_vector_at(td->exp, i);
             if (yella_ptr_vector_size(td->exp) == 0)
@@ -120,7 +120,7 @@ static void clear(void** arg)
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     spec = malloc(sizeof(event_source_spec));
     spec->name = udsnew(u"config 2");
     spec->includes = yella_create_uds_ptr_vector();
@@ -132,7 +132,7 @@ static void clear(void** arg)
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     yella_sleep_this_thread_milliseconds(250);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 0))->file_name);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 1))->file_name);
@@ -178,7 +178,7 @@ static void dir(void** arg)
     exp->file_name = udsdup(td->dir_name);
     exp->file_name = udscat(exp->file_name, u"two");
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     yella_sleep_this_thread_milliseconds(250);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 0))->file_name);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 1))->file_name);
@@ -215,7 +215,7 @@ static void duplicates(void** arg)
     exp->file_name = udsdup(td->dir_name);
     exp->file_name = udscat(exp->file_name, u"two");
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     yella_sleep_this_thread_milliseconds(250);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 0))->file_name);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 1))->file_name);
@@ -251,7 +251,7 @@ static void exclude(void** arg)
     ex = udsdup(td->dir_name);
     ex = udscat(ex, u"two");
     yella_push_back_ptr_vector(spec->excludes, ex);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     yella_sleep_this_thread_milliseconds(250);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 0))->file_name);
     touch_file(ex);
@@ -280,7 +280,7 @@ static void multiple_configs(void** arg)
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     spec = malloc(sizeof(event_source_spec));
     spec->name = udsnew(u"config 2");
     spec->includes = yella_create_uds_ptr_vector();
@@ -292,7 +292,7 @@ static void multiple_configs(void** arg)
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     yella_sleep_this_thread_milliseconds(250);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 0))->file_name);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 1))->file_name);
@@ -322,7 +322,7 @@ static void one_file(void** arg)
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(yella_ptr_vector_at(spec->includes, 0));
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     yella_sleep_this_thread_milliseconds(250);
     touch_file(yella_ptr_vector_at(spec->includes, 0));
     yella_lock_mutex(td->guard);
@@ -349,16 +349,16 @@ static void pause_resume(void** arg)
     exp = calloc(1, sizeof(expected));
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(yella_ptr_vector_at(spec->includes, 0));
-    exp->should_pause = true;
+    exp->pause_evt = yella_create_event();
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     yella_sleep_this_thread_milliseconds(250);
     touch_file(yella_ptr_vector_at(spec->includes, 0));
     yella_lock_mutex(td->guard);
     assert_true(yella_wait_milliseconds_for_condition_variable(td->cond, td->guard, 2000));
     check_exp(td->exp);
     yella_unlock_mutex(td->guard);
-    yella_sleep_this_thread_milliseconds(250);
+    wait_for_event_source_pause(td->esrc);
     fname = udsdup(td->dir_name);
     fname = udscat(fname, u"one");
     yella_remove_file(fname);
@@ -393,7 +393,7 @@ static void remove_one(void** arg)
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     spec = malloc(sizeof(event_source_spec));
     spec->name = udsnew(u"config 2");
     spec->includes = yella_create_uds_ptr_vector();
@@ -405,7 +405,7 @@ static void remove_one(void** arg)
     exp->config_name = udsdup(spec->name);
     exp->file_name = udsdup(fname);
     yella_push_back_ptr_vector(td->exp, exp);
-    add_or_replace_event_source_spec(td->esrc, spec);
+    add_or_replace_event_source_specs(td->esrc, &spec, 1);
     yella_sleep_this_thread_milliseconds(250);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 0))->file_name);
     touch_file(((expected*)yella_ptr_vector_at(td->exp, 1))->file_name);

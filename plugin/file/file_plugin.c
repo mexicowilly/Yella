@@ -68,8 +68,13 @@ static void job_queue_empty(void* udata)
     file_plugin* fplg;
 
     fplg = udata;
-    resume_event_source(fplg->esrc);
+//    resume_event_source(fplg->esrc);
     CHUCHO_C_INFO(fplg->lgr, "The job queue has emptied, so the event source has been resumed.");
+}
+
+static void start_event_source()
+{
+
 }
 
 static void event_received(const UChar* const config_name, const UChar* const fname, void* udata)
@@ -99,7 +104,7 @@ static void event_received(const UChar* const config_name, const UChar* const fn
         job_count = push_job_queue(fplg->jq, jb);
         if (job_count >= max_jobs)
         {
-            pause_event_source(fplg->esrc);
+//            pause_event_source(fplg->esrc);
             /* This callback is removed automatically once it is called */
             set_job_queue_empty_callback(fplg->jq, job_queue_empty, fplg);
             CHUCHO_C_WARN(fplg->lgr,
@@ -145,7 +150,7 @@ static void load_configs(file_plugin* fplg)
     UChar* utf16;
     config_node* cur;
     char* utf8;
-    event_source_spec* espec;
+    event_source_spec** especs;
 
     fname = udscatprintf(udsempty(), u"%Sconfigs.flatb", yella_settings_get_dir(u"file", u"data-dir"));
     rc = yella_file_contents(fname, &raw);
@@ -161,6 +166,7 @@ static void load_configs(file_plugin* fplg)
         {
             tbl = yella_fb_file_configs_as_root(raw);
             cfgs = yella_fb_file_configs_cfgs(tbl);
+            especs = malloc(yella_fb_file_config_vec_len(cfgs) * sizeof(event_source_spec*));
             for (i = 0; i < yella_fb_file_config_vec_len(cfgs); i++)
             {
                 cur = malloc(sizeof(config_node));
@@ -193,12 +199,13 @@ static void load_configs(file_plugin* fplg)
                 for (j = 0; j < cur->attr_type_count; j++)
                     cur->attr_types[j] = fb_to_attribute_type(flatbuffers_uint16_vec_at(atps, j));
                 sglib_config_node_add(&fplg->configs, cur);
-                espec = malloc(sizeof(event_source_spec));
-                espec->name = udsdup(cur->name);
-                espec->includes = yella_copy_ptr_vector(cur->includes);
-                espec->excludes = yella_copy_ptr_vector(cur->excludes);
-                add_or_replace_event_source_spec(fplg->esrc, espec);
+                especs[i] = malloc(sizeof(event_source_spec));
+                especs[i]->name = udsdup(cur->name);
+                especs[i]->includes = yella_copy_ptr_vector(cur->includes);
+                especs[i]->excludes = yella_copy_ptr_vector(cur->excludes);
             }
+            add_or_replace_event_source_specs(fplg->esrc, especs, yella_fb_file_config_vec_len(cfgs));
+            free(especs);
         }
     }
     else
@@ -314,16 +321,28 @@ static uds cleanse_file_name(file_plugin* fplg, const char* const utf8)
 {
     uds result;
     UChar* utf16;
-    int32_t i;
-    int32_t last_sep;
 
+    result = NULL;
     utf16 = yella_from_utf8(utf8);
-    if (!yella_is_file_name_absolute(utf16))
+    if (yella_is_file_name_absolute(utf16))
+    {
+        result = yella_remove_duplicate_dir_seps(utf16);
+        if (udslen(result) > 0)
+        {
+            if (result[udslen(result) - 1] == YELLA_DIR_SEP[0])
+                udsrange(result, 0, -2);
+        }
+        else
+        {
+            CHUCHO_C_ERROR(fplg->lgr, "The file name '%s' is empty after removing duplicate directory separators", utf8);
+            udsfree(result);
+            result = NULL;
+        }
+    }
+    else
     {
         CHUCHO_C_ERROR(fplg->lgr, "The file name '%s' is not absolute", utf8);
-        return NULL;
     }
-    result = yella_remove_duplicate_dir_seps(utf16);
     free(utf16);
     return result;
 }
@@ -455,7 +474,7 @@ static void install_config_node(file_plugin* fplg, config_node* cfg, bool is_emp
         espec->name = udsdup(cfg->name);
         espec->includes = yella_copy_ptr_vector(cfg->includes);
         espec->excludes = yella_copy_ptr_vector(cfg->excludes);
-        add_or_replace_event_source_spec(fplg->esrc, espec);
+        add_or_replace_event_source_specs(fplg->esrc, &espec, 1);
         CHUCHO_C_INFO(fplg->lgr, "Added config '%s'", utf8);
     }
     free(utf8);
