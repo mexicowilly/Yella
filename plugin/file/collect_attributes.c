@@ -14,7 +14,7 @@ element* collect_attributes(const UChar* const name, attribute_type* attr_types,
     element* result;
     attribute* attr;
     yella_file_type ftype;
-    EVP_MD_CTX ctx;
+    EVP_MD_CTX* ctx;
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned md_len;
     yella_rc yrc;
@@ -38,12 +38,12 @@ element* collect_attributes(const UChar* const name, attribute_type* attr_types,
             case ATTR_TYPE_SHA256:
                 if (ftype == YELLA_FILE_TYPE_REGULAR || ftype == YELLA_FILE_TYPE_SYMBOLIC_LINK)
                 {
-                    EVP_MD_CTX_init(&ctx);
-                    EVP_DigestInit_ex(&ctx, EVP_sha256(), NULL);
-                    yrc = yella_apply_function_to_file_contents(name, digest_callback, &ctx);
+                    ctx = EVP_MD_CTX_new();
+                    EVP_DigestInit_ex(ctx, EVP_sha256(), NULL);
+                    yrc = yella_apply_function_to_file_contents(name, digest_callback, ctx);
                     if (yrc == YELLA_NO_ERROR)
                     {
-                        EVP_DigestFinal_ex(&ctx, md, &md_len);
+                        EVP_DigestFinal_ex(ctx, md, &md_len);
                         attr = malloc(sizeof(attribute));
                         attr->type = ATTR_TYPE_SHA256;
                         attr->value.byte_array.mem = malloc(md_len);
@@ -51,7 +51,7 @@ element* collect_attributes(const UChar* const name, attribute_type* attr_types,
                         memcpy(attr->value.byte_array.mem, md, md_len);
                         add_element_attribute(result, attr);
                     }
-                    EVP_MD_CTX_cleanup(&ctx);
+                    EVP_MD_CTX_free(ctx);
                 }
                 break;
             }

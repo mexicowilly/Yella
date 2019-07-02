@@ -411,8 +411,7 @@ static void socket_worker_main(void* arg)
     long poll_timeout_millis;
 
     rtr = (router*)arg;
-    CHUCHO_C_INFO_L(rtr->lgr,
-                    "The socket worker thread is starting");
+    CHUCHO_C_INFO_L(rtr->lgr, "The socket worker thread is starting");
     rtr_sock = NULL;
     out_sock = NULL;
     mon_sock = NULL;
@@ -455,8 +454,7 @@ thread_exit:
         zmq_close(out_sock);
     if (mon_sock != NULL)
         zmq_close(mon_sock);
-    CHUCHO_C_INFO_L(rtr->lgr,
-                    "The socket worker thread is ending");
+    CHUCHO_C_INFO_L(rtr->lgr, "The socket worker thread is ending");
 }
 
 static void spool_main(void* udata)
@@ -499,7 +497,7 @@ static void spool_main(void* udata)
         }
     }
     destroy_sender(sndr);
-    CHUCHO_C_INFO(rtr->lgr, "Spool thread exiting");
+    CHUCHO_C_INFO(rtr->lgr, "Spool thread ending");
 }
 
 router* create_router(yella_uuid* id)

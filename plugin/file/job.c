@@ -81,6 +81,7 @@ static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const
         }
         cur = yella_directory_iterator_next(itor);
     }
+    yella_destroy_directory_iterator(itor);
 }
 
 static void run_one_include(const UChar* const incl, const job* const j, state_db* db)

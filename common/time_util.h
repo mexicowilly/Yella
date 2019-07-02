@@ -20,6 +20,6 @@
 #include "export.h"
 #include <stdint.h>
 
-YELLA_EXPORT uintmax_t yella_millis_since_epoch(void);
+YELLA_EXPORT uint64_t yella_microseconds_since_epoch(void);
 
 #endif

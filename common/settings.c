@@ -324,7 +324,7 @@ void yella_destroy_settings(void)
              set_elem = sglib_setting_it_next(&set_itor))
         {
             udsfree(set_elem->key);
-            if (set_elem->type == YELLA_SETTING_VALUE_TEXT)
+            if (set_elem->type == YELLA_SETTING_VALUE_TEXT || set_elem->type == YELLA_SETTING_VALUE_DIR)
                 udsfree(set_elem->value.text);
             free(set_elem);
         }
@@ -624,6 +624,7 @@ void yella_settings_set_dir(const UChar* const sct, const UChar* const key, cons
     if (len > 0 && actual[len - 1] != YELLA_DIR_SEP[0])
         actual = udscatlen(actual, &YELLA_DIR_SEP[0], 1);
     set_text_impl(sct, key, actual, YELLA_SETTING_VALUE_DIR);
+    udsfree(actual);
 }
 
 void yella_settings_set_text(const UChar* const sct, const UChar* const key, const UChar* const val)

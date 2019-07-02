@@ -107,6 +107,7 @@ static void worker_main(void* arg)
                 yella_destroy_mhdr(mhdr);
                 flatcc_builder_reset(&cur->bld);
                 yella_fb_file_file_states_start_as_root(&cur->bld);
+                yella_fb_file_file_state_vec_start(&cur->bld);
                 if (chucho_logger_permits(acc->lgr, CHUCHO_INFO))
                 {
                     utf8 = yella_to_utf8(cur->recipient);
@@ -146,7 +147,7 @@ static void worker_main(void* arg)
         flatcc_builder_clear(&cur->bld);
     }
     yella_unlock_mutex(acc->guard);
-    CHUCHO_C_INFO(acc->lgr, "The accumulator thread is exiting");
+    CHUCHO_C_INFO(acc->lgr, "The accumulator thread is ending");
 }
 
 size_t accumulator_size(accumulator* acc)

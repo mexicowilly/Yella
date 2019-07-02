@@ -1,4 +1,5 @@
 #include "agent/signal_handler.h"
+#include "common/macro_util.h"
 #include <chucho/log.h>
 #include <signal.h>
 #include <pthread.h>
@@ -19,8 +20,7 @@ int async_signals[] =
     SIGXFSZ,
     SIGINT,
     SIGPIPE,
-    SIGTERM,
-    -1
+    SIGTERM
 };
 
 int term_signals[] =
@@ -30,8 +30,7 @@ int term_signals[] =
     SIGXFSZ,
     SIGINT,
     SIGPIPE,
-    SIGTERM,
-    -1
+    SIGTERM
 };
 
 int coring_signals[] =
@@ -42,8 +41,7 @@ int coring_signals[] =
     SIGILL,
     SIGSEGV,
     SIGSYS,
-    SIGTRAP,
-    -1
+    SIGTRAP
 };
 
 sig_info info[] =
@@ -76,8 +74,7 @@ sig_info info[] =
     { SIGTSTP,   "SIGTSTOP" },
     { SIGTTIN,   "SIGTTIN" },
     { SIGTTOU,   "SIGTTOU" },
-    { SIGCONT,   "SIGALRM" },
-    { -1 }
+    { SIGCONT,   "SIGALRM" }
 };
 
 sig_info* signal_info(int sig)
@@ -86,18 +83,19 @@ sig_info* signal_info(int sig)
     int i;
     sig_info* result;
 
-    i = 0;
-    while (info[i].sig != -1 && info[i].sig != sig)
-        ++i;
-    if(info[i].sig == -1)
+    for (i = 0; i < YELLA_ARRAY_SIZE(info); i++)
+    {
+        if (info[i].sig == sig)
+        {
+            info[i].description = strsignal(sig);
+            result = &info[i];
+            break;
+        }
+    }
+    if (i == YELLA_ARRAY_SIZE(info))
     {
         unknown.sig = sig;
         result = &unknown;
-    }
-    else
-    {
-        info[i].description = strsignal(sig);
-        result = &info[i];
     }
     return result;
 }
@@ -135,18 +133,17 @@ static void* sigwait_thr(void* arg)
     int recv_signal;
 
     sigemptyset(&signals);
-    i = 0;
-    while (async_signals[i] != -1)
-        sigaddset(&signals, i++);
+    for (i = 0; i < YELLA_ARRAY_SIZE(async_signals); i++)
+        sigaddset(&signals, async_signals[i]);
     while (true)
     {
         sigwait(&signals, &recv_signal);
         log_signal(recv_signal);
-        i = 0;
-        while (term_signals[i] != -1 && term_signals[i] != recv_signal)
-            ++i;
-        if (term_signals[i] == recv_signal)
-            term_handler(term_handler_udata);
+        for (i = 0; i < YELLA_ARRAY_SIZE(term_signals); i++)
+        {
+            if (term_signals[i] == recv_signal)
+               term_handler(term_handler_udata);
+        }
         sigaddset(&signals, recv_signal);
     }
 }
@@ -159,9 +156,8 @@ void install_signal_handler(void)
     struct sigaction action;
 
     sigemptyset(&blocked);
-    i = 0;
-    while (async_signals[i] != -1)
-        sigaddset(&blocked, async_signals[i++]);
+    for (i = 0; i < YELLA_ARRAY_SIZE(async_signals); i++)
+        sigaddset(&blocked, async_signals[i]);
     pthread_sigmask(SIG_BLOCK, &blocked, 0);
     pthread_create(&wait_thr, NULL, sigwait_thr, NULL);
     pthread_detach(wait_thr);
@@ -169,8 +165,7 @@ void install_signal_handler(void)
     sigemptyset(&action.sa_mask);
     action.sa_handler = abort_handler;
     action.sa_flags = SA_RESETHAND;
-    i = 0;
-    while (coring_signals[i] != -1)
+    for (i = 0; i < YELLA_ARRAY_SIZE(coring_signals); i++)
     {
         if (sigaction(coring_signals[i], &action, 0) != 0)
         {
@@ -180,7 +175,6 @@ void install_signal_handler(void)
                    info->name,
                    info->description);
         }
-        ++i;
     }
 }
 

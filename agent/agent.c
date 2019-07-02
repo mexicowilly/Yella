@@ -106,6 +106,7 @@ static void heartbeat_thr(void* udata)
     yella_message_header* mhdr;
     uint32_t minor_seq;
 
+    CHUCHO_C_INFO(ag->lgr, "The hearbeat thread is starting");
     minor_seq = 0;
     sndr = create_sender(ag->rtr);
     next = 0;
@@ -153,6 +154,7 @@ static void heartbeat_thr(void* udata)
         next = time(NULL) + to_wait;
     } while (true);
     destroy_sender(sndr);
+    CHUCHO_C_INFO(ag->lgr, "The hearbeat thread is ending");
 }
 
 static void send_plugin_message(void* agent,

@@ -15,16 +15,17 @@ typedef struct event_source_fswatch
 {
     FSW_HANDLE fsw;
     yella_thread* worker;
+    yella_event* pause_event;
 } event_source_fswatch;
 
-static int qsort_compare(const void* p1, const void* p2)
+static int qsort_strcmp(const void* p1, const void* p2)
 {
-    const UChar** u1;
-    const UChar** u2;
+    const UChar* u1;
+    const UChar* u2;
 
-    u1 = (const UChar**)p1;
-    u2 = (const UChar**)p2;
-    return u_strcmp(*u1, *u2);
+    u1 = *(const UChar**)p1;
+    u2 = *(const UChar**)p2;
+    return u_strcmp(u1, u2);
 }
 
 static yella_ptr_vector* get_paths(const event_source* const esrc)
@@ -50,16 +51,12 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
             cur_inc = yella_ptr_vector_at(cur_spec->includes, i);
             spesh = first_unescaped_special_char(cur_inc);
             if (spesh == NULL)
-            {
-                yella_push_back_ptr_vector(paths, udsnew(cur_inc));
-            }
-            else
-            {
-                while (*spesh != YELLA_DIR_SEP[0] && spesh >= cur_inc)
-                    --spesh;
-                if (spesh >= cur_inc)
-                    yella_push_back_ptr_vector(paths, udsnewlen(cur_inc, (spesh == cur_inc) ? 1 : spesh - cur_inc));
-            }
+                spesh = u_strrchr(cur_inc, YELLA_DIR_SEP[0]);
+            assert(spesh != NULL);
+            while (*spesh != YELLA_DIR_SEP[0] && spesh >= cur_inc)
+                --spesh;
+            if (spesh >= cur_inc)
+                yella_push_back_ptr_vector(paths, udsnewlen(cur_inc, (spesh == cur_inc) ? 1 : spesh - cur_inc));
         }
     }
     if (yella_ptr_vector_size(paths) > 0)
@@ -67,7 +64,7 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
         qsort(yella_ptr_vector_data(paths),
               yella_ptr_vector_size(paths),
               sizeof(UChar*),
-              qsort_compare);
+              qsort_strcmp);
         uniq = yella_create_uds_ptr_vector();
         yella_push_back_ptr_vector(uniq, udsdup(yella_ptr_vector_at(paths, 0)));
         for (i = 1; i < yella_ptr_vector_size(paths); i++)
@@ -93,22 +90,50 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
     return paths;
 }
 
+static bool has_useful_flags(const fsw_cevent* const evt)
+{
+    unsigned i;
+
+    for (i = 0; i < evt->flags_num; i++)
+    {
+        if (evt->flags[i] != NoOp && evt->flags[i] != PlatformSpecific)
+            return true;
+    }
+    return false;
+}
+
 static void worker_callback(fsw_cevent const* const evts, const unsigned count, void* udata)
 {
     event_source* esrc;
     unsigned i;
     UChar* utf16;
     const UChar* cfg;
+    yella_ptr_vector* called;
+    unsigned j;
 
     esrc = (event_source*)udata;
+    called = yella_create_uds_ptr_vector();
     for (i = 0; i < count; i++)
     {
-        utf16 = yella_from_utf8(evts[i].path);
-        cfg = event_source_file_name_matches_any(esrc, utf16);
-        if (cfg != NULL)
-            esrc->callback(cfg, utf16, esrc->callback_udata);
-        free(utf16);
+        if (has_useful_flags(&evts[i]))
+        {
+            utf16 = yella_from_utf8(evts[i].path);
+            for (j = 0; j < yella_ptr_vector_size(called); j++)
+            {
+                if (u_strcmp(utf16, yella_ptr_vector_at(called, j)) == 0)
+                    break;
+            }
+            if (j == yella_ptr_vector_size(called))
+            {
+                cfg = event_source_file_name_matches_any(esrc, utf16);
+                if (cfg != NULL)
+                    esrc->callback(cfg, utf16, esrc->callback_udata);
+                yella_push_back_ptr_vector(called, udsnew(utf16));
+            }
+            free(utf16);
+        }
     }
+    yella_destroy_ptr_vector(called);
 }
 
 static void worker_main(void* udata)
@@ -120,32 +145,19 @@ static void worker_main(void* udata)
     CHUCHO_C_INFO(esrc->lgr, "Fswatch event source thread starting");
     esf = esrc->impl;
     fsw_start_monitor(esf->fsw);
-    CHUCHO_C_INFO(esrc->lgr, "Fswatch event source thread exiting");
+    CHUCHO_C_INFO(esrc->lgr, "Fswatch event source thread ending");
 }
 
-static void update_specs(const event_source* const esrc)
+static void start_monitor(const event_source* const esrc)
 {
     event_source_fswatch* esf;
+    yella_ptr_vector* paths;
     char* utf8;
     size_t i;
-    yella_ptr_vector* paths;
 
     esf = (event_source_fswatch*)esrc->impl;
     if (esf != NULL)
     {
-        if (esf->fsw != NULL && fsw_is_running(esf->fsw))
-            fsw_stop_monitor(esf->fsw);
-        if (esf->worker != NULL)
-        {
-            yella_join_thread(esf->worker);
-            yella_destroy_thread(esf->worker);
-            esf->worker = NULL;
-        }
-        if (esf->fsw != NULL)
-        {
-            fsw_destroy_session(esf->fsw);
-            esf->fsw = NULL;
-        }
         paths = get_paths(esrc);
         if (yella_ptr_vector_size(paths) > 0)
         {
@@ -170,7 +182,38 @@ static void update_specs(const event_source* const esrc)
     }
 }
 
-void add_or_replace_event_source_impl_spec(event_source* esrc, event_source_spec* spec)
+static void stop_monitor(event_source_fswatch* esf)
+{
+    if (esf != NULL)
+    {
+        if (esf->fsw != NULL && fsw_is_running(esf->fsw))
+            fsw_stop_monitor(esf->fsw);
+        if (esf->worker != NULL)
+        {
+            yella_join_thread(esf->worker);
+            yella_destroy_thread(esf->worker);
+            esf->worker = NULL;
+        }
+        if (esf->fsw != NULL)
+        {
+            fsw_destroy_session(esf->fsw);
+            esf->fsw = NULL;
+        }
+        if (esf->pause_event != NULL)
+            yella_signal_event(esf->pause_event);
+    }
+}
+
+static void update_specs(const event_source* const esrc)
+{
+    event_source_fswatch* esf;
+
+    esf = (event_source_fswatch*)esrc->impl;
+    stop_monitor(esf);
+    start_monitor(esrc);
+}
+
+void add_or_replace_event_source_impl_specs(event_source* esrc, event_source_spec** specs, size_t count)
 {
     update_specs(esrc);
 }
@@ -185,15 +228,9 @@ void destroy_event_source_impl(event_source* esrc)
     event_source_fswatch* esf;
 
     esf = esrc->impl;
-    if (esf->fsw != NULL && fsw_is_running(esf->fsw))
-        fsw_stop_monitor(esf->fsw);
-    if (esf->worker != NULL)
-    {
-        yella_join_thread(esf->worker);
-        yella_destroy_thread(esf->worker);
-    }
-    if (esf->fsw != NULL)
-        fsw_destroy_session(esf->fsw);
+    stop_monitor(esf);
+    if (esf->pause_event != NULL)
+        yella_destroy_event(esf->pause_event);
     free(esf);
     esrc->impl = NULL;
 }
@@ -203,11 +240,60 @@ void init_event_source_impl(event_source* esrc)
     if (fsw_init_library() == FSW_OK)
     {
         esrc->impl = calloc(1, sizeof(event_source_fswatch));
-        update_specs(esrc);
+        start_monitor(esrc);
+    }
+}
+
+void pause_event_source(event_source* esrc)
+{
+    yella_thread* pauser;
+    event_source_fswatch* esf;
+    struct pause_arg* pa;
+
+    esf = (event_source_fswatch*)esrc->impl;
+    if (esf != NULL)
+    {
+        /* The monitor cannot be stopped in the event callback thread */
+        if (esf->pause_event != NULL)
+            yella_destroy_event(esf->pause_event);
+        esf->pause_event = yella_create_event();
+        pauser = yella_create_thread((yella_thread_func)stop_monitor, esf);
+        yella_detach_thread(pauser);
+        yella_destroy_thread(pauser);
     }
 }
 
 void remove_event_source_impl_spec(event_source* esrc, const UChar* const config_name)
 {
     update_specs(esrc);
+}
+
+void resume_event_source(event_source* esrc)
+{
+    event_source_fswatch* esf;
+
+    esf = (event_source_fswatch*)esrc->impl;
+    if (esf->fsw == NULL)
+    {
+        assert(esf->worker == NULL);
+        start_monitor(esrc);
+        if (esf->pause_event != NULL)
+        {
+            yella_destroy_event(esf->pause_event);
+            esf->pause_event = NULL;
+        }
+    }
+}
+
+void wait_for_event_source_pause(event_source* esrc)
+{
+    event_source_fswatch* esf;
+
+    esf = (event_source_fswatch*)esrc->impl;
+    if (esf != NULL && esf->pause_event != NULL)
+    {
+        yella_wait_for_event(esf->pause_event);
+        yella_destroy_event(esf->pause_event);
+        esf->pause_event = NULL;
+    }
 }
