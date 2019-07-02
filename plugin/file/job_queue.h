@@ -8,13 +8,12 @@ typedef struct job_queue job_queue;
 
 typedef struct job_queue_stats
 {
-    size_t average_size;
     size_t max_size;
     size_t jobs_pushed;
+    size_t jobs_run;
     uint64_t average_job_microseconds;
     uint64_t slowest_job_microseconds;
     uint64_t fastest_job_microseconds;
-    size_t jobs_run;
 } job_queue_stats;
 
 typedef void (*job_queue_empty_callback)(void* udata);

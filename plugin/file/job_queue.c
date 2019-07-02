@@ -27,7 +27,6 @@ struct job_queue
     job_queue_empty_callback cb;
     void* cb_data;
     job_queue_stats stats;
-    size_t accumulated_size;
     uint64_t accumulated_microseconds;
 };
 
@@ -70,7 +69,6 @@ static void job_queue_main(void* udata)
             front = sglib_queue_get_first(jq->q);
             sglib_queue_delete(&jq->q, front);
             --jq->sz;
-            --jq->accumulated_size;
             yella_unlock_mutex(jq->guard);
             start_micros = yella_microseconds_since_epoch();
             run_job(front->jb, jq->db_pool);
@@ -86,9 +84,9 @@ static void job_queue_main(void* udata)
             }
             else
             {
-                if (job_micros > jq->stats.fastest_job_microseconds)
+                if (job_micros < jq->stats.fastest_job_microseconds)
                     jq->stats.fastest_job_microseconds = job_micros;
-                if (job_micros < jq->stats.slowest_job_microseconds)
+                if (job_micros > jq->stats.slowest_job_microseconds)
                     jq->stats.slowest_job_microseconds = job_micros;
             }
             yella_unlock_mutex(jq->guard);
@@ -140,7 +138,6 @@ job_queue_stats get_job_queue_stats(job_queue* jq)
 
     yella_lock_mutex(jq->guard);
     result = jq->stats;
-    result.average_size = jq->accumulated_size == 0 ? 0 : jq->accumulated_size / (result.jobs_pushed + result.jobs_run);
     result.average_job_microseconds = jq->accumulated_microseconds == 0 ? 0 : jq->accumulated_microseconds / result.jobs_run;
     yella_unlock_mutex(jq->guard);
     return result;
@@ -156,13 +153,12 @@ void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr)
     {
         stats = get_job_queue_stats(jq);
         json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(json, "average_size", stats.average_size);
         cJSON_AddNumberToObject(json, "max_size", stats.max_size);
         cJSON_AddNumberToObject(json, "jobs_pushed", stats.jobs_pushed);
+        cJSON_AddNumberToObject(json, "jobs_run", stats.jobs_run);
         cJSON_AddNumberToObject(json, "average_job_microseconds", stats.average_job_microseconds);
         cJSON_AddNumberToObject(json, "slowest_job_microseconds", stats.slowest_job_microseconds);
         cJSON_AddNumberToObject(json, "fastest_job_microseconds", stats.fastest_job_microseconds);
-        cJSON_AddNumberToObject(json, "jobs_run", stats.jobs_run);
         log_msg = cJSON_PrintUnformatted(json);
         cJSON_Delete(json);
         CHUCHO_C_INFO(lgr, "Job queue stats: %s", log_msg);
@@ -183,7 +179,6 @@ size_t push_job_queue(job_queue* jq, job* jb)
     if (cur_sz == 1)
         yella_signal_condition_variable(jq->cond);
     ++jq->stats.jobs_pushed;
-    ++jq->accumulated_size;
     if (cur_sz > jq->stats.max_size)
         jq->stats.max_size = cur_sz;
     yella_unlock_mutex(jq->guard);
