@@ -36,8 +36,7 @@ typedef struct router router;
 typedef struct sender sender;
 
 typedef void (*router_state_callback)(router_state, void*);
-typedef void (*router_message_received_callback)(const yella_message_part* const header,
-                                                 const yella_message_part* const body,
+typedef void (*router_message_received_callback)(const yella_message_part* const msg,
                                                  void* caller_data);
 
 YELLA_PRIV_EXPORT router* create_router(yella_uuid* id);

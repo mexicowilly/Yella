@@ -6,6 +6,7 @@
 #include "common/sglib.h"
 #include "common/uds_util.h"
 #include "common/text_util.h"
+#include "common/compression.h"
 #include "plugin/file/job_queue.h"
 #include "plugin/file/event_source.h"
 #include "plugin/file/state_db_pool.h"
@@ -482,7 +483,7 @@ static void install_config_node(file_plugin* fplg, config_node* cfg, bool is_emp
     yella_unlock_reader_writer_lock(fplg->config_guard);
 }
 
-static yella_rc monitor_handler(const yella_message_header* const mhdr, const yella_message_part* const body, void* udata)
+static yella_rc monitor_handler(const yella_parcel* const pcl, void* udata)
 {
     yella_fb_file_monitor_request_table_t req;
     yella_fb_plugin_config_action_enum_t act;
@@ -490,16 +491,36 @@ static yella_rc monitor_handler(const yella_message_header* const mhdr, const ye
     config_node* cfg;
     size_t i;
     bool is_empty;
+    uint8_t* actual_payload;
+    size_t actual_size;
 
     fplg = (file_plugin*)udata;
-    assert(u_strcmp(mhdr->type, u"file.monitor_request") == 0);
-    req = yella_fb_file_monitor_request_as_root(body->data);
+    assert(u_strcmp(pcl->type, u"file.monitor_request") == 0);
+    assert(pcl->cmp == YELLA_COMPRESSION_NONE);
+    if (pcl->cmp == YELLA_COMPRESSION_NONE)
+    {
+        actual_payload = pcl->payload;
+    }
+    else if (pcl->cmp == YELLA_COMPRESSION_LZ4)
+    {
+        CHUCHO_C_WARN(fplg->lgr, "Did not expect the message of type 'file.monitor_request' to be compressed");
+        actual_size = pcl->payload_size;
+        actual_payload = yella_lz4_decompress(pcl->payload, &actual_size);
+    }
+    else
+    {
+        CHUCHO_C_ERROR(fplg->lgr, "Unknown compression type: %d", pcl->cmp);
+        return YELLA_INVALID_FORMAT;
+    }
+    req = yella_fb_file_monitor_request_as_root(actual_payload);
     cfg = process_plugin_config(fplg, req, &act);
     if (cfg == NULL)
         return YELLA_INVALID_FORMAT;
-    cfg->recipient = udsnew(mhdr->sender);
+    cfg->recipient = udsdup(pcl->sender);
     process_includes_excludes(fplg, cfg, req, &is_empty);
     process_attributes(fplg, cfg, req);
+    if (actual_payload != pcl->payload)
+        free(actual_payload);
     install_config_node(fplg, cfg, is_empty, act);
     return YELLA_NO_ERROR;
 }

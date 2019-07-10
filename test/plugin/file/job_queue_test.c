@@ -106,10 +106,9 @@ static void one(void** arg)
     assert_int_equal(stats.jobs_pushed, 1);
 }
 
-static void send_message(void* agent, yella_message_header* mhdr, uint8_t* msg, size_t sz)
+static void send_message(void* agent, yella_parcel* pcl)
 {
     print_message("In send_message\n");
-    free(msg);
 }
 
 static int set_up(void** arg)

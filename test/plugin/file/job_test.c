@@ -5,6 +5,7 @@
 #include "common/text_util.h"
 #include "common/settings.h"
 #include "common/thread.h"
+#include "common/compression.h"
 #include "file_reader.h"
 #include <stdio.h>
 #include <stdarg.h>
@@ -109,7 +110,7 @@ static void get_sha256(const UChar* const file_name, unsigned char* buf)
     assert_int_equal(md_len, 32);
 }
 
-static void send_message(void* agnt, yella_message_header* mhdr, uint8_t* msg, size_t sz)
+static void send_message(void* agnt, yella_parcel* pcl)
 {
     yella_fb_file_file_states_table_t sts;
     yella_fb_file_file_state_table_t st;
@@ -125,10 +126,15 @@ static void send_message(void* agnt, yella_message_header* mhdr, uint8_t* msg, s
     attr_node* found_attr;
     attr_node attr_to_find;
     int j;
+    uint8_t* payload;
+    size_t payload_size;
 
     td = agnt;
-    assert_int_equal(u_strcmp(mhdr->recipient, td->recipient), 0);
-    sts = yella_fb_file_file_states_as_root(msg);
+    assert_int_equal(u_strcmp(pcl->recipient, td->recipient), 0);
+    assert_int_equal(pcl->cmp, YELLA_COMPRESSION_LZ4);
+    payload_size = pcl->payload_size;
+    payload = yella_lz4_decompress(pcl->payload, &payload_size);
+    sts = yella_fb_file_file_states_as_root(payload);
     stv = yella_fb_file_file_states_states(sts);
     for (i = 0; i < yella_fb_file_file_state_vec_len(stv); i++)
     {
@@ -178,6 +184,7 @@ static void send_message(void* agnt, yella_message_header* mhdr, uint8_t* msg, s
         udsfree(found->config_name);
         free(found);
     }
+    free(payload);
 }
 
 static int set_up(void** arg)

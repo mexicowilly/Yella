@@ -14,6 +14,7 @@
 #include <stdatomic.h>
 #include <unicode/ucal.h>
 #include <chucho/log.h>
+#include <inttypes.h>
 
 typedef struct msg_rec
 {
@@ -30,16 +31,16 @@ typedef struct test_data
     yella_mutex* guard;
 } test_data;
 
-static void receive_message(void* agent, yella_message_header* mhdr, uint8_t* msg, size_t sz)
+static void receive_message(void* agent, yella_parcel* pcl)
 {
     test_data* td;
     msg_rec* rec;
 
     td = agent;
-    yella_log_mhdr(mhdr, td->lgr);
+    yella_log_parcel(pcl, td->lgr);
     rec = malloc(sizeof(struct msg_rec));
-    rec->tm = mhdr->time;
-    rec->sz = sz;
+    rec->tm = pcl->time;
+    rec->sz = pcl->payload_size;
     yella_lock_mutex(td->guard);
     yella_push_back_ptr_vector(td->recs, rec);
     yella_unlock_mutex(td->guard);
@@ -139,7 +140,7 @@ static void size(void** arg)
     yella_lock_mutex(td->guard);
     rec = yella_ptr_vector_at(td->recs, 0);
     /* Don't put assert_true here, because it never returns */
-    print_message("*** rec->sz %zu, max_sz %llu\n", rec->sz, max_sz);
+    print_message("*** rec->sz %zu, max_sz %" PRIu64 "\n", rec->sz, max_sz);
     assert(rec->sz < max_sz);
     yella_unlock_mutex(td->guard);
 }

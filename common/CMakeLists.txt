@@ -39,9 +39,9 @@ ADD_LIBRARY(common SHARED
             file.c
             file.h
             macro_util.h
-            message_header.c
-            message_header.h
             message_part.h
+            parcel.c
+            parcel.h
             process.h
             ptr_helper.c
             ptr_helper.h
@@ -71,7 +71,7 @@ IF(DEFINED YELLA_SO_FLAGS)
                           COMPILE_FLAGS "${YELLA_SO_FLAGS}")
 ENDIF()
 YELLA_GEN_TARGET(common
-                 serialization/public/message_header.fbs)
+                 serialization/public/parcel.fbs)
 TARGET_LINK_LIBRARIES(common
                       "${YELLA_FLATCC_LIB}"
                       "${YELLA_CHUCHO_LIB}"

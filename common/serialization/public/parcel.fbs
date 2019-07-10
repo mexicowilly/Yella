@@ -1,0 +1,40 @@
+namespace yella.fb;
+
+enum compression : byte
+{
+    NONE,
+    LZ4
+}
+
+enum group_disposition : byte
+{
+    MORE,
+    END
+}
+
+table sequence
+{
+    major: uint;
+    minor: uint;
+}
+
+table group
+{
+    // If you call this 'identifier', it causes compilation problems
+    id: string;
+    disposition: group_disposition;
+}
+
+table parcel
+{
+    seconds_since_epoch: ulong;
+    sender: string;
+    recipient: string;
+    type: string;
+    cmp: compression;
+    seq: sequence;
+    grp: group;
+    payload: [ubyte];
+}
+
+root_type parcel;

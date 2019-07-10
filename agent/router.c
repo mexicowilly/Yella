@@ -315,10 +315,8 @@ static yella_rc process_outgoing_in_event(void* rtr_sock, void* out_sock)
 static yella_rc process_router_in_event(router* rtr, void* rtr_sock)
 {
     zmq_msg_t delim;
-    zmq_msg_t header;
-    zmq_msg_t body;
-    yella_message_part hpart;
-    yella_message_part bpart;
+    zmq_msg_t msg;
+    yella_message_part mpart;
     int rc;
     size_t overcount;
 
@@ -341,62 +339,38 @@ static yella_rc process_router_in_event(router* rtr, void* rtr_sock)
         return YELLA_READ_ERROR;
     }
     zmq_msg_close(&delim);
-    zmq_msg_init(&header);
-    rc = zmq_msg_recv(&header, rtr_sock, 0);
+    zmq_msg_init(&msg);
+    rc = zmq_msg_recv(&msg, rtr_sock, 0);
     if (rc == -1)
     {
         CHUCHO_C_ERROR_L(rtr->lgr,
                          "Error receiving message header: %s",
                          zmq_strerror(zmq_errno()));
-        zmq_msg_close(&header);
+        zmq_msg_close(&msg);
         return YELLA_READ_ERROR;
     }
-    if (zmq_msg_more(&header))
+    if (zmq_msg_more(&msg))
     {
-        zmq_msg_init(&body);
-        rc = zmq_msg_recv(&body, rtr_sock, 0);
-        if (rc == -1)
+        while (zmq_msg_more(&msg))
         {
-            CHUCHO_C_ERROR_L(rtr->lgr,
-                             "Error receiving message body: %s",
-                             zmq_strerror(zmq_errno()));
-            zmq_msg_close(&header);
-            zmq_msg_close(&body);
-            return YELLA_READ_ERROR;
+            ++overcount;
+            zmq_msg_close(&msg);
+            zmq_msg_init(&msg);
+            zmq_msg_recv(&msg, rtr_sock, 0);
         }
-        while (zmq_msg_more(&body))
-        {
-            overcount++;
-            if (zmq_msg_recv(&body, rtr_sock, 0) == -1)
-                break;
-        }
-        if (overcount > 0)
-        {
-            CHUCHO_C_ERROR_L(rtr->lgr,
-                             "Only two message parts are expected from the router. %zu extra message parts were found. All parts are being discarded.",
-                             overcount);
-            zmq_msg_close(&header);
-            zmq_msg_close(&body);
-            return YELLA_READ_ERROR;
-        }
-    }
-    else
-    {
+        zmq_msg_close(&msg);
         CHUCHO_C_ERROR_L(rtr->lgr,
-                         "Two message parts are required when reading messages from the router, but only one was found");
-        zmq_msg_close(&header);
+                         "Only one message part is expected when reading messages from the router, but %zu were found",
+                         overcount);
         return YELLA_READ_ERROR;
     }
     if (rtr->recv_callback != NULL)
     {
-        hpart.data = zmq_msg_data(&header);
-        hpart.size = zmq_msg_size(&header);
-        bpart.data = zmq_msg_data(&body);
-        bpart.size = zmq_msg_size(&body);
-        rtr->recv_callback(&hpart, &bpart, rtr->recv_callback_data);
+        mpart.data = zmq_msg_data(&msg);
+        mpart.size = zmq_msg_size(&msg);
+        rtr->recv_callback(&mpart, rtr->recv_callback_data);
     }
-    zmq_msg_close(&header);
-    zmq_msg_close(&body);
+    zmq_msg_close(&msg);
     return YELLA_NO_ERROR;
 }
 

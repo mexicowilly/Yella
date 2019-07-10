@@ -47,7 +47,6 @@ static void server_thread(void* p)
     zmq_msg_t id_msg;
     zmq_msg_t delim_msg;
     zmq_msg_t payload_msg;
-    zmq_msg_t header_msg;
     char* id;
     char* payload;
     test_state* arg;
@@ -134,16 +133,6 @@ static void server_thread(void* p)
                        zmq_strerror(zmq_errno()));
         assert_true(false);
     }
-    zmq_msg_init_size(&header_msg, 1);
-    *(char*)zmq_msg_data(&header_msg) = 'h';
-    rc = zmq_msg_send(&header_msg, sock, ZMQ_SNDMORE);
-    if (rc == -1)
-    {
-        CHUCHO_C_ERROR("router-test",
-                       "zmq_msg_send (header): %s",
-                       zmq_strerror(zmq_errno()));
-        assert_true(false);
-    }
     zmq_msg_init_size(&payload_msg, strlen(payload));
     memcpy(zmq_msg_data(&payload_msg), payload, strlen(payload));
     free(payload);
@@ -161,14 +150,11 @@ static void server_thread(void* p)
     CHUCHO_C_INFO("router-test", "Closed server socket");
 }
 
-static void message_received(const yella_message_part* header,
-                             const yella_message_part* body,
+static void message_received(const yella_message_part* msg,
                              void* caller_data)
 {
-    assert_int_equal(1, header->size);
-    assert_int_equal('h', *header->data);
-    assert_int_equal(strlen(YELLA_MSG_TO_SEND), body->size);
-    assert_true(memcmp(body->data, YELLA_MSG_TO_SEND, body->size) == 0);
+    assert_int_equal(strlen(YELLA_MSG_TO_SEND), msg->size);
+    assert_true(memcmp(msg->data, YELLA_MSG_TO_SEND, msg->size) == 0);
     CHUCHO_C_INFO("router-test",
                   "Received message data back");
     yella_signal_event((yella_event*)caller_data);

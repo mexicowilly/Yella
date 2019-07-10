@@ -2,8 +2,9 @@
 #include "common/thread.h"
 #include "common/settings.h"
 #include "common/text_util.h"
-#include "common/message_header.h"
+#include "common/parcel.h"
 #include "common/sglib.h"
+#include "common/compression.h"
 #include "file_builder.h"
 #include <chucho/log.h>
 #include <unicode/ucal.h>
@@ -57,7 +58,7 @@ static void worker_main(void* arg)
     size_t latency_millis;
     size_t millis_to_wait;
     uint64_t max_msg_sz;
-    yella_message_header* mhdr;
+    yella_parcel* pcl;
     uint32_t minor_seq;
     struct sglib_msg_node_iterator itor;
     msg_node* cur;
@@ -95,16 +96,16 @@ static void worker_main(void* arg)
         {
             if (cur->count > 0 && (time_limit_reached || flatcc_builder_get_buffer_size(&cur->bld) >= max_msg_sz))
             {
-                mhdr = yella_create_mhdr();
-                mhdr->recipient = udsnew(cur->recipient);
-                mhdr->type = udsnew(u"file.change");
-                mhdr->cmp = YELLA_COMPRESSION_LZ4;
-                mhdr->seq.minor = minor_seq++;
+                pcl = yella_create_parcel(cur->recipient, u"file.change");
+                pcl->cmp = YELLA_COMPRESSION_LZ4;
+                pcl->seq.minor = minor_seq++;
                 yella_fb_file_file_states_states_add(&cur->bld, yella_fb_file_file_state_vec_end(&cur->bld));
                 yella_fb_file_file_states_end_as_root(&cur->bld);
-                packed = flatcc_builder_finalize_buffer(&cur->bld, &packed_sz);
-                acc->api->send_message(acc->agent, mhdr, packed, packed_sz);
-                yella_destroy_mhdr(mhdr);
+                packed = flatcc_builder_finalize_buffer(&cur->bld, &pcl->payload_size);
+                pcl->payload = yella_lz4_compress(packed, &pcl->payload_size);
+                free(packed);
+                acc->api->send_message(acc->agent, pcl);
+                yella_destroy_parcel(pcl);
                 flatcc_builder_reset(&cur->bld);
                 yella_fb_file_file_states_start_as_root(&cur->bld);
                 yella_fb_file_file_state_vec_start(&cur->bld);
@@ -126,16 +127,16 @@ static void worker_main(void* arg)
     {
         if (cur->count > 0)
         {
-            mhdr = yella_create_mhdr();
-            mhdr->recipient = udsnew(cur->recipient);
-            mhdr->type = udsnew(u"file.change");
-            mhdr->cmp = YELLA_COMPRESSION_LZ4;
-            mhdr->seq.minor = minor_seq++;
+            pcl = yella_create_parcel(cur->recipient, u"file.change");
+            pcl->cmp = YELLA_COMPRESSION_LZ4;
+            pcl->seq.minor = minor_seq++;
             yella_fb_file_file_states_states_add(&cur->bld, yella_fb_file_file_state_vec_end(&cur->bld));
             yella_fb_file_file_states_end_as_root(&cur->bld);
-            packed = flatcc_builder_finalize_buffer(&cur->bld, &packed_sz);
-            acc->api->send_message(acc->agent, mhdr, packed, packed_sz);
-            yella_destroy_mhdr(mhdr);
+            packed = flatcc_builder_finalize_buffer(&cur->bld, &pcl->payload_size);
+            pcl->payload = yella_lz4_compress(packed, &pcl->payload_size);
+            free(packed);
+            acc->api->send_message(acc->agent, pcl);
+            yella_destroy_parcel(pcl);
             if (chucho_logger_permits(acc->lgr, CHUCHO_INFO))
             {
                 utf8 = yella_to_utf8(cur->recipient);

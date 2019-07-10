@@ -102,8 +102,8 @@ static void heartbeat_thr(void* udata)
     int i;
     yella_ptr_vector* plugins;
     sender* sndr;
-    yella_message_part parts[2];
-    yella_message_header* mhdr;
+    yella_message_part parts;
+    yella_parcel* pcl;
     uint32_t minor_seq;
 
     CHUCHO_C_INFO(ag->lgr, "The hearbeat thread is starting");
@@ -129,19 +129,16 @@ static void heartbeat_thr(void* udata)
                 api = (plugin_api*)yella_ptr_vector_at(ag->plugins, i);
                 yella_push_back_ptr_vector(plugins, api->status_func(ag));
             }
-            parts[1].data = create_heartbeat(ag->state->id->text, plugins, &parts[1].size);
+            pcl = yella_create_parcel(yella_settings_get_text(u"agent", u"heartbeat-recipient"), u"yella.heartbeat");
+            pcl->sender = udsnew(ag->state->id->text);
+            pcl->cmp = YELLA_COMPRESSION_NONE;
+            pcl->seq.major = ag->state->boot_count;
+            pcl->seq.minor = ++minor_seq;
+            pcl->payload = create_heartbeat(ag->state->id->text, plugins, &pcl->payload_size);
             yella_destroy_ptr_vector(plugins);
-            mhdr = yella_create_mhdr();
-            mhdr->time = time(NULL);
-            mhdr->sender = udsnew(ag->state->id->text);
-            mhdr->recipient = udsnew(yella_settings_get_text(u"agent", u"heartbeat-recipient"));
-            mhdr->type = udsnew(u"yella.heartbeat");
-            mhdr->cmp = YELLA_COMPRESSION_NONE;
-            mhdr->seq.major = ag->state->boot_count;
-            mhdr->seq.minor = ++minor_seq;
-            parts[0].data = yella_pack_mhdr(mhdr, &parts[0].size);
-            yella_destroy_mhdr(mhdr);
-            if (send_transient_router_message(sndr, parts, 2))
+            parts.data = yella_pack_parcel(pcl, &parts.size);
+            yella_destroy_parcel(pcl);
+            if (send_transient_router_message(sndr, &parts, 1))
                 CHUCHO_C_INFO(ag->lgr, "Sent heartbeat");
             else
                 CHUCHO_C_INFO(ag->lgr, "Error sending heartbeat");
@@ -157,20 +154,17 @@ static void heartbeat_thr(void* udata)
     CHUCHO_C_INFO(ag->lgr, "The hearbeat thread is ending");
 }
 
-static void send_plugin_message(void* agent,
-                                yella_message_header* mhdr,
-                                uint8_t* msg,
-                                size_t sz)
+static void send_plugin_message(void* agent, yella_parcel* pcl)
 {
     yella_agent* ag;
-    yella_message_part parts[2];
+    yella_message_part parts;
     size_t hsz;
     plugin_sender to_find;
     plugin_sender* found;
 
     ag = (yella_agent*)agent;
-    mhdr->sender = udsnew(ag->state->id->text);
-    mhdr->seq.major = ag->state->boot_count;
+    pcl->sender = udsnew(ag->state->id->text);
+    pcl->seq.major = ag->state->boot_count;
     to_find.thread = yella_this_thread();
     found = sglib_plugin_sender_find_member(ag->plugin_senders, &to_find);
     if (found == NULL)
@@ -180,19 +174,8 @@ static void send_plugin_message(void* agent,
         found->sndr = create_sender(ag->rtr);
         sglib_plugin_sender_add(&ag->plugin_senders, found);
     }
-    parts[0].data = yella_pack_mhdr(mhdr, &hsz);
-    parts[0].size = hsz;
-    if (mhdr->cmp == YELLA_COMPRESSION_LZ4)
-    {
-        parts[1].size = sz;
-        parts[1].data = yella_lz4_compress(msg, &parts[1].size);
-    }
-    else
-    {
-        parts[1].data = (uint8_t*)msg;
-        parts[1].size = sz;
-    }
-    send_router_message(found->sndr, parts, 2);
+    parts.data = yella_pack_parcel(pcl, &parts.size);
+    send_router_message(found->sndr, &parts, 1);
 }
 
 static void load_plugins(yella_agent* agent)
@@ -300,11 +283,11 @@ static void load_plugins(yella_agent* agent)
     yella_log_settings();
 }
 
-static void message_received(const yella_message_part* const hdr, const yella_message_part* const body, void* udata)
+static void message_received(const yella_message_part* const msg, void* udata)
 {
     in_handler to_find;
     in_handler* found;
-    yella_message_header* mhdr;
+    yella_parcel* pcl;
     yella_agent* ag;
     in_handler* hndlr;
     in_handler hndlr_to_find;
@@ -312,38 +295,28 @@ static void message_received(const yella_message_part* const hdr, const yella_me
     char* utf8;
     yella_message_part part;
 
-    mhdr = yella_unpack_mhdr(hdr->data);
+    pcl = yella_unpack_parcel(msg->data);
     ag = (yella_agent*)udata;
-    yella_log_mhdr(mhdr, ag->lgr);
-    hndlr_to_find.key = mhdr->type;
+    yella_log_parcel(pcl, ag->lgr);
+    hndlr_to_find.key = pcl->type;
     hndlr = sglib_in_handler_find_member(ag->in_handlers, &hndlr_to_find);
     if (hndlr == NULL)
     {
-        utf8 = yella_to_utf8(mhdr->type);
+        utf8 = yella_to_utf8(pcl->type);
         CHUCHO_C_ERROR_L(ag->lgr, "This message type is not registered: %s", utf8);
         free(utf8);
     }
     else
     {
-        if (mhdr->cmp == YELLA_COMPRESSION_LZ4)
-        {
-            part.size = body->size;
-            part.data = yella_lz4_decompress(body->data, &part.size);
-            rc = hndlr->func(mhdr, &part, hndlr->udata);
-            free(part.data);
-        }
-        else
-        {
-            rc = hndlr->func(mhdr, body, hndlr->udata);
-        }
+        rc = hndlr->func(pcl, hndlr->udata);
         if (rc != YELLA_NO_ERROR)
         {
-            utf8 = yella_to_utf8(mhdr->type);
+            utf8 = yella_to_utf8(pcl->type);
             CHUCHO_C_ERROR_L(ag->lgr, "Error handling message '%s': %s", utf8, yella_strerror(rc));
             free(utf8);
         }
     }
-    yella_destroy_mhdr(mhdr);
+    yella_destroy_parcel(pcl);
 }
 
 static void plugin_api_dtor(void* p, void* udata)

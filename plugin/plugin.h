@@ -4,18 +4,18 @@
 #include "common/return_code.h"
 #include "common/ptr_vector.h"
 #include "common/uds.h"
-#include "common/message_header.h"
+#include "common/parcel.h"
 #include "common/message_part.h"
 #include "plugin_reader.h"
 #include <chucho/logger.h>
 
 typedef struct yella_agent_api
 {
-    /* mhdr is owned by the caller, but the agent needs to mutate it. The msg is owned by the callee. */
-    void (*send_message)(void* agent, yella_message_header* mhdr, uint8_t* msg, size_t sz);
+    /* pcl is owned by the caller, but the agent needs to mutate it. */
+    void (*send_message)(void* agent, yella_parcel* pcl);
 } yella_agent_api;
 
-typedef yella_rc (*yella_in_cap_handler)(const yella_message_header* const mhdr, const yella_message_part* const msg, void* udata);
+typedef yella_rc (*yella_in_cap_handler)(const yella_parcel* const pcl, void* udata);
 
 typedef struct yella_plugin_in_cap
 {
