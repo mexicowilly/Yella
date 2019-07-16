@@ -14,85 +14,55 @@
 #    limitations under the License.
 #
 
-SET(AGENT_SO_VERSION 1)
+SET(YELLA_GEN_DIR "${CMAKE_BINARY_DIR}/gen")
+FILE(MAKE_DIRECTORY "${YELLA_GEN_DIR}")
 
-INCLUDE_DIRECTORIES("${YELLA_FLATCC_INCLUDE_DIR}"
-                    "${YELLA_CJSON_INCLUDE_DIR}")
-
-SET(YELLA_SOURCES
-    agent.c
-    agent.h
-    argparse.c
-    argparse.h
-    heartbeat.c
-    heartbeat.h
-    mac_addresses.c
-    mac_addresses.h
-    router.c
-    router.h
-    runtime_link.h
-    saved_state.c
-    saved_state.h
-    signal_handler.h
-    spool.c
-    spool.h
-    yella_uuid.h)
-
-IF(YELLA_POSIX)
-    INCLUDE_DIRECTORIES("${YELLA_UUID_INCLUDE_DIR}")
-    LIST(APPEND YELLA_SOURCES
-         platform/posix/heartbeat_posix.c
-         platform/posix/runtime_link_posix.c
-         platform/posix/signal_handler_posix.c
-         platform/posix/yella_uuid_posix.c)
-ENDIF()
-
-IF(YELLA_FREEBSD)
-    LIST(APPEND YELLA_SOURCES
-         platform/freebsd/mac_addresses_freebsd.c)
-ENDIF()
-
-IF(YELLA_LINUX)
-    LIST(APPEND YELLA_SOURCES
-         platform/linux/mac_addresses_linux.c)
-ENDIF()
-
+INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}"
+                    "${YELLA_CHUCHO_INCLUDE_DIR}"
+                    "${YELLA_GEN_DIR}")
 IF(YELLA_MACINTOSH)
-    LIST(APPEND YELLA_SOURCES
-         platform/macintosh/mac_addresses_macintosh.c)
+    INCLUDE_DIRECTORIES(SYSTEM "${YELLA_FLATCC_INCLUDE_DIR}")
 ENDIF()
 
-ADD_LIBRARY(agent SHARED ${YELLA_SOURCES})
-SET_TARGET_PROPERTIES(agent PROPERTIES
-                      VERSION ${YELLA_VERSION}
-                      SOVERSION ${AGENT_SO_VERSION}
-                      COMPILE_DEFINITIONS yella_EXPORTS)
-IF(DEFINED YELLA_SO_FLAGS)
-    SET_TARGET_PROPERTIES(agent PROPERTIES
-                          COMPILE_FLAGS "${YELLA_SO_FLAGS}")
+OPTION(YELLA_PRIV_EXPORT "Whether private functions are visible" OFF)
+IF(YELLA_PRIV_EXPORT)
+    ADD_DEFINITIONS(-DYELLA_PRIV_EXPORT=YELLA_EXPORT)
 ENDIF()
 
-YELLA_GEN_TARGET(agent
-                 serialization/public/heartbeat.fbs
-                 serialization/private/saved_state.fbs)
+SET(YELLA_COMMON_GEN
+    "${YELLA_GEN_DIR}/flatbuffers_common_builder.h"
+    "${YELLA_GEN_DIR}/flatbuffers_common_reader.h")
+ADD_CUSTOM_COMMAND(OUTPUT ${YELLA_COMMON_GEN}
+                   COMMAND "${YELLA_FLATCC}" -c -w -o "${YELLA_GEN_DIR}")
+ADD_CUSTOM_TARGET(flatb-common-gen
+                  DEPENDS ${YELLA_COMMON_GEN})
+MACRO(YELLA_GEN_TARGET YELLA_TARGET)
+    UNSET(YELLA_TARGET_GEN)
+    UNSET(YELLA_FLATCC_I_FLAGS)
+    FOREACH(INC ${YELLA_FLATCC_INCLUDE_DIRS})
+        LIST(APPEND YELLA_FLATCC_I_FLAGS "-I${CMAKE_SOURCE_DIR}/${INC}")
+    ENDFOREACH()
+    FOREACH(YELLA_FBS ${ARGN})
+        GET_FILENAME_COMPONENT(YELLA_FBS_REAL "${YELLA_FBS}" REALPATH)
+        GET_FILENAME_COMPONENT(YELLA_FBS_BASE "${YELLA_FBS_REAL}" NAME_WE)
+        SET(YELLA_LOCAL_GEN
+            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_builder.h"
+            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_reader.h"
+            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_json_parser.h"
+            "${YELLA_GEN_DIR}/${YELLA_FBS_BASE}_json_printer.h")
+        ADD_CUSTOM_COMMAND(OUTPUT ${YELLA_LOCAL_GEN}
+                           COMMAND "${YELLA_FLATCC}" ${YELLA_FLATCC_I_FLAGS} --json -w -o "${YELLA_GEN_DIR}" "${YELLA_FBS_REAL}"
+                           DEPENDS "${YELLA_FBS_REAL}")
+        LIST(APPEND YELLA_TARGET_GEN ${YELLA_LOCAL_GEN})
+    ENDFOREACH()
+    ADD_CUSTOM_TARGET(${YELLA_TARGET}-gen
+                      DEPENDS ${YELLA_TARGET_GEN})
+    IF(TARGET ${YELLA_TARGET})
+        ADD_DEPENDENCIES(${YELLA_TARGET} flatb-common-gen ${YELLA_TARGET}-gen)
+    ENDIF()
+ENDMACRO()
 
-TARGET_LINK_LIBRARIES(agent
-                      plugin
-                      "${YELLA_ZEROMQ_LIB}"
-                      m)
-IF(YELLA_MACINTOSH)
-    TARGET_LINK_LIBRARIES(agent "-framework IOKit" "-framework CoreFoundation")
-ENDIF()
-IF(YELLA_POSIX)
-    TARGET_LINK_LIBRARIES(agent "${YELLA_UUID_LIB}")
-ENDIF()
-IF(YELLA_LINUX)
-    TARGET_LINK_LIBRARIES(agent dl)
-ENDIF()
-
-ADD_EXECUTABLE(yellad main.c)
-TARGET_LINK_LIBRARIES(yellad agent)
-ADD_DEPENDENCIES(all-targets yellad)
-
-SET_SOURCE_FILES_PROPERTIES(main.c PROPERTIES
-                            COMPILE_DEFINITIONS YELLA_VERSION=${YELLA_VERSION})
+ADD_SUBDIRECTORY(common)
+ADD_SUBDIRECTORY(plugin)
+ADD_SUBDIRECTORY(agent)
+ADD_SUBDIRECTORY(test)

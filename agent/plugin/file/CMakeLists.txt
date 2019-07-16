@@ -53,7 +53,7 @@ ENDIF()
 SET_TARGET_PROPERTIES(file PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins)
 ADD_DEPENDENCIES(all-targets file)
 
-LIST(APPEND YELLA_FLATCC_INCLUDE_DIRS plugin/file/serialization/public)
+LIST(APPEND YELLA_FLATCC_INCLUDE_DIRS agent/plugin/file/serialization/public)
 
 YELLA_GEN_TARGET(file
                  serialization/public/file.fbs

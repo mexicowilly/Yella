@@ -20,48 +20,49 @@ INCLUDE_DIRECTORIES("${YELLA_LIBYAML_INCLUDE_DIR}"
                     "${YELLA_FLATCC_INCLUDE_DIR}"
                     "${YELLA_CJSON_INCLUDE_DIR}")
 
+SET(YELLA_COMMON_SOURCES
+    compression.c
+    compression.h
+    file.c
+    file.h
+    macro_util.h
+    message_part.h
+    parcel.c
+    parcel.h
+    process.h
+    ptr_helper.c
+    ptr_helper.h
+    ptr_vector.c
+    ptr_vector.h
+    return_code.c
+    return_code.h
+    settings.c
+    settings.h
+    sglib.h
+    text_util.c
+    text_util.h
+    thread.h
+    time_util.h
+    uds.c
+    uds.h
+    udsalloc.h
+    uds_util.c
+    uds_util.h)
+
 IF(YELLA_POSIX)
-    SET(COMMON_PLATFORM_SOURCES
-        platform/posix/file_posix.c
-        platform/posix/process_posix.c
-        platform/posix/settings_posix.c
-        platform/posix/text_util_posix.c
-        platform/posix/thread_posix.c
-        platform/posix/time_util_posix.c)
+    LIST(APPEND YELLA_COMMON_SOURCES
+         platform/posix/file_posix.c
+         platform/posix/process_posix.c
+         platform/posix/settings_posix.c
+         platform/posix/text_util_posix.c
+         platform/posix/thread_posix.c
+         platform/posix/time_util_posix.c)
     SET_SOURCE_FILES_PROPERTIES(platform/posix/settings_posix.c
                                 PROPERTIES
                                 COMPILE_DEFINITIONS "YELLA_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
 ENDIF()
 
-ADD_LIBRARY(common SHARED
-            compression.c
-            compression.h
-            file.c
-            file.h
-            macro_util.h
-            message_part.h
-            parcel.c
-            parcel.h
-            process.h
-            ptr_helper.c
-            ptr_helper.h
-            ptr_vector.c
-            ptr_vector.h
-            return_code.c
-            return_code.h
-            settings.c
-            settings.h
-            sglib.h
-            text_util.c
-            text_util.h
-            thread.h
-            time_util.h
-            uds.c
-            uds.h
-            udsalloc.h
-            uds_util.c
-            uds_util.h
-            ${COMMON_PLATFORM_SOURCES})
+ADD_LIBRARY(common SHARED ${YELLA_COMMON_SOURCES})
 SET_TARGET_PROPERTIES(common PROPERTIES
                       VERSION ${YELLA_VERSION}
                       SOVERSION ${COMMON_SO_VERSION}
