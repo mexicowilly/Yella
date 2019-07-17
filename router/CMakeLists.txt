@@ -2,7 +2,9 @@ SET(CMAKE_CXX_STANDARD 14)
 SET(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 INCLUDE_DIRECTORIES("${YELLA_FLATBUFFERS_INCLUDE_DIR}"
-                    "${YELLA_CHUCHO_STATIC_INCLUDE_DIR}")
+                    "${YELLA_CHUCHO_STATIC_INCLUDE_DIR}"
+                    "${YELLA_YAML_CPP_INCLUDE_DIR}"
+                    "${YELLA_ZEROMQ_INCLUDE_DIR}")
 
 SET(YELLA_ROUTER_SOURCES
     main.cpp)
@@ -10,5 +12,7 @@ SET(YELLA_ROUTER_SOURCES
 ADD_EXECUTABLE(yella-router ${YELLA_ROUTER_SOURCES})
 TARGET_LINK_LIBRARIES(yella-router
                       "${YELLA_CHUCHO_STATIC_LIB}"
-                      "${YELLA_FLATBUFFERS_LIB}")
+                      "${YELLA_FLATBUFFERS_LIB}"
+                      "${YELLA_YAML_CPP_LIB}"
+                      "${YELLA_ZEROMQ_STATIC_LIB}")
 ADD_DEPENDENCIES(all-targets yella-router)
