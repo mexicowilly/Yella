@@ -7,12 +7,19 @@ INCLUDE_DIRECTORIES("${YELLA_FLATBUFFERS_INCLUDE_DIR}"
                     "${YELLA_ZEROMQ_INCLUDE_DIR}")
 
 SET(YELLA_ROUTER_SOURCES
-    main.cpp)
+    agent_face.cpp
+    agent_face.hpp
+    configuration.cpp
+    configuration.hpp
+    main.cpp
+    zeromq_agent_face.cpp
+    zeromq_agent_face.hpp)
 
 ADD_EXECUTABLE(yella-router ${YELLA_ROUTER_SOURCES})
 TARGET_LINK_LIBRARIES(yella-router
                       "${YELLA_CHUCHO_STATIC_LIB}"
                       "${YELLA_FLATBUFFERS_LIB}"
                       "${YELLA_YAML_CPP_LIB}"
-                      "${YELLA_ZEROMQ_STATIC_LIB}")
+                      "${YELLA_ZEROMQ_LIB}"
+                      Threads::Threads)
 ADD_DEPENDENCIES(all-targets yella-router)
