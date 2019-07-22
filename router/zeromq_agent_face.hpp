@@ -19,7 +19,7 @@ public:
     zeromq_agent_face(const configuration& cnf);
     ~zeromq_agent_face();
 
-    void send(const std::uint8_t* const msg);
+    void send(const std::uint8_t* const msg, std::size_t len) override;
 
 private:
     void backend_main();

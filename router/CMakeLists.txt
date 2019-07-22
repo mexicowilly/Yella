@@ -1,10 +1,20 @@
 SET(CMAKE_CXX_STANDARD 14)
 SET(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
+SET(YELLA_GEN_DIR "${CMAKE_BINARY_DIR}/gen/router")
+FILE(MAKE_DIRECTORY "${YELLA_GEN_DIR}")
+
 INCLUDE_DIRECTORIES("${YELLA_FLATBUFFERS_INCLUDE_DIR}"
                     "${YELLA_CHUCHO_STATIC_INCLUDE_DIR}"
                     "${YELLA_YAML_CPP_INCLUDE_DIR}"
-                    "${YELLA_ZEROMQ_INCLUDE_DIR}")
+                    "${YELLA_ZEROMQ_INCLUDE_DIR}"
+                    "${YELLA_RABBITMQ_INCLUDE_DIR}"
+                    "${YELLA_GEN_DIR}")
+
+ADD_CUSTOM_COMMAND(OUTPUT "${YELLA_GEN_DIR}/parcel_generated.h"
+                   COMMAND "${YELLA_FLATC}" --cpp -o "${YELLA_GEN_DIR}" "${CMAKE_SOURCE_DIR}/agent/common/serialization/public/parcel.fbs")
+ADD_CUSTOM_TARGET(flatb-gen
+                  DEPENDS "${YELLA_GEN_DIR}/parcel_generated.h")
 
 SET(YELLA_ROUTER_SOURCES
     agent_face.cpp
@@ -12,6 +22,10 @@ SET(YELLA_ROUTER_SOURCES
     configuration.cpp
     configuration.hpp
     main.cpp
+    mq_face.cpp
+    mq_face.hpp
+    rabbit_mq_face.cpp
+    rabbit_mq_face.hpp
     zeromq_agent_face.cpp
     zeromq_agent_face.hpp)
 
@@ -21,5 +35,7 @@ TARGET_LINK_LIBRARIES(yella-router
                       "${YELLA_FLATBUFFERS_LIB}"
                       "${YELLA_YAML_CPP_LIB}"
                       "${YELLA_ZEROMQ_LIB}"
+                      "${YELLA_RABBITMQ_LIB}"
                       Threads::Threads)
+ADD_DEPENDENCIES(yella-router flatb-gen)
 ADD_DEPENDENCIES(all-targets yella-router)

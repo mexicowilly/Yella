@@ -1,4 +1,5 @@
 #include "zeromq_agent_face.hpp"
+#include "parcel_generated.h"
 #include <chucho/log.hpp>
 #include <sstream>
 #include <queue>
@@ -34,7 +35,7 @@ zeromq_agent_face::~zeromq_agent_face()
 
 void zeromq_agent_face::backend_main()
 {
-    CHUCHO_INFO_L("Backend thread " << std::this_thread::get_id() << " starting");
+    CHUCHO_INFO_L("Backend thread '" << std::this_thread::get_id() << "' starting");
     try
     {
         zmq::socket_t sock(context_, zmq::socket_type::req);
@@ -68,12 +69,33 @@ void zeromq_agent_face::backend_main()
     {
 
     }
-    CHUCHO_INFO_L("Backend thread " << std::this_thread::get_id() << " ending");
+    CHUCHO_INFO_L("Backend thread '" << std::this_thread::get_id() << "' ending");
 }
 
-void zeromq_agent_face::send(const std::uint8_t* const msg)
+void zeromq_agent_face::send(const std::uint8_t* const msg, std::size_t len)
 {
-
+    auto found = senders_.find(std::this_thread::get_id());
+    if (found == senders_.end())
+    {
+        found = senders_.emplace(std::piecewise_construct,
+                                 std::forward_as_tuple(std::this_thread::get_id()),
+                                 std::forward_as_tuple(context_, zmq::socket_type::push)).first;
+        found->second.connect(OUTGOING_ADDR);
+    }
+    auto recipient = yella::fb::Getparcel(msg)->recipient();
+    if (recipient == NULL)
+    {
+        CHUCHO_ERROR_L_STR("No recipient was found in the message");
+    }
+    else
+    {
+        zmq::message_t id(recipient->c_str(), std::strlen(recipient->c_str()));
+        found->second.send(id, ZMQ_SNDMORE);
+        zmq::message_t delim;
+        found->second.send(delim, ZMQ_SNDMORE);
+        zmq::message_t zmsg(msg, len);
+        found->second.send(zmsg);
+    }
 }
 
 void zeromq_agent_face::worker_main()

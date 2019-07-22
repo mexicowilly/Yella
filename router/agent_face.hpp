@@ -20,6 +20,8 @@ public:
 
     agent_face& operator= (const agent_face&) = delete;
 
+    virtual void send(const std::uint8_t* const msg, std::size_t len) = 0;
+
 protected:
     agent_face(const configuration& cnf);
 
