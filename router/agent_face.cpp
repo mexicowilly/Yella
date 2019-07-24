@@ -7,12 +7,9 @@ namespace router
 {
 
 agent_face::agent_face(const configuration& cnf)
-    : config_(cnf)
+    : face(cnf)
 {
-}
-
-agent_face::~agent_face()
-{
+    rename_logger(typeid(*this));
 }
 
 std::unique_ptr<agent_face> agent_face::create_agent_face(const configuration& cnf)

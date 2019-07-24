@@ -16,7 +16,8 @@ configuration::configuration(int argc, char* argv[])
       agent_face_("zeromq"),
       worker_threads_(std::thread::hardware_concurrency()),
       mq_face_("rabbitmq"),
-      bind_exchanges_(false)
+      bind_exchanges_(false),
+      consumption_queues_({"yella.agent.configuration"})
 {
     parse_command_line(argc, argv);
 }
@@ -28,6 +29,7 @@ void configuration::parse_command_line(int argc, char* argv[])
         ("agent-face", "The type of interface to the agents (zeromq)", cxxopts::value<std::string>())
         ("agent-port", "The port to which agents should connect", cxxopts::value<std::uint16_t>())
         ("bind-exchanges", "Bind exchanges to queues")
+        ("consumption-queues", "Message queues from which to consume (comma-delimited)", cxxopts::value<std::vector<std::string>>())
         ("config-file", "The configuration file", cxxopts::value<std::string>())
         ("h,help", "Display this helpful messasge")
         ("mq-broker", "The broker URL", cxxopts::value<std::string>())
@@ -55,6 +57,8 @@ void configuration::parse_command_line(int argc, char* argv[])
         throw std::runtime_error("mq_broker must be set in the configuration");
     if (result["bind-exchanges"].count())
         bind_exchanges_ = result["bind-exchanges"].as<bool>();
+    if (result["consumption-queues"].count())
+        consumption_queues_ = result["consumption-queues"].as<std::vector<std::string>>();
 }
 
 void configuration::parse_config_file()
@@ -72,6 +76,15 @@ void configuration::parse_config_file()
             mq_face_ = yaml["mq_face"].as<std::string>();
         if (yaml["mq_broker"])
             mq_face_ = yaml["mq_broker"].as<std::string>();
+        if (yaml["consumption_queues"])
+        {
+            auto qs = yaml["consumption_queues"];
+            if (qs.IsSequence())
+            {
+                for (std::size_t i = 0; i < qs.size(); i++)
+                    consumption_queues_.push_back(qs[i].as<std::string>());
+            }
+        }
     }
     catch (const std::exception& e)
     {

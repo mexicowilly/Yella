@@ -2,6 +2,7 @@
 #define YELLA_CONFIGURATION_HPP__
 
 #include <string>
+#include <vector>
 
 namespace yella
 {
@@ -17,6 +18,7 @@ public:
     const std::string& agent_face() const;
     std::uint16_t agent_port() const;
     bool bind_exchanges() const;
+    const std::vector<std::string>& consumption_queues() const;
     const std::string& file_name() const;
     const std::string& mq_broker() const;
     const std::string& mq_face() const;
@@ -33,6 +35,7 @@ private:
     std::string mq_face_;
     std::string mq_broker_;
     bool bind_exchanges_;
+    std::vector<std::string> consumption_queues_;
 };
 
 inline const std::string& configuration::agent_face() const
@@ -48,6 +51,11 @@ inline std::uint16_t configuration::agent_port() const
 inline bool configuration::bind_exchanges() const
 {
     return bind_exchanges_;
+}
+
+inline const std::vector<std::string>& configuration::consumption_queues() const
+{
+    return consumption_queues_;
 }
 
 inline const std::string& configuration::file_name() const

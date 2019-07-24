@@ -6,6 +6,7 @@
 #include <map>
 #include <thread>
 #include <set>
+#include <atomic>
 
 namespace yella
 {
@@ -19,13 +20,14 @@ public:
     rabbit_mq_face(const configuration& cnf);
     ~rabbit_mq_face();
 
+    void run(std::shared_ptr<face> other_face) override;
     void send(const std::uint8_t* const msg, std::size_t len) override;
 
 private:
     class sender
     {
     public:
-        sender(const configuration& cnf);
+        sender(rabbit_mq_face& rmf);
         sender(const sender&) = delete;
         ~sender();
 
@@ -39,7 +41,12 @@ private:
         std::set<std::string> exchanges_;
     };
 
+    amqp_connection_state_t create_connection();
+    void receiver_main();
+
     std::map<std::thread::id, sender> senders_;
+    std::thread receiver_;
+    std::atomic_bool should_stop_;
 };
 
 }

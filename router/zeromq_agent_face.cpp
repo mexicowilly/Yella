@@ -1,5 +1,6 @@
 #include "zeromq_agent_face.hpp"
 #include "parcel_generated.h"
+#include "fatal_error.hpp"
 #include <chucho/log.hpp>
 #include <sstream>
 #include <queue>
@@ -22,8 +23,7 @@ namespace router
 
 zeromq_agent_face::zeromq_agent_face(const configuration& cnf)
     : agent_face(cnf),
-      should_stop_(false),
-      worker_(&zeromq_agent_face::worker_main, this)
+      should_stop_(false)
 {
 }
 
@@ -35,7 +35,7 @@ zeromq_agent_face::~zeromq_agent_face()
 
 void zeromq_agent_face::backend_main()
 {
-    CHUCHO_INFO_L("Backend thread '" << std::this_thread::get_id() << "' starting");
+    CHUCHO_INFO_L("Back-end thread '" << std::this_thread::get_id() << "' starting");
     try
     {
         zmq::socket_t sock(context_, zmq::socket_type::req);
@@ -58,18 +58,36 @@ void zeromq_agent_face::backend_main()
                 zmq::message_t msg;
                 if (sock.recv(&msg, ZMQ_DONTWAIT))
                 {
-                    // do work
-                    sock.send(empty_msg);
+                    try
+                    {
+                        other_face_->send(reinterpret_cast<uint8_t*>(msg.data()), msg.size());
+                        sock.send(empty_msg);
+                    }
+                    catch (const fatal_error& fe)
+                    {
+                        CHUCHO_FATAL_L("Fatal error: " << fe.what());
+                        should_stop_ = true;
+                    }
+                    catch (const std::exception e)
+                    {
+                        CHUCHO_ERROR_L("Error sending message to message queue: " << e.what());
+                    }
                 }
             }
-
         }
     }
     catch (const std::exception& e)
     {
+        CHUCHO_FATAL_L("Error setting up back-end connection: " << e.what());
 
     }
-    CHUCHO_INFO_L("Backend thread '" << std::this_thread::get_id() << "' ending");
+    CHUCHO_INFO_L("Back-end thread '" << std::this_thread::get_id() << "' ending");
+}
+
+void zeromq_agent_face::run(std::shared_ptr<face> other_face)
+{
+    agent_face::run(other_face);
+    worker_ = std::thread(&zeromq_agent_face::worker_main, this);
 }
 
 void zeromq_agent_face::send(const std::uint8_t* const msg, std::size_t len)

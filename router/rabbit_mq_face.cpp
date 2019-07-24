@@ -1,6 +1,8 @@
 #include "rabbit_mq_face.hpp"
 #include "parcel_generated.h"
+#include "fatal_error.hpp"
 #include <amqp_tcp_socket.h>
+#include <chucho/log.hpp>
 #include <sstream>
 
 namespace
@@ -41,7 +43,7 @@ void respond(const amqp_rpc_reply_t& rep)
             stream << "Unknown method: " << rep.reply.id;
         }
     }
-    throw std::runtime_error(stream.str());
+    throw yella::router::fatal_error(stream.str());
 }
 
 }
@@ -53,12 +55,111 @@ namespace router
 {
 
 rabbit_mq_face::rabbit_mq_face(const configuration& cnf)
-    : mq_face(cnf)
+    : mq_face(cnf),
+      should_stop_(false)
 {
 }
 
 rabbit_mq_face::~rabbit_mq_face()
 {
+}
+
+amqp_connection_state_t rabbit_mq_face::create_connection()
+{
+    amqp_connection_state_t result;
+    try
+    {
+        amqp_connection_info info;
+        std::vector<char> url(config_.mq_broker().c_str(), config_.mq_broker().c_str() + config_.mq_broker().length() + 1);
+        int rc = amqp_parse_url(&url[0], &info);
+        if (rc != AMQP_STATUS_OK)
+            throw std::invalid_argument("Invalid AMQP URL: " + config_.mq_broker());
+        if (info.ssl)
+            throw std::invalid_argument("SSL is not supported: " + config_.mq_broker());
+        result = amqp_new_connection();
+        amqp_socket_t* sock = amqp_tcp_socket_new(result);
+        if (sock == nullptr)
+            throw std::runtime_error("Unable to create TCP socket");
+        rc = amqp_socket_open(sock, info.host, info.port);
+        if (rc != AMQP_STATUS_OK)
+            throw std::runtime_error(std::string("Unable to open socket: ") + amqp_error_string2(rc));
+        amqp_rpc_reply_t rep = amqp_login(result,
+                                          info.vhost,
+                                          0,
+                                          AMQP_DEFAULT_FRAME_SIZE,
+                                          0,
+                                          AMQP_SASL_METHOD_PLAIN,
+                                          info.user,
+                                          info.password);
+        respond(rep);
+        amqp_channel_open(result, YELLA_CHANNEL);
+        rep = amqp_get_rpc_reply(result);
+        respond(rep);
+    }
+    catch (const std::exception& e)
+    {
+        amqp_destroy_connection(result);
+        throw;
+    }
+    return result;
+}
+
+void rabbit_mq_face::receiver_main()
+{
+    CHUCHO_INFO_L_STR("Message queue receiver is starting");
+    amqp_connection_state_t cxn = nullptr;
+    try
+    {
+        cxn = create_connection();
+        for (const auto& q : config_.consumption_queues())
+        {
+            amqp_bytes_t qbytes;
+            qbytes.bytes = const_cast<char*>(q.data());
+            qbytes.len = q.length();
+            amqp_basic_consume(cxn,
+                               YELLA_CHANNEL,
+                               qbytes,
+                               amqp_empty_bytes,
+                               0, // no local
+                               1, // no ack
+                               0, // exclusive
+                               amqp_empty_table);
+            auto rep = amqp_get_rpc_reply(cxn);
+            respond(rep);
+        }
+        amqp_envelope_t env;
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 500000;
+        while (!should_stop_)
+        {
+            amqp_maybe_release_buffers(cxn);
+            auto rep = amqp_consume_message(cxn, &env, &timeout, 0);
+            if (rep.reply_type != AMQP_RESPONSE_NONE)
+            {
+                respond(rep);
+                other_face_->send(reinterpret_cast<uint8_t*>(env.message.body.bytes), env.message.body.len);
+                amqp_destroy_envelope(&env);
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        CHUCHO_FATAL_L("Error occurred with broker: " << e.what());
+    }
+    if (cxn != nullptr)
+    {
+        amqp_channel_close(cxn, YELLA_CHANNEL, AMQP_REPLY_SUCCESS);
+        amqp_connection_close(cxn, AMQP_REPLY_SUCCESS);
+        amqp_destroy_connection(cxn);
+    }
+    CHUCHO_INFO_L_STR("Message queue receiver is ending");
+}
+
+void rabbit_mq_face::run(std::shared_ptr<face> other_face)
+{
+    mq_face::run(other_face);
+    receiver_ = std::thread(&rabbit_mq_face::receiver_main, this);
 }
 
 void rabbit_mq_face::send(const std::uint8_t* const msg, std::size_t len)
@@ -68,48 +169,15 @@ void rabbit_mq_face::send(const std::uint8_t* const msg, std::size_t len)
     {
         found = senders_.emplace(std::piecewise_construct,
                                  std::forward_as_tuple(std::this_thread::get_id()),
-                                 std::forward_as_tuple(config_)).first;
+                                 std::forward_as_tuple(*this)).first;
     }
     found->second.send(msg, len);
 }
 
-rabbit_mq_face::sender::sender(const configuration& cnf)
-    : config_(cnf)
+rabbit_mq_face::sender::sender(rabbit_mq_face& rmf)
+    : config_(rmf.config_),
+      cxn_(rmf.create_connection())
 {
-    try
-    {
-        amqp_connection_info info;
-        std::vector<char> url(cnf.mq_broker().c_str(), cnf.mq_broker().c_str() + cnf.mq_broker().length() + 1);
-        int rc = amqp_parse_url(&url[0], &info);
-        if (rc != AMQP_STATUS_OK)
-            throw std::invalid_argument("Invalid AMQP URL: " + cnf.mq_broker());
-        cxn_ = amqp_new_connection();
-        if (info.ssl)
-            throw std::invalid_argument("SSL is not supported: " + cnf.mq_broker());
-        amqp_socket_t* sock = amqp_tcp_socket_new(cxn_);
-        if (sock == nullptr)
-            throw std::runtime_error("Unable to create TCP socket");
-        rc = amqp_socket_open(sock, info.host, info.port);
-        if (rc != AMQP_STATUS_OK)
-            throw std::runtime_error(std::string("Unable to open socket: ") + amqp_error_string2(rc));
-        amqp_rpc_reply_t rep = amqp_login(cxn_,
-                                          info.vhost,
-                                          0,
-                                          AMQP_DEFAULT_FRAME_SIZE,
-                                          0,
-                                          AMQP_SASL_METHOD_PLAIN,
-                                          info.user,
-                                          info.password);
-        respond(rep);
-        amqp_channel_open(cxn_, YELLA_CHANNEL);
-        rep = amqp_get_rpc_reply(cxn_);
-        respond(rep);
-    }
-    catch (const std::exception& e)
-    {
-        amqp_destroy_connection(cxn_);
-        throw;
-    }
 }
 
 rabbit_mq_face::sender::~sender()

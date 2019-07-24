@@ -21,6 +21,8 @@ SET(YELLA_ROUTER_SOURCES
     agent_face.hpp
     configuration.cpp
     configuration.hpp
+    face.hpp
+    fatal_error.hpp
     main.cpp
     mq_face.cpp
     mq_face.hpp
