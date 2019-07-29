@@ -20,7 +20,8 @@ public:
     rabbit_mq_face(const configuration& cnf);
     ~rabbit_mq_face();
 
-    void run(std::shared_ptr<face> other_face) override;
+    void run(std::shared_ptr<face> other_face,
+             std::function<void()> callback_of_death) override;
     void send(const std::uint8_t* const msg, std::size_t len) override;
 
 private:

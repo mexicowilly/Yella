@@ -84,9 +84,10 @@ void zeromq_agent_face::backend_main()
     CHUCHO_INFO_L("Back-end thread '" << std::this_thread::get_id() << "' ending");
 }
 
-void zeromq_agent_face::run(std::shared_ptr<face> other_face)
+void zeromq_agent_face::run(std::shared_ptr<face> other_face,
+                            std::function<void()> callback_of_death)
 {
-    agent_face::run(other_face);
+    agent_face::run(other_face, callback_of_death);
     worker_ = std::thread(&zeromq_agent_face::worker_main, this);
 }
 
@@ -225,7 +226,7 @@ void zeromq_agent_face::worker_main()
     catch (const std::exception& e)
     {
         CHUCHO_ERROR_L("Error in ZeroMQ worker: " << e.what());
-
+        callback_of_death_();
     }
     CHUCHO_INFO_L_STR("ZeroMQ worker thread ending");
 }

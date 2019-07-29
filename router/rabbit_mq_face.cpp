@@ -62,6 +62,8 @@ rabbit_mq_face::rabbit_mq_face(const configuration& cnf)
 
 rabbit_mq_face::~rabbit_mq_face()
 {
+    should_stop_ = true;
+    receiver_.join();
 }
 
 amqp_connection_state_t rabbit_mq_face::create_connection()
@@ -146,6 +148,7 @@ void rabbit_mq_face::receiver_main()
     catch (const std::exception& e)
     {
         CHUCHO_FATAL_L("Error occurred with broker: " << e.what());
+        callback_of_death_();
     }
     if (cxn != nullptr)
     {
@@ -156,9 +159,10 @@ void rabbit_mq_face::receiver_main()
     CHUCHO_INFO_L_STR("Message queue receiver is ending");
 }
 
-void rabbit_mq_face::run(std::shared_ptr<face> other_face)
+void rabbit_mq_face::run(std::shared_ptr<face> other_face,
+                         std::function<void()> callback_of_death)
 {
-    mq_face::run(other_face);
+    mq_face::run(other_face, callback_of_death);
     receiver_ = std::thread(&rabbit_mq_face::receiver_main, this);
 }
 

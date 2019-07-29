@@ -9,7 +9,8 @@ INCLUDE_DIRECTORIES("${YELLA_FLATBUFFERS_INCLUDE_DIR}"
                     "${YELLA_YAML_CPP_INCLUDE_DIR}"
                     "${YELLA_ZEROMQ_INCLUDE_DIR}"
                     "${YELLA_RABBITMQ_INCLUDE_DIR}"
-                    "${YELLA_GEN_DIR}")
+                    "${YELLA_GEN_DIR}"
+                    "${CMAKE_SOURCE_DIR}/agent")
 
 ADD_CUSTOM_COMMAND(OUTPUT "${YELLA_GEN_DIR}/parcel_generated.h"
                    COMMAND "${YELLA_FLATC}" --cpp -o "${YELLA_GEN_DIR}" "${CMAKE_SOURCE_DIR}/agent/common/serialization/public/parcel.fbs")
@@ -19,6 +20,8 @@ ADD_CUSTOM_TARGET(flatb-gen
 SET(YELLA_ROUTER_SOURCES
     agent_face.cpp
     agent_face.hpp
+    bucket_brigade.cpp
+    bucket_brigade.hpp
     configuration.cpp
     configuration.hpp
     face.hpp
@@ -28,8 +31,14 @@ SET(YELLA_ROUTER_SOURCES
     mq_face.hpp
     rabbit_mq_face.cpp
     rabbit_mq_face.hpp
+    ${CMAKE_SOURCE_DIR}/agent/agent/signal_handler.h
     zeromq_agent_face.cpp
     zeromq_agent_face.hpp)
+
+IF(YELLA_POSIX)
+    LIST(APPEND YELLA_ROUTER_SOURCES
+         ${CMAKE_SOURCE_DIR}/agent/agent/platform/posix/signal_handler_posix.c)
+ENDIF()
 
 ADD_EXECUTABLE(yella-router ${YELLA_ROUTER_SOURCES})
 TARGET_LINK_LIBRARIES(yella-router

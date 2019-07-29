@@ -17,7 +17,9 @@ configuration::configuration(int argc, char* argv[])
       worker_threads_(std::thread::hardware_concurrency()),
       mq_face_("rabbitmq"),
       bind_exchanges_(false),
-      consumption_queues_({"yella.agent.configuration"})
+      consumption_queues_({"yella.agent.configuration"}),
+      max_agent_face_deaths_(3),
+      max_mq_face_deaths_(3)
 {
     parse_command_line(argc, argv);
 }
@@ -32,6 +34,8 @@ void configuration::parse_command_line(int argc, char* argv[])
         ("consumption-queues", "Message queues from which to consume (comma-delimited)", cxxopts::value<std::vector<std::string>>())
         ("config-file", "The configuration file", cxxopts::value<std::string>())
         ("h,help", "Display this helpful messasge")
+        ("max-agent-face-deaths", "Number of agent face deaths allowed", cxxopts::value<std::size_t>())
+        ("max-mq-face-deaths", "Number of MQ face deaths allowed", cxxopts::value<std::size_t>())
         ("mq-broker", "The broker URL", cxxopts::value<std::string>())
         ("mq-face", "Interface to the message queue (rabbitmq)", cxxopts::value<std::string>())
         ("worker-threads", "The number of worker threads", cxxopts::value<std::size_t>());
@@ -59,6 +63,10 @@ void configuration::parse_command_line(int argc, char* argv[])
         bind_exchanges_ = result["bind-exchanges"].as<bool>();
     if (result["consumption-queues"].count())
         consumption_queues_ = result["consumption-queues"].as<std::vector<std::string>>();
+    if (result["max-agent-face-deaths"].count())
+        max_agent_face_deaths_ = result["max-agent-face-deaths"].as<std::size_t>();
+    if (result["max-mq-face-deaths"].count())
+        max_mq_face_deaths_ = result["max-mq-face-deaths"].as<std::size_t>();
 }
 
 void configuration::parse_config_file()
@@ -85,6 +93,10 @@ void configuration::parse_config_file()
                     consumption_queues_.push_back(qs[i].as<std::string>());
             }
         }
+        if (yaml["max_agent_face_deaths"])
+            max_agent_face_deaths_ = yaml["max_agent_face_deaths"].as<std::size_t>();
+        if (yaml["max_mq_face_deaths"])
+            max_mq_face_deaths_ = yaml["max_mq_face_deaths"].as<std::size_t>();
     }
     catch (const std::exception& e)
     {

@@ -142,7 +142,10 @@ static void* sigwait_thr(void* arg)
         for (i = 0; i < YELLA_ARRAY_SIZE(term_signals); i++)
         {
             if (term_signals[i] == recv_signal)
-               term_handler(term_handler_udata);
+            {
+                term_handler(term_handler_udata);
+                break;
+            }
         }
         sigaddset(&signals, recv_signal);
     }

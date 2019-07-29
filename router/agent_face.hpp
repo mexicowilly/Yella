@@ -12,7 +12,7 @@ namespace router
 class agent_face : public face
 {
 public:
-    static std::unique_ptr<agent_face> create_agent_face(const configuration& cnf);
+    static std::shared_ptr<agent_face> create_agent_face(const configuration& cnf);
 
 protected:
     agent_face(const configuration& cnf);
