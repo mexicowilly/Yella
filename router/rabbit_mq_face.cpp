@@ -97,6 +97,7 @@ amqp_connection_state_t rabbit_mq_face::create_connection()
         amqp_channel_open(result, YELLA_CHANNEL);
         rep = amqp_get_rpc_reply(result);
         respond(rep);
+        CHUCHO_INFO_L("Connected to RabbitMQ server");
     }
     catch (const std::exception& e)
     {
@@ -159,7 +160,7 @@ void rabbit_mq_face::receiver_main()
     CHUCHO_INFO_L_STR("Message queue receiver is ending");
 }
 
-void rabbit_mq_face::run(std::shared_ptr<face> other_face,
+void rabbit_mq_face::run(face* other_face,
                          std::function<void()> callback_of_death)
 {
     mq_face::run(other_face, callback_of_death);

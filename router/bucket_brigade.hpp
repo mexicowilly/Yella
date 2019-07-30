@@ -20,14 +20,11 @@ public:
     void termination_handler();
 
 private:
-    void aface_death_callback();
-    void mface_death_callback();
+    void death_callback();
 
     const configuration& config_;
-    std::shared_ptr<agent_face> aface_;
-    std::shared_ptr<mq_face> mface_;
-    std::size_t aface_deaths_left_;
-    std::size_t mface_deaths_left_;
+    std::unique_ptr<agent_face> aface_;
+    std::unique_ptr<mq_face> mface_;
     std::mutex guard_;
     std::condition_variable death_cond_;
     bool should_stop_;

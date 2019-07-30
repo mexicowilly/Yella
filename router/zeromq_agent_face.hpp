@@ -19,7 +19,7 @@ public:
     zeromq_agent_face(const configuration& cnf);
     ~zeromq_agent_face();
 
-    void run(std::shared_ptr<face> other_face,
+    void run(face* other_face,
              std::function<void()> callback_of_death) override;
     void send(const std::uint8_t* const msg, std::size_t len) override;
 

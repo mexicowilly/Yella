@@ -12,7 +12,7 @@ namespace router
 class mq_face : public face
 {
 public:
-    static std::shared_ptr<mq_face> create_mq_face(const configuration& cnf);
+    static std::unique_ptr<mq_face> create_mq_face(const configuration& cnf);
 
 protected:
     mq_face(const configuration& cnf);

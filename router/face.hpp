@@ -18,7 +18,7 @@ public:
 
     face& operator= (const face&) = delete;
 
-    virtual void run(std::shared_ptr<face> other_face,
+    virtual void run(face* other_face,
                      std::function<void()> callback_of_death)
     {
         other_face_ = other_face;
@@ -30,7 +30,7 @@ protected:
     face(const configuration& cnf) : config_(cnf) { }
 
     const configuration& config_;
-    std::shared_ptr<face> other_face_;
+    face* other_face_;
     std::function<void()> callback_of_death_;
 };
 

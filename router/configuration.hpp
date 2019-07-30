@@ -20,8 +20,6 @@ public:
     bool bind_exchanges() const;
     const std::vector<std::string>& consumption_queues() const;
     const std::string& file_name() const;
-    std::size_t max_agent_face_deaths() const;
-    std::size_t max_mq_face_deaths() const;
     const std::string& mq_broker() const;
     const std::string& mq_face() const;
     std::size_t worker_threads() const;
@@ -38,8 +36,6 @@ private:
     std::string mq_broker_;
     bool bind_exchanges_;
     std::vector<std::string> consumption_queues_;
-    std::size_t max_agent_face_deaths_;
-    std::size_t max_mq_face_deaths_;
 };
 
 inline const std::string& configuration::agent_face() const
@@ -65,16 +61,6 @@ inline const std::vector<std::string>& configuration::consumption_queues() const
 inline const std::string& configuration::file_name() const
 {
     return file_name_;
-}
-
-inline std::size_t configuration::max_agent_face_deaths() const
-{
-    return max_agent_face_deaths_;
-}
-
-inline std::size_t configuration::max_mq_face_deaths() const
-{
-    return max_mq_face_deaths_;
 }
 
 inline const std::string& configuration::mq_broker() const

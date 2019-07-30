@@ -84,7 +84,7 @@ void zeromq_agent_face::backend_main()
     CHUCHO_INFO_L("Back-end thread '" << std::this_thread::get_id() << "' ending");
 }
 
-void zeromq_agent_face::run(std::shared_ptr<face> other_face,
+void zeromq_agent_face::run(face* other_face,
                             std::function<void()> callback_of_death)
 {
     agent_face::run(other_face, callback_of_death);
