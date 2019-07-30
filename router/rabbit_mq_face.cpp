@@ -132,18 +132,17 @@ void rabbit_mq_face::receiver_main()
         }
         amqp_envelope_t env;
         struct timeval timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 500000;
         while (!should_stop_)
         {
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 500000;
             amqp_maybe_release_buffers(cxn);
             auto rep = amqp_consume_message(cxn, &env, &timeout, 0);
-            if (rep.reply_type != AMQP_RESPONSE_NONE)
-            {
-                respond(rep);
-                other_face_->send(reinterpret_cast<uint8_t*>(env.message.body.bytes), env.message.body.len);
-                amqp_destroy_envelope(&env);
-            }
+            if (rep.reply_type == AMQP_RESPONSE_LIBRARY_EXCEPTION && rep.library_error == AMQP_STATUS_TIMEOUT)
+                continue;
+            respond(rep);
+            other_face_->send(reinterpret_cast<uint8_t*>(env.message.body.bytes), env.message.body.len);
+            amqp_destroy_envelope(&env);
         }
     }
     catch (const std::exception& e)
