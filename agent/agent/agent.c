@@ -129,7 +129,7 @@ static void heartbeat_thr(void* udata)
                 api = (plugin_api*)yella_ptr_vector_at(ag->plugins, i);
                 yella_push_back_ptr_vector(plugins, api->status_func(ag));
             }
-            pcl = yella_create_parcel(yella_settings_get_text(u"agent", u"heartbeat-recipient"), u"yella.heartbeat");
+            pcl = yella_create_parcel(yella_settings_get_text(u"agent", u"heartbeat-recipient"), u"yella.agent.heartbeat");
             pcl->sender = udsnew(ag->state->id->text);
             pcl->cmp = YELLA_COMPRESSION_NONE;
             pcl->seq.major = ag->state->boot_count;

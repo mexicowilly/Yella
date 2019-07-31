@@ -495,7 +495,7 @@ static yella_rc monitor_handler(const yella_parcel* const pcl, void* udata)
     size_t actual_size;
 
     fplg = (file_plugin*)udata;
-    assert(u_strcmp(pcl->type, u"file.monitor_request") == 0);
+    assert(u_strcmp(pcl->type, u"yella.file.monitor_request") == 0);
     assert(pcl->cmp == YELLA_COMPRESSION_NONE);
     if (pcl->cmp == YELLA_COMPRESSION_NONE)
     {
