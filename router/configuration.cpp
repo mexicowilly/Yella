@@ -79,7 +79,7 @@ void configuration::parse_config_file()
         if (yaml["mq_face"])
             mq_face_ = yaml["mq_face"].as<std::string>();
         if (yaml["mq_broker"])
-            mq_face_ = yaml["mq_broker"].as<std::string>();
+            mq_broker_ = yaml["mq_broker"].as<std::string>();
         if (yaml["consumption_queues"])
         {
             auto qs = yaml["consumption_queues"];
