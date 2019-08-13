@@ -5,6 +5,7 @@ INCLUDE_DIRECTORIES("${YELLA_FLATBUFFERS_INCLUDE_DIR}"
                     "${YELLA_CHUCHO_STATIC_INCLUDE_DIR}"
                     "${YELLA_YAML_CPP_INCLUDE_DIR}"
                     "${YELLA_RABBITMQ_INCLUDE_DIR}"
+                    "${YELLA_POSTGRES_INCLUDE_DIR}"
                     "${YELLA_GEN_DIR}")
 
 FOREACH(FBS
@@ -21,14 +22,22 @@ ENDFOREACH()
 ADD_CUSTOM_TARGET(console-gen DEPENDS ${YELLA_GEN_DEPS})
 
 SET(YELLA_CONSOLE_SOURCES
+    agent.cpp
+    agent.hpp
     configuration.cpp
     configuration.hpp
+    database.cpp
+    database.hpp
     fatal_error.hpp
     main.cpp
     message_queue.cpp
     message_queue.hpp
+    model.cpp
+    model.hpp
     parcel.cpp
     parcel.hpp
+    postgres_db.cpp
+    postgres_db.hpp
     rabbitmq.cpp
     rabbitmq.hpp)
 
@@ -38,6 +47,8 @@ TARGET_LINK_LIBRARIES(yella-console
                       "${YELLA_FLATBUFFERS_LIB}"
                       "${YELLA_YAML_CPP_LIB}"
                       "${YELLA_RABBITMQ_LIB}"
+                      "${YELLA_POSTGRESXX_LIB}"
+                      "${YELLA_POSTGRES_LIB}"
                       Threads::Threads)
 ADD_DEPENDENCIES(yella-console console-gen)
 ADD_DEPENDENCIES(all-targets yella-console)

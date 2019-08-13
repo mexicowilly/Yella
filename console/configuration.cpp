@@ -12,11 +12,16 @@ namespace console
 
 configuration::configuration(int argc, char* argv[])
     : mq_type_("rabbitmq"),
-      mq_threads_(std::thread::hardware_concurrency())
+      mq_threads_(std::thread::hardware_concurrency()),
+      consumption_queues_({"yella.agent.heartbeat", "yella.file.change"}),
+      db_type_("postgres")
 {
-    cxxopts::Options opts("yella-console", "Allows control of yella agents");
+cxxopts::Options opts("yella-console", "Allows control of yella agents");
     opts.add_options()
         ("config-file", "The configuration file", cxxopts::value<std::string>())
+        ("consumption-queues", "Message queues from which to consume (comma-delimited)", cxxopts::value<std::vector<std::string>>())
+        ("db", "The database", cxxopts::value<std::string>())
+        ("db-type", "The database type (postgres)", cxxopts::value<std::string>())
         ("h,help", "Display this helpful messasge")
         ("mq-broker", "The broker URL", cxxopts::value<std::string>())
         ("mq-threads", "The number of threads to service the message queue")
@@ -40,6 +45,12 @@ configuration::configuration(int argc, char* argv[])
         mq_type_ = result["mq-type"].as<std::string>();
     if (result["mq-threads"].count())
         mq_threads_ = result["mq-threads"].as<std::size_t>();
+    if (result["consumption-queues"].count())
+        consumption_queues_ = result["consumption-queues"].as<std::vector<std::string>>();
+    if (result["db"].count())
+        db_ = result["db"].as<std::string>();
+    if (result["db-type"].count())
+        db_type_ = result["db-type"].as<std::string>();
 }
 
 void configuration::parse_config_file()
@@ -53,6 +64,19 @@ void configuration::parse_config_file()
             mq_type_ = yaml["mq_type"].as<std::string>();
         if (yaml["mq_threads"])
             mq_threads_ = yaml["mq_threads"].as<std::size_t>();
+        if (yaml["consumption_queues"])
+        {
+            auto qs = yaml["consumption_queues"];
+            if (qs.IsSequence())
+            {
+                for (std::size_t i = 0; i < qs.size(); i++)
+                    consumption_queues_.push_back(qs[i].as<std::string>());
+            }
+        }
+        if (yaml["db"])
+            db_ = yaml["db"].as<std::string>();
+        if (yaml["db_type"])
+            db_type_ = yaml["db_type"].as<std::string>();
     }
     catch (const std::exception& e)
     {

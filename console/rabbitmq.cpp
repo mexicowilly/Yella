@@ -1,6 +1,6 @@
 #include "rabbitmq.hpp"
 #include "fatal_error.hpp"
-#include "parcel_generated.h"
+#include "parcel.hpp"
 #include <amqp_tcp_socket.h>
 #include <chucho/log.hpp>
 
@@ -53,9 +53,14 @@ namespace yella
 namespace console
 {
 
-rabbitmq::rabbitmq(const configuration& cnf, handler heartbeat_handler, handler file_change_handler)
-    : message_queue(cnf, heartbeat_handler, file_change_handler)
+rabbitmq::rabbitmq(const configuration& cnf,
+                   handler heartbeat_handler,
+                   handler file_change_handler,
+                   death_callback dc)
+    : message_queue(cnf, heartbeat_handler, file_change_handler, dc)
 {
+    for (auto& thr : receivers_)
+        thr = std::thread(&rabbitmq::receiver_main, this);
 }
 
 amqp_connection_state_t rabbitmq::create_connection()
@@ -106,10 +111,54 @@ void rabbitmq::receiver_main()
     try
     {
         cxn = create_connection();
+        for (const auto& q : config_.consumption_queues())
+        {
+            amqp_bytes_t qbytes;
+            qbytes.bytes = const_cast<char*>(q.data());
+            qbytes.len = q.length();
+            amqp_basic_consume(cxn,
+                               YELLA_CHANNEL,
+                               qbytes,
+                               amqp_empty_bytes,
+                               0, // no local
+                               1, // no ack
+                               0, // exclusive
+                               amqp_empty_table);
+            auto rep = amqp_get_rpc_reply(cxn);
+            respond(rep);
+        }
+        amqp_envelope_t env;
+        struct timeval timeout;
+        while (!should_stop_)
+        {
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 500000;
+            amqp_maybe_release_buffers(cxn);
+            auto rep = amqp_consume_message(cxn, &env, &timeout, 0);
+            if (rep.reply_type == AMQP_RESPONSE_LIBRARY_EXCEPTION && rep.library_error == AMQP_STATUS_TIMEOUT)
+                continue;
+            respond(rep);
+            parcel pcl(reinterpret_cast<std::uint8_t*>(env.message.body.bytes));
+            amqp_destroy_envelope(&env);
+            try
+            {
+                if (pcl.type() == "yella.agent.heartbeat")
+                    heartbeat_handler_(pcl);
+                else if (pcl.type() == "yella.file.change")
+                    file_change_handler_(pcl);
+                else
+                    CHUCHO_ERROR_L("Unknown message type: " << pcl.type());
+            }
+            catch (const std::exception& e)
+            {
+                CHUCHO_ERROR_L("Error processing '" << pcl.type() << "': " << e.what());
+            }
+        }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-
+        CHUCHO_FATAL_L("Error occurred with broker: " << e.what());
+        death_callback_();
     }
     if (cxn != nullptr)
     {

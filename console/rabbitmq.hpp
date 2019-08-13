@@ -14,13 +14,15 @@ namespace console
 class rabbitmq : public message_queue
 {
 public:
-    rabbitmq(const configuration& cnf, handler heartbeat_handler, handler file_change_handler);
+    rabbitmq(const configuration& cnf,
+             handler heartbeat_handler,
+             handler file_change_handler,
+             death_callback dc);
 
 private:
     amqp_connection_state_t create_connection();
     void receiver_main();
 
-    std::thread receiver_;
     std::atomic_bool should_stop_;
 };
 
