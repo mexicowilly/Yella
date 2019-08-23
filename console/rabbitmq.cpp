@@ -53,11 +53,8 @@ namespace yella
 namespace console
 {
 
-rabbitmq::rabbitmq(const configuration& cnf,
-                   handler heartbeat_handler,
-                   handler file_change_handler,
-                   death_callback dc)
-    : message_queue(cnf, heartbeat_handler, file_change_handler, dc)
+rabbitmq::rabbitmq(const configuration& cnf, model& mdl)
+    : message_queue(cnf, mdl)
 {
     for (auto& thr : receivers_)
         thr = std::thread(&rabbitmq::receiver_main, this);
@@ -143,9 +140,9 @@ void rabbitmq::receiver_main()
             try
             {
                 if (pcl.type() == "yella.agent.heartbeat")
-                    heartbeat_handler_(pcl);
+                    emit heartbeat(pcl);
                 else if (pcl.type() == "yella.file.change")
-                    file_change_handler_(pcl);
+                    emit file_changed(pcl);
                 else
                     CHUCHO_ERROR_L("Unknown message type: " << pcl.type());
             }
@@ -158,7 +155,7 @@ void rabbitmq::receiver_main()
     catch (const std::exception& e)
     {
         CHUCHO_FATAL_L("Error occurred with broker: " << e.what());
-        death_callback_();
+        emit death();
     }
     if (cxn != nullptr)
     {

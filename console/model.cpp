@@ -6,13 +6,20 @@ namespace yella
 namespace console
 {
 
-model::model(const configuration& cnf, std::unique_ptr<database> db)
+model::model(const configuration& cnf, database& db, main_window& win)
     : config_(cnf),
-      db_(std::move(db))
+      db_(db)
 {
+    QObject::connect(this, SIGNAL(agent_changed(const agent&)),
+                     &win, SLOT(agent_changed(const agent&)));
 }
 
-void model::heartbeat_handler(const parcel &pcl)
+void model::file_changed(const parcel& pcl)
+{
+
+}
+
+void model::heartbeat(const parcel &pcl)
 {
     auto ag = agent(pcl);
     std::unique_lock<std::mutex> lock(agent_guard_);
@@ -23,12 +30,11 @@ void model::heartbeat_handler(const parcel &pcl)
         agents_[ag.id()] = ag;
     lock.unlock();
     if (!present)
-    {
-        db_->store(ag);
-    }
+        db_.store(ag);
     else if (!equal)
-    {
-    }
+        db_.update(ag);
+    if (!equal)
+        emit agent_changed(ag);
 }
 
 }

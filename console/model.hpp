@@ -1,10 +1,11 @@
 #ifndef YELLA_MODEL_HPP__
 #define YELLA_MODEL_HPP__
 
-#include "agent.hpp"
+#include "main_window.hpp"
 #include "database.hpp"
 #include <map>
 #include <mutex>
+#include <QtCore/QObject>
 
 namespace yella
 {
@@ -12,16 +13,23 @@ namespace yella
 namespace console
 {
 
-class model
+class model : public QObject
 {
 public:
-    model(const configuration& cnf, std::unique_ptr<database> db);
+    model(const configuration& cnf, database& db, main_window& win);
 
-    void heartbeat_handler(const parcel& pcl);
+public slots:
+    void file_changed(const parcel& pcl);
+    void heartbeat(const parcel& pcl);
+
+signals:
+    void agent_changed(const agent& ag);
 
 private:
+    Q_OBJECT
+
     const configuration& config_;
-    std::unique_ptr<database> db_;
+    database& db_;
     std::map<std::string, agent> agents_;
     std::mutex agent_guard_;
 };

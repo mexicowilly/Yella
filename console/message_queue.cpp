@@ -6,15 +6,13 @@ namespace yella
 namespace console
 {
 
-message_queue::message_queue(const configuration& cnf,
-                             handler heartbeat_handler,
-                             handler file_change_handler,
-                             death_callback dc)
-    : config_(cnf),
-      heartbeat_handler_(heartbeat_handler),
-      file_change_handler_(file_change_handler),
-      death_callback_(dc)
+message_queue::message_queue(const configuration& cnf, model& mdl)
+    : config_(cnf)
 {
+    QObject::connect(this, SIGNAL(file_changed(const parcel&)),
+                     &mdl, SLOT(file_changed(const parcel&)));
+    QObject::connect(this, SIGNAL(hearbeat(const parcel&)),
+                     &mdl, SLOT(heartbeat(const parcel&)));
 }
 
 message_queue::~message_queue()
@@ -23,13 +21,10 @@ message_queue::~message_queue()
         thr.join();
 }
 
-std::unique_ptr<message_queue> message_queue::create(const configuration& cnf,
-                                                     handler heartbeat_handler,
-                                                     handler file_change_handler,
-                                                     death_callback dc)
+std::unique_ptr<message_queue> message_queue::create(const configuration& cnf, model& mdl)
 {
     if (cnf.mq_type() == "rabbitmq")
-        return std::make_unique<rabbitmq>(cnf, heartbeat_handler, file_change_handler, dc);
+        return std::make_unique<rabbitmq>(cnf, mdl);
     throw std::invalid_argument("Unrecognized message queue type: " + cnf.mq_type());
 }
 
