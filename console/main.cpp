@@ -7,12 +7,13 @@ int main(int argc, char* argv[])
     try
     {
         yella::console::configuration config(argc, argv);
-        yella::console::console cons(config);
-        rc = cons.run(argc, argv);
+        QApplication app(argc, argv);
+        yella::console::console cnsl(config);
+        rc = app.exec();
     }
     catch (const std::exception& e)
     {
-        CHUCHO_FATAL(chucho::logger::get("yella.console"), "Unexpected top-level exception: " << e.what());
+        CHUCHO_FATAL(chucho::logger::get("yella.console"), "Unexpected: " << e.what());
         rc = EXIT_FAILURE;
     }
     return rc;

@@ -7,16 +7,18 @@ namespace console
 {
 
 message_queue::message_queue(const configuration& cnf, model& mdl)
-    : config_(cnf)
+    : config_(cnf),
+      receivers_(cnf.mq_threads())
 {
     QObject::connect(this, SIGNAL(file_changed(const parcel&)),
                      &mdl, SLOT(file_changed(const parcel&)));
-    QObject::connect(this, SIGNAL(hearbeat(const parcel&)),
+    QObject::connect(this, SIGNAL(heartbeat(const parcel&)),
                      &mdl, SLOT(heartbeat(const parcel&)));
 }
 
 message_queue::~message_queue()
 {
+    should_stop_ = true;
     for (auto& thr : receivers_)
         thr.join();
 }

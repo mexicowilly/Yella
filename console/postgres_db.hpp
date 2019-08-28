@@ -15,6 +15,7 @@ class postgres_db : public database
 public:
     postgres_db(const configuration& cnf);
 
+    std::vector<std::unique_ptr<agent>> retrieve_agents() override;
     void store(const agent& ag) override;
     void update(const agent& ag) override;
 

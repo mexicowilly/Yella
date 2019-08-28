@@ -2,6 +2,7 @@
 #include "cxxopts.hpp"
 #include <yaml-cpp/yaml.h>
 #include <chucho/log.hpp>
+#include <chucho/configuration.hpp>
 #include <thread>
 #include <iostream>
 
@@ -46,6 +47,7 @@ void configuration::parse_command_line(int argc, char* argv[])
     {
         file_name_ = result["config-file"].as<std::string>();
         parse_config_file();
+        chucho::configuration::set_file_name(file_name_);
     }
     if (result["agent-port"].count())
         agent_port_ = result["agent-port"].as<std::uint16_t>();
@@ -85,6 +87,7 @@ void configuration::parse_config_file()
             auto qs = yaml["consumption_queues"];
             if (qs.IsSequence())
             {
+                consumption_queues_.clear();
                 for (std::size_t i = 0; i < qs.size(); i++)
                     consumption_queues_.push_back(qs[i].as<std::string>());
             }

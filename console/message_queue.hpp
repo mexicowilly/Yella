@@ -7,6 +7,7 @@
 #include <chucho/loggable.hpp>
 #include <QtCore/QObject>
 #include <thread>
+#include <atomic>
 
 namespace yella
 {
@@ -34,6 +35,7 @@ protected:
 
     const configuration& config_;
     std::vector<std::thread> receivers_;
+    std::atomic_bool should_stop_;
 
 private:
     Q_OBJECT

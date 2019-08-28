@@ -16,8 +16,6 @@ class console
 public:
     console(const configuration& cnf);
 
-    int run(int argc, char* argv[]);
-
 private:
     const configuration& config_;
     std::unique_ptr<database> db_;

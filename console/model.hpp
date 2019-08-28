@@ -30,7 +30,7 @@ private:
 
     const configuration& config_;
     database& db_;
-    std::map<std::string, agent> agents_;
+    std::map<std::string, std::unique_ptr<agent>> agents_;
     std::mutex agent_guard_;
 };
 

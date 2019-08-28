@@ -19,6 +19,7 @@ public:
 
     database& operator= (const database&) = delete;
 
+    virtual std::vector<std::unique_ptr<agent>> retrieve_agents() = 0;
     virtual void store(const agent& ag) = 0;
     virtual void update(const agent& ag) = 0;
 

@@ -13,13 +13,11 @@ console::console(const configuration& cnf)
       model_(cnf, *db_, main_window_),
       mq_(message_queue::create(cnf, model_))
 {
-}
-
-int console::run(int argc, char* argv[])
-{
-    QApplication app(argc, argv);
+    QObject::connect(&model_, SIGNAL(agent_changed(const agent&)),
+                     &main_window_, SLOT(agent_changed(const agent&)));
+    QObject::connect(mq_.get(), SIGNAL(death()),
+                     qApp, SLOT(quit()));
     main_window_.show();
-    return app.exec();
 }
 
 }

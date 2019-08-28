@@ -21,20 +21,24 @@ void model::file_changed(const parcel& pcl)
 
 void model::heartbeat(const parcel &pcl)
 {
-    auto ag = agent(pcl);
+    agent ag(pcl);
     std::unique_lock<std::mutex> lock(agent_guard_);
     auto found = agents_.find(ag.id());
-    bool present = found != agents_.end();
-    bool equal = present && found->second == ag;
-    if (!equal)
-        agents_[ag.id()] = ag;
-    lock.unlock();
-    if (!present)
-        db_.store(ag);
-    else if (!equal)
-        db_.update(ag);
-    if (!equal)
-        emit agent_changed(ag);
+    if (found != agents_.end())
+    {
+        if (*found->second != ag)
+        {
+            *found->second = ag;
+            db_.update(*found->second);
+            emit agent_changed(*found->second);
+        }
+    }
+    else
+    {
+        found = agents_.insert(std::make_pair(ag.id(), std::make_unique<agent>(ag))).first;
+        db_.store(*found->second);
+        emit agent_changed(*found->second);
+    }
 }
 
 }

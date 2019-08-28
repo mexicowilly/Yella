@@ -19,8 +19,17 @@ public:
 public slots:
     void agent_changed(const agent& ag);
 
+private slots:
+    void current_item_changed(QTreeWidgetItem* cur, QTreeWidgetItem* prev);
+
 private:
+    Q_OBJECT
+
+    void update_detail(QTreeWidgetItem* cur);
+
     Ui::main_window ui_;
+    std::map<std::string, QTreeWidgetItem*> agents_;
+
 };
 
 }

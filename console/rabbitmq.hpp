@@ -3,7 +3,6 @@
 
 #include "message_queue.hpp"
 #include <amqp.h>
-#include <atomic>
 
 namespace yella
 {
@@ -19,8 +18,6 @@ public:
 private:
     amqp_connection_state_t create_connection();
     void receiver_main();
-
-    std::atomic_bool should_stop_;
 };
 
 }

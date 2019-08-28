@@ -2,6 +2,7 @@
 #include "../router/cxxopts.hpp"
 #include <yaml-cpp/yaml.h>
 #include <chucho/log.hpp>
+#include <chucho/configuration.hpp>
 #include <thread>
 
 namespace yella
@@ -13,7 +14,7 @@ namespace console
 configuration::configuration(int argc, char* argv[])
     : mq_type_("rabbitmq"),
       mq_threads_(std::thread::hardware_concurrency()),
-      consumption_queues_({"yella.agent.heartbeat", "yella.file.change"}),
+      consumption_queues_({"yella.agent.heartbeat", "yella.agent.file.change"}),
       db_type_("postgres")
 {
 cxxopts::Options opts("yella-console", "Allows control of yella agents");
@@ -36,6 +37,7 @@ cxxopts::Options opts("yella-console", "Allows control of yella agents");
     {
         file_name_ = result["config-file"].as<std::string>();
         parse_config_file();
+        chucho::configuration::set_file_name(file_name_);
     }
     if (result["mq-broker"].count())
         mq_broker_ = result["mq-broker"].as<std::string>();
@@ -49,6 +51,8 @@ cxxopts::Options opts("yella-console", "Allows control of yella agents");
         consumption_queues_ = result["consumption-queues"].as<std::vector<std::string>>();
     if (result["db"].count())
         db_ = result["db"].as<std::string>();
+    if (db_.empty())
+        throw std::runtime_error("db must be set in the configuration");
     if (result["db-type"].count())
         db_type_ = result["db-type"].as<std::string>();
 }
@@ -69,6 +73,7 @@ void configuration::parse_config_file()
             auto qs = yaml["consumption_queues"];
             if (qs.IsSequence())
             {
+                consumption_queues_.clear();
                 for (std::size_t i = 0; i < qs.size(); i++)
                     consumption_queues_.push_back(qs[i].as<std::string>());
             }

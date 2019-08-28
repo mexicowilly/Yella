@@ -1,4 +1,5 @@
 #include "postgres_db.hpp"
+#include <chucho/log.hpp>
 #include <iomanip>
 #include <ctime>
 
@@ -26,6 +27,7 @@ postgres_db::postgres_db(const configuration& cnf)
                  "DELETE FROM in_capability WHERE agent_id = $1;");
     cxn_.prepare("delete_out_cap",
                  "DELETE FROM out_capability WHERE agent_id = $1;");
+    CHUCHO_INFO_L("Connected to database");
 }
 
 std::string postgres_db::configs_param(const agent::capability& out_cap)
@@ -66,6 +68,10 @@ std::string postgres_db::os_param(const agent& ag)
     std::ostringstream stream;
     stream << "(\"" << ag.os().machine() << "\",\"" << ag.os().version() << "\",\"" << ag.os().system() << "\",\"" << ag.os().release() << "\")";
     return stream.str();
+}
+
+std::vector<std::unique_ptr<agent>> postgres_db::retrieve_agents()
+{
 }
 
 void postgres_db::store(const agent& ag)
