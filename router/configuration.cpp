@@ -17,7 +17,6 @@ configuration::configuration(int argc, char* argv[])
       agent_face_("zeromq"),
       worker_threads_(std::thread::hardware_concurrency()),
       mq_face_("rabbitmq"),
-      bind_exchanges_(false),
       consumption_queues_({"yella.agent.configuration"})
 {
     parse_command_line(argc, argv);
@@ -29,7 +28,6 @@ void configuration::parse_command_line(int argc, char* argv[])
     opts.add_options()
         ("agent-face", "The type of interface to the agents (zeromq)", cxxopts::value<std::string>())
         ("agent-port", "The port to which agents should connect", cxxopts::value<std::uint16_t>())
-        ("bind-exchanges", "Bind exchanges to queues")
         ("consumption-queues", "Message queues from which to consume (comma-delimited)", cxxopts::value<std::vector<std::string>>())
         ("config-file", "The configuration file", cxxopts::value<std::string>())
         ("h,help", "Display this helpful messasge")
@@ -61,8 +59,6 @@ void configuration::parse_command_line(int argc, char* argv[])
         mq_broker_ = result["mq-broker"].as<std::string>();
     if (mq_broker_.empty())
         throw std::runtime_error("mq_broker must be set in the configuration");
-    if (result["bind-exchanges"].count())
-        bind_exchanges_ = result["bind-exchanges"].as<bool>();
     if (result["consumption-queues"].count())
         consumption_queues_ = result["consumption-queues"].as<std::vector<std::string>>();
 }

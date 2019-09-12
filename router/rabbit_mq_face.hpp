@@ -39,7 +39,6 @@ private:
     private:
         const configuration& config_;
         amqp_connection_state_t cxn_;
-        std::set<std::string> exchanges_;
     };
 
     amqp_connection_state_t create_connection();

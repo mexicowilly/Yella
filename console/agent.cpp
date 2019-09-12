@@ -38,9 +38,27 @@ agent::agent(const parcel& pcl)
     }
 }
 
+agent::agent(const std::string& id,
+      const std::chrono::system_clock::time_point& when,
+      const std::string& host,
+      const std::set<std::string>& ip_addresses,
+      const operating_system& os,
+      const std::set<capability> in_caps,
+      const std::set<capability> out_caps)
+    : when_(when),
+      id_(id),
+      host_(host),
+      ip_addresses_(ip_addresses),
+      operating_system_(os),
+      in_caps_(in_caps),
+      out_caps_(out_caps)
+{
+}
+
 bool agent::operator== (const agent& ag) const
 {
-    return id_ == ag.id_ &&
+    return when_ == ag.when_ &&
+           id_ == ag.id_ &&
            host_ == ag.host_ &&
            ip_addresses_ == ag.ip_addresses_ &&
            operating_system_ == ag.operating_system_ &&
@@ -59,6 +77,15 @@ agent::capability::capability(const fb::capability& cap)
         for (auto str : *cap.configurations())
             configurations_.insert(str->str());
     }
+}
+
+agent::capability::capability(const std::string& name,
+                              int version,
+                              const std::set<std::string>& configs)
+    : name_(name),
+      version_(version),
+      configurations_(configs)
+{
 }
 
 bool agent::capability::operator== (const capability& cap) const
@@ -81,6 +108,17 @@ agent::operating_system::operating_system(const fb::operating_system& os)
     if (os.release() == nullptr)
         throw std::runtime_error("The operation release does not have a release");
     release_ = os.release()->str();
+}
+
+agent::operating_system::operating_system(const std::string& machine,
+                                          const std::string& system,
+                                          const std::string& version,
+                                          const std::string& release)
+    : machine_(machine),
+      version_(version),
+      system_(system),
+      release_(release)
+{
 }
 
 bool agent::operating_system::operator== (const operating_system& os) const

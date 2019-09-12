@@ -20,9 +20,8 @@ public:
     void update(const agent& ag) override;
 
 private:
-    std::string configs_param(const agent::capability& out_cap);
-    std::string ip_addresses_param(const agent& ag);
-    std::string os_param(const agent& ag);
+    void store_ips_and_caps(pqxx::work& txn, const agent& ag);
+    std::chrono::system_clock::time_point timestamp_field(const char* const str);
     std::string timestamp_param(const agent& ag);
 
     pqxx::connection cxn_;

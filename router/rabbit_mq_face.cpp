@@ -201,52 +201,13 @@ void rabbit_mq_face::sender::send(const std::uint8_t* const msg, std::size_t len
     }
     else
     {
-        auto tstr = type->str();
-        auto xbytes = amqp_cstring_bytes(tstr.c_str());
-        auto found = exchanges_.find(tstr);
-        if (found == exchanges_.end())
-        {
-            amqp_exchange_declare(cxn_,
-                                  YELLA_CHANNEL,
-                                  xbytes,
-                                  amqp_cstring_bytes("amq.fanout"),
-                                  0, // passive
-                                  1, // durable
-                                  0, // auto-delete
-                                  0, // internal
-                                  amqp_empty_table);
-            amqp_rpc_reply_t rep = amqp_get_rpc_reply(cxn_);
-            respond(rep);
-            if (config_.bind_exchanges())
-            {
-                amqp_queue_declare(cxn_,
-                                   YELLA_CHANNEL,
-                                   xbytes,
-                                   0, // passive
-                                   1, // durable
-                                   0, // exclusive
-                                   0, // auto-delete
-                                   amqp_empty_table);
-                rep = amqp_get_rpc_reply(cxn_);
-                respond(rep);
-                amqp_queue_bind(cxn_,
-                                YELLA_CHANNEL,
-                                xbytes,
-                                xbytes,
-                                amqp_empty_bytes,
-                                amqp_empty_table);
-                rep = amqp_get_rpc_reply(cxn_);
-                respond(rep);
-            }
-            exchanges_.insert(tstr);
-        }
         amqp_bytes_t mbytes;
         mbytes.bytes = const_cast<uint8_t*>(msg);
         mbytes.len = len;
         int rc = amqp_basic_publish(cxn_,
                                     YELLA_CHANNEL,
-                                    xbytes,
-                                    amqp_empty_bytes,
+                                    amqp_cstring_bytes("amq.direct"),
+                                    amqp_cstring_bytes(type->str().c_str()),
                                     0, // mandatory
                                     0, // immediate
                                     nullptr, // properties

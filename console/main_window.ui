@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Yella</string>
   </property>
-  <widget class="QWidget" name="centralWidget">
+  <widget class="QWidget" name="central">
    <layout class="QHBoxLayout" name="horizontalLayout">
     <item>
      <widget class="QSplitter" name="splitter">
@@ -55,8 +55,14 @@
        <property name="columnCount">
         <number>2</number>
        </property>
+       <attribute name="horizontalHeaderVisible">
+        <bool>false</bool>
+       </attribute>
        <attribute name="horizontalHeaderStretchLastSection">
         <bool>true</bool>
+       </attribute>
+       <attribute name="verticalHeaderVisible">
+        <bool>false</bool>
        </attribute>
        <column/>
        <column/>
@@ -65,7 +71,7 @@
     </item>
    </layout>
   </widget>
-  <widget class="QMenuBar" name="menuBar">
+  <widget class="QMenuBar" name="menu_bar">
    <property name="geometry">
     <rect>
      <x>0</x>
@@ -74,13 +80,23 @@
      <height>20</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuHello">
+   <widget class="QMenu" name="file_menu">
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="separator"/>
+    <addaction name="quit_action"/>
    </widget>
-   <addaction name="menuHello"/>
+   <addaction name="file_menu"/>
   </widget>
+  <action name="quit_action">
+   <property name="text">
+    <string>Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources/>

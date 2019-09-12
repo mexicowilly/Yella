@@ -36,8 +36,8 @@ ADD_LIBRARY(file SHARED
             state_db_pool.h
             ${FILE_PLATFORM_SOURCES})
 SET_TARGET_PROPERTIES(file PROPERTIES
-                      VERSION ${YELLA_VERSION}
-                      SOVERSION ${FILE_SO_VERSION}
+#                      VERSION ${YELLA_VERSION}
+#                      SOVERSION ${FILE_SO_VERSION}
                       COMPILE_DEFINITIONS yella_EXPORTS)
 IF(DEFINED YELLA_SO_FLAGS)
     SET_TARGET_PROPERTIES(file PROPERTIES

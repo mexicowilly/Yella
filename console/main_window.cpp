@@ -13,6 +13,8 @@ main_window::main_window()
     ui_.setupUi(this);
     QObject::connect(ui_.agent_tree, SIGNAL(currentItemChanged(QTreeWidgetItem*, QTreeWidgetItem*)),
                      this, SLOT(current_item_changed(QTreeWidgetItem*, QTreeWidgetItem*)));
+    QObject::connect(ui_.quit_action, SIGNAL(triggered()),
+                     qApp, SLOT(quit()));
 }
 
 void main_window::agent_changed(const agent& ag)
@@ -95,13 +97,13 @@ void main_window::update_detail(QTreeWidgetItem* cur)
                 for (const auto& config : cap.configurations())
                     configs << QString::fromUtf8(config.c_str());
                 str += configs.join(QString::fromUtf8(","));
-                str += QString::fromUtf8("}");
+                str += QString::fromUtf8("}}");
                 sl << str;
             }
             ui_.detail_table->setItem(8, 1, new QTableWidgetItem(sl.join(QString::fromUtf8(","))));
             ui_.detail_table->setItem(9, 0, new QTableWidgetItem(QString::fromUtf8("Last Time")));
             QDateTime dt = QDateTime::fromTime_t(std::chrono::system_clock::to_time_t(ag->when()));
-            ui_.detail_table->setItem(9, 1, new QTableWidgetItem(dt.toString(QString::fromUtf8("dd.MM.yyyy hh:mm:ss"))));
+            ui_.detail_table->setItem(9, 1, new QTableWidgetItem(dt.toString(QString::fromUtf8("yyyy-MM-dd hh:mm:ss"))));
         }
     }
 }

@@ -436,10 +436,10 @@ static void spool_main(void* udata)
     router* rtr;
     yella_message_part* popped;
     size_t count_popped;
-    yella_rc rc;
     int i;
     bool ready;
     sender* sndr;
+    router_state st;
 
     rtr = (router*)udata;
     CHUCHO_C_INFO(rtr->lgr, "Spool thread starting");
@@ -449,14 +449,14 @@ static void spool_main(void* udata)
         yella_lock_mutex(rtr->mtx);
         while (!rtr->should_stop && rtr->state != ROUTER_CONNECTED && spool_empty_of_messages(rtr->sp))
             yella_wait_milliseconds_for_condition_variable(rtr->conn_condition, rtr->mtx, 500);
+        st = rtr->state;
+        yella_unlock_mutex(rtr->mtx);
         if (rtr->should_stop)
         {
-            yella_unlock_mutex(rtr->mtx);
             break;
         }
-        else if (rtr->state == ROUTER_CONNECTED)
+        else if (st == ROUTER_CONNECTED)
         {
-            yella_unlock_mutex(rtr->mtx);
             if (!spool_empty_of_messages(rtr->sp))
             {
                 if (ready && spool_pop(rtr->sp, 500, &popped, &count_popped) == YELLA_NO_ERROR)

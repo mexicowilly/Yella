@@ -39,10 +39,12 @@ public:
         group_disposition disposition;
     };
 
+    parcel() = default;
     parcel(const std::uint8_t* const raw);
+    parcel(const parcel&) = default;
 
     compression comp() const;
-    const std::unique_ptr<group>& grp() const;
+    const std::shared_ptr<group>& grp() const;
     const std::vector<std::uint8_t>& payload() const;
     const std::string& recipient() const;
     const std::string& sender() const;
@@ -57,7 +59,7 @@ private:
     std::string type_;
     compression compression_;
     sequence sequence_;
-    std::unique_ptr<group> group_;
+    std::shared_ptr<group> group_;
     std::vector<std::uint8_t> payload_;
 };
 
@@ -65,7 +67,8 @@ inline parcel::compression parcel::comp() const
 {
     return compression_;
 }
-inline const std::unique_ptr<parcel::group>& parcel::grp() const
+
+inline const std::shared_ptr<parcel::group>& parcel::grp() const
 {
     return group_;
 }

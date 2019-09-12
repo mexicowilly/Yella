@@ -29,7 +29,6 @@ private:
 
     Ui::main_window ui_;
     std::map<std::string, QTreeWidgetItem*> agents_;
-
 };
 
 }

@@ -12,6 +12,12 @@ model::model(const configuration& cnf, database& db, main_window& win)
 {
     QObject::connect(this, SIGNAL(agent_changed(const agent&)),
                      &win, SLOT(agent_changed(const agent&)));
+    auto db_agents = db_.retrieve_agents();
+    for (auto& ag : db_agents)
+    {
+        emit agent_changed(*ag);
+        agents_[ag->id()] = std::move(ag);
+    }
 }
 
 void model::file_changed(const parcel& pcl)

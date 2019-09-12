@@ -57,6 +57,7 @@ yella_plugin* yella_copy_plugin(const yella_plugin* const plug)
     result->version = udsnew(plug->version);
     result->in_caps = yella_copy_ptr_vector(plug->in_caps);
     result->out_caps = yella_copy_ptr_vector(plug->out_caps);
+    result->udata = plug->udata;
     return result;
 }
 

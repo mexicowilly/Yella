@@ -20,6 +20,10 @@ public:
     public:
         operating_system() = default;
         operating_system(const fb::operating_system& os);
+        operating_system(const std::string& machine,
+                         const std::string& system,
+                         const std::string& version,
+                         const std::string& release);
 
         bool operator== (const operating_system& os) const;
 
@@ -39,6 +43,9 @@ public:
     {
     public:
         capability(const fb::capability& cap);
+        capability(const std::string& name,
+                   int version,
+                   const std::set<std::string>& configs = std::set<std::string>());
 
         bool operator== (const capability& cap) const;
         bool operator!= (const capability& cap) const;
@@ -56,6 +63,13 @@ public:
 
     agent() = default;
     agent(const parcel& pcl);
+    agent(const std::string& id,
+          const std::chrono::system_clock::time_point& when,
+          const std::string& host,
+          const std::set<std::string>& ip_addresses,
+          const operating_system& os,
+          const std::set<capability> in_caps,
+          const std::set<capability> out_caps);
     agent(const agent&) = default;
 
     agent& operator= (const agent&) = default;

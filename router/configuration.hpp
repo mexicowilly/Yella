@@ -17,7 +17,6 @@ public:
 
     const std::string& agent_face() const;
     std::uint16_t agent_port() const;
-    bool bind_exchanges() const;
     const std::vector<std::string>& consumption_queues() const;
     const std::string& file_name() const;
     const std::string& mq_broker() const;
@@ -34,7 +33,6 @@ private:
     size_t worker_threads_;
     std::string mq_face_;
     std::string mq_broker_;
-    bool bind_exchanges_;
     std::vector<std::string> consumption_queues_;
 };
 
@@ -46,11 +44,6 @@ inline const std::string& configuration::agent_face() const
 inline std::uint16_t configuration::agent_port() const
 {
     return agent_port_;
-}
-
-inline bool configuration::bind_exchanges() const
-{
-    return bind_exchanges_;
 }
 
 inline const std::vector<std::string>& configuration::consumption_queues() const

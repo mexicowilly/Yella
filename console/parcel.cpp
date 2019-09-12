@@ -50,7 +50,7 @@ parcel::parcel(const std::uint8_t* const raw)
     {
         if (grp->id() == nullptr)
             throw std::invalid_argument("The parcel's group ID is not set");
-        group_ = std::make_unique<group>();
+        group_ = std::make_shared<group>();
         group_->id = grp->id()->str();
         group_->disposition = gdis_from_fb(grp->disposition());
     }

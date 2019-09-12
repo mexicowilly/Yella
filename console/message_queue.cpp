@@ -10,6 +10,7 @@ message_queue::message_queue(const configuration& cnf, model& mdl)
     : config_(cnf),
       receivers_(cnf.mq_threads())
 {
+    qRegisterMetaType<parcel>("parcel");
     QObject::connect(this, SIGNAL(file_changed(const parcel&)),
                      &mdl, SLOT(file_changed(const parcel&)));
     QObject::connect(this, SIGNAL(heartbeat(const parcel&)),
