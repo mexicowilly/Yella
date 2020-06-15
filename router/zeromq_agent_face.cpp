@@ -177,12 +177,12 @@ void zeromq_agent_face::worker_main()
                     // Outgoing socket
                     if (pi[1].revents & ZMQ_POLLIN)
                     {
-                        if (!frontend_sock.recv(&id, ZMQ_DONTWAIT))
+                        if (!outgoing_sock.recv(&id, ZMQ_DONTWAIT))
                             throw "agent ID";
-                        if (!frontend_sock.recv(&delim, ZMQ_DONTWAIT))
+                        if (!outgoing_sock.recv(&delim, ZMQ_DONTWAIT))
                             throw "agent delimiter";
                         assert(delim.size() == 0);
-                        if (!frontend_sock.recv(&msg, ZMQ_DONTWAIT))
+                        if (!outgoing_sock.recv(&msg, ZMQ_DONTWAIT))
                             throw "agent message";
                         frontend_sock.send(id, ZMQ_SNDMORE);
                         frontend_sock.send(delim, ZMQ_SNDMORE);
