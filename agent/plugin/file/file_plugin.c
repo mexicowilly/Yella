@@ -73,11 +73,6 @@ static void job_queue_empty(void* udata)
     CHUCHO_C_INFO(fplg->lgr, "The job queue has emptied, so the event source has been resumed.");
 }
 
-static void start_event_source()
-{
-
-}
-
 static void event_received(const UChar* const config_name, const UChar* const fname, void* udata)
 {
     file_plugin* fplg;
@@ -211,7 +206,10 @@ static void load_configs(file_plugin* fplg)
     }
     else
     {
-        CHUCHO_C_WARN(fplg->lgr, "Error loading monitor configuration state: %s", yella_strerror(rc));
+        if (rc == YELLA_DOES_NOT_EXIST)
+            CHUCHO_C_INFO(fplg->lgr, "There are no monitor configurations");
+        else
+            CHUCHO_C_WARN(fplg->lgr, "Error loading monitor configuration state: %s", yella_strerror(rc));
     }
     udsfree(fname);
     free(raw);

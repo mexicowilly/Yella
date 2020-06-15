@@ -1,9 +1,8 @@
-#include "rabbit_mq_face.hpp"
-#include "parcel_generated.h"
+#include "rabbitmq.hpp"
 #include "fatal_error.hpp"
+#include "parcel.hpp"
 #include <amqp_tcp_socket.h>
 #include <chucho/log.hpp>
-#include <sstream>
 
 namespace
 {
@@ -43,7 +42,7 @@ void respond(const amqp_rpc_reply_t& rep)
             stream << "Unknown method: " << rep.reply.id;
         }
     }
-    throw yella::router::fatal_error(stream.str());
+    throw yella::console::fatal_error(stream.str());
 }
 
 }
@@ -51,22 +50,17 @@ void respond(const amqp_rpc_reply_t& rep)
 namespace yella
 {
 
-namespace router
+namespace console
 {
 
-rabbit_mq_face::rabbit_mq_face(const configuration& cnf)
-    : mq_face(cnf),
-      should_stop_(false)
+rabbitmq::rabbitmq(const configuration& cnf, model& mdl)
+    : message_queue(cnf, mdl)
 {
+    for (auto& thr : receivers_)
+        thr = std::thread(&rabbitmq::receiver_main, this);
 }
 
-rabbit_mq_face::~rabbit_mq_face()
-{
-    should_stop_ = true;
-    receiver_.join();
-}
-
-amqp_connection_state_t rabbit_mq_face::create_connection()
+amqp_connection_state_t rabbitmq::create_connection()
 {
     amqp_connection_state_t result;
     try
@@ -107,7 +101,7 @@ amqp_connection_state_t rabbit_mq_face::create_connection()
     return result;
 }
 
-void rabbit_mq_face::receiver_main()
+void rabbitmq::receiver_main()
 {
     CHUCHO_INFO_L_STR("Message queue receiver is starting");
     amqp_connection_state_t cxn = nullptr;
@@ -141,14 +135,27 @@ void rabbit_mq_face::receiver_main()
             if (rep.reply_type == AMQP_RESPONSE_LIBRARY_EXCEPTION && rep.library_error == AMQP_STATUS_TIMEOUT)
                 continue;
             respond(rep);
-            other_face_->send(reinterpret_cast<uint8_t*>(env.message.body.bytes), env.message.body.len);
+            parcel pcl(reinterpret_cast<std::uint8_t*>(env.message.body.bytes));
             amqp_destroy_envelope(&env);
+            try
+            {
+                if (pcl.type() == "yella.agent.heartbeat")
+                    emit heartbeat(pcl);
+                else if (pcl.type() == "yella.file.change")
+                    emit file_changed(pcl);
+                else
+                    CHUCHO_ERROR_L("Unknown message type: " << pcl.type());
+            }
+            catch (const std::exception& e)
+            {
+                CHUCHO_ERROR_L("Error processing '" << pcl.type() << "': " << e.what());
+            }
         }
     }
     catch (const std::exception& e)
     {
         CHUCHO_FATAL_L("Error occurred with broker: " << e.what());
-        callback_of_death_();
+        emit death();
     }
     if (cxn != nullptr)
     {
@@ -157,64 +164,6 @@ void rabbit_mq_face::receiver_main()
         amqp_destroy_connection(cxn);
     }
     CHUCHO_INFO_L_STR("Message queue receiver is ending");
-}
-
-void rabbit_mq_face::run(face* other_face,
-                         std::function<void()> callback_of_death)
-{
-    mq_face::run(other_face, callback_of_death);
-    receiver_ = std::thread(&rabbit_mq_face::receiver_main, this);
-}
-
-void rabbit_mq_face::send(const std::uint8_t* const msg, std::size_t len)
-{
-    auto found = senders_.find(std::this_thread::get_id());
-    if (found == senders_.end())
-    {
-        found = senders_.emplace(std::piecewise_construct,
-                                 std::forward_as_tuple(std::this_thread::get_id()),
-                                 std::forward_as_tuple(*this)).first;
-    }
-    found->second.send(msg, len);
-}
-
-rabbit_mq_face::sender::sender(rabbit_mq_face& rmf)
-    : config_(rmf.config_),
-      cxn_(rmf.create_connection())
-{
-}
-
-rabbit_mq_face::sender::~sender()
-{
-    amqp_channel_close(cxn_, YELLA_CHANNEL, AMQP_REPLY_SUCCESS);
-    amqp_connection_close(cxn_, AMQP_REPLY_SUCCESS);
-    amqp_destroy_connection(cxn_);
-}
-
-void rabbit_mq_face::sender::send(const std::uint8_t* const msg, std::size_t len)
-{
-    auto parcel = yella::fb::Getparcel(msg);
-    auto type = parcel->type();
-    if (type == nullptr)
-    {
-        throw std::runtime_error("No type included in the parcel");
-    }
-    else
-    {
-        amqp_bytes_t mbytes;
-        mbytes.bytes = const_cast<uint8_t*>(msg);
-        mbytes.len = len;
-        int rc = amqp_basic_publish(cxn_,
-                                    YELLA_CHANNEL,
-                                    amqp_cstring_bytes("amq.direct"),
-                                    amqp_cstring_bytes(type->str().c_str()),
-                                    0, // mandatory
-                                    0, // immediate
-                                    nullptr, // properties
-                                    mbytes);
-        if (rc != AMQP_STATUS_OK)
-            throw std::runtime_error(std::string("Error publishing to RabbitMQ: ") + amqp_error_string2(rc));
-    }
 }
 
 }

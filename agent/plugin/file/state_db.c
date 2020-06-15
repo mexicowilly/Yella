@@ -3,7 +3,6 @@
 #include "common/file.h"
 #include "common/macro_util.h"
 #include "common/text_util.h"
-#include "file_reader.h"
 #include <sqlite3.h>
 #include <openssl/evp.h>
 #include <unicode/ustring.h>
@@ -51,7 +50,7 @@ state_db* create_state_db(const UChar* const config_name)
     int rc;
     state_db* st;
     char* sqlerr;
-    /* These must remain in sync with the enum values */
+    /* These must remain in sync with the anonymous enum values at the top of this file */
     char* sqls[] =
     {
        "INSERT INTO 'state' (name, attributes) VALUES (?1, ?2);",

@@ -3,6 +3,7 @@
 
 #include "configuration.hpp"
 #include <chucho/loggable.hpp>
+#include <functional>
 
 namespace yella
 {

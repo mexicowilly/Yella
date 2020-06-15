@@ -127,7 +127,7 @@ static void heartbeat_thr(void* udata)
             for (i = 0; i < yella_ptr_vector_size(ag->plugins); i++)
             {
                 api = (plugin_api*)yella_ptr_vector_at(ag->plugins, i);
-                yella_push_back_ptr_vector(plugins, api->status_func(ag));
+                yella_push_back_ptr_vector(plugins, api->status_func(api->udata));
             }
             pcl = yella_create_parcel(yella_settings_get_text(u"agent", u"heartbeat-recipient"), u"yella.agent.heartbeat");
             pcl->sender = udsnew(ag->state->id->text);
@@ -353,7 +353,7 @@ static void retrieve_agent_settings(void)
     };
 
     yella_settings_set_uint(u"agent", u"max-spool-partitions", 1000);
-    yella_settings_set_uint(u"agent", u"max-spool-partition-size", 2 * YELLA_MEGABYTE);
+    yella_settings_set_byte_size(u"agent", u"max-spool-partition-size", u"2M");
     yella_settings_set_uint(u"agent", u"heartbeat-seconds", 30);
     yella_settings_set_uint(u"agent", u"start-connection-seconds", 2);
     yella_settings_set_byte_size(u"agent", u"max-message-size", u"1M");

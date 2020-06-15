@@ -66,6 +66,7 @@ table file_states
 table attr
 {
     type: attr_type = FILE_TYPE;
+    // One of the following will be set according to attr_type. See attr_type doc above for details.
     bytes: [ubyte];
     ftype: file_type = REGULAR;
 }
