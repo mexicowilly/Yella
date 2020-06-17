@@ -3,9 +3,10 @@
 #include "common/sglib.h"
 #include "common/thread.h"
 #include "common/time_util.h"
+#include "common/text_util.h"
+#include "common/yaml_util.h"
 #include <unicode/ustring.h>
 #include <chucho/log.h>
-#include <cjson/cJSON.h>
 
 typedef struct queue
 {
@@ -145,24 +146,28 @@ job_queue_stats get_job_queue_stats(job_queue* jq)
 
 void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr)
 {
-    cJSON* json;
     job_queue_stats stats;
-    char* log_msg;
+    yaml_document_t doc;
+    char* utf8;
+    UChar* num_str;
+    int top;
+    int key;
+    int value;
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
         stats = get_job_queue_stats(jq);
-        json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(json, "max_size", stats.max_size);
-        cJSON_AddNumberToObject(json, "jobs_pushed", stats.jobs_pushed);
-        cJSON_AddNumberToObject(json, "jobs_run", stats.jobs_run);
-        cJSON_AddNumberToObject(json, "average_job_microseconds", stats.average_job_microseconds);
-        cJSON_AddNumberToObject(json, "slowest_job_microseconds", stats.slowest_job_microseconds);
-        cJSON_AddNumberToObject(json, "fastest_job_microseconds", stats.fastest_job_microseconds);
-        log_msg = cJSON_PrintUnformatted(json);
-        cJSON_Delete(json);
-        CHUCHO_C_INFO(lgr, "Job queue stats: %s", log_msg);
-        free(log_msg);
+        yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1);
+        top = yaml_document_add_mapping(&doc, NULL, YAML_FLOW_MAPPING_STYLE);
+        yella_add_yaml_number_mapping(&doc, top, "max_size", stats.max_size);
+        yella_add_yaml_number_mapping(&doc, top, "jobs_pushed", stats.jobs_pushed);
+        yella_add_yaml_number_mapping(&doc, top, "jobs_run", stats.jobs_run);
+        yella_add_yaml_number_mapping(&doc, top, "average_job_microseconds", stats.average_job_microseconds);
+        yella_add_yaml_number_mapping(&doc, top, "slowest_job_microseconds", stats.slowest_job_microseconds);
+        yella_add_yaml_number_mapping(&doc, top, "fastest_job_microseconds", stats.fastest_job_microseconds);
+        utf8 = yella_emit_yaml(&doc);
+        CHUCHO_C_INFO(lgr, "Job queue stats: %s", utf8);
+        free(utf8);
     }
 }
 

@@ -17,8 +17,7 @@
 SET(COMMON_SO_VERSION 1)
 
 INCLUDE_DIRECTORIES("${YELLA_LIBYAML_INCLUDE_DIR}"
-                    "${YELLA_FLATCC_INCLUDE_DIR}"
-                    "${YELLA_CJSON_INCLUDE_DIR}")
+                    "${YELLA_FLATCC_INCLUDE_DIR}")
 
 SET(YELLA_COMMON_SOURCES
     compression.c
@@ -47,7 +46,9 @@ SET(YELLA_COMMON_SOURCES
     uds.h
     udsalloc.h
     uds_util.c
-    uds_util.h)
+    uds_util.h
+    yaml_util.c
+    yaml_util.h)
 
 IF(YELLA_POSIX)
     LIST(APPEND YELLA_COMMON_SOURCES
@@ -82,6 +83,5 @@ TARGET_LINK_LIBRARIES(common
                       ICU::i18n
                       ICU::uc
                       ICU::data
-                      "${YELLA_CJSON_LIB}"
                       Threads::Threads
                       ${YELLA_MEM_LIBS})

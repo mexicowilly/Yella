@@ -114,6 +114,7 @@ static void get_set(void** arg)
     dir = udscatprintf(udsempty(), u"%Sone%Stwo%Sthree%S", YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP, YELLA_DIR_SEP);
     assert_int_equal(u_strcmp(str, dir), 0);
     udsfree(dir);
+    yella_log_settings();
 }
 
 static void get_set_byte_size(void** arg)

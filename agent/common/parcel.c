@@ -1,9 +1,9 @@
 #include "common/parcel.h"
 #include "common/text_util.h"
 #include "common/macro_util.h"
+#include "common/yaml_util.h"
 #include "parcel_builder.h"
 #include <unicode/udat.h>
-#include <cjson/cJSON.h>
 #include <chucho/log.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -40,13 +40,15 @@ void yella_log_parcel(const yella_parcel* const pcl, chucho_logger_t* lgr)
     UChar dbuf[17];
     int32_t urc;
     char* utf8;
-    cJSON* json;
-    cJSON* grp;
-    cJSON* seq;
+    yaml_document_t doc;
+    int top;
+    int key;
+    int value;
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
-        json = cJSON_CreateObject();
+        yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1);
+        top = yaml_document_add_mapping(&doc, NULL, YAML_FLOW_MAPPING_STYLE);
         uerr = U_ZERO_ERROR;
         dfmt = udat_open(UDAT_PATTERN, UDAT_PATTERN, NULL, u"UTC", 3, u"yyyyMMdd'T'HHmmss'Z'", -1, &uerr);
         assert(U_SUCCESS(uerr));
@@ -54,47 +56,26 @@ void yella_log_parcel(const yella_parcel* const pcl, chucho_logger_t* lgr)
         urc = udat_format(dfmt, pcl->time, dbuf, sizeof(dbuf) / sizeof(UChar), NULL, &uerr);
         udat_close(dfmt);
         assert(urc == 16);
-        utf8 = yella_to_utf8(dbuf);
-        cJSON_AddStringToObject(json, "time", utf8);
-        free(utf8);
-        if (pcl->sender == NULL)
-        {
-            cJSON_AddNullToObject(json, "sender");
-        }
-        else
-        {
-            utf8 = yella_to_utf8(pcl->sender);
-            cJSON_AddStringToObject(json, "sender", utf8);
-            free(utf8);
-        }
-        if (pcl->recipient == NULL)
-        {
-            cJSON_AddNullToObject(json, "recipient");
-        }
-        else
-        {
-            utf8 = yella_to_utf8(pcl->recipient);
-            cJSON_AddStringToObject(json, "recipient", utf8);
-            free(utf8);
-        }
-        utf8 = yella_to_utf8(pcl->type);
-        cJSON_AddStringToObject(json, "type", utf8);
-        free(utf8);
-        cJSON_AddStringToObject(json, "compression", (pcl->cmp == YELLA_COMPRESSION_NONE ? "NONE" : "LZ4"));
-        seq = cJSON_AddObjectToObject(json, "sequence");
-        cJSON_AddNumberToObject(seq, "major", pcl->seq.major);
-        cJSON_AddNumberToObject(seq, "minor", pcl->seq.minor);
+        yella_add_yaml_string_mapping(&doc, top, "time", dbuf);
+        yella_add_yaml_string_mapping(&doc, top, "sender", (pcl->sender == NULL) ? u"null" : pcl->sender);
+        yella_add_yaml_string_mapping(&doc, top, "recipient", (pcl->recipient == NULL) ? u"null" : pcl->recipient);
+        yella_add_yaml_string_mapping(&doc, top, "type", pcl->type);
+        yella_add_yaml_string_mapping(&doc, top, "compression", (pcl->cmp == YELLA_COMPRESSION_NONE) ? u"NONE" : u"LZ4");
+        key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)"sequence", 8, YAML_PLAIN_SCALAR_STYLE);
+        value = yaml_document_add_mapping(&doc, NULL, YAML_FLOW_MAPPING_STYLE);
+        yella_add_yaml_number_mapping(&doc, value, "major", pcl->seq.major);
+        yella_add_yaml_number_mapping(&doc, value, "minor", pcl->seq.minor);
+        yaml_document_append_mapping_pair(&doc, top, key, value);
         if (pcl->grp != NULL)
         {
-            grp = cJSON_AddObjectToObject(json, "group");
-            utf8 = yella_to_utf8(pcl->grp->identifier);
-            cJSON_AddStringToObject(grp, "identifier", utf8);
-            free(utf8);
-            cJSON_AddStringToObject(grp, "disposition", (pcl->grp->disposition == YELLA_GROUP_DISPOSITION_END ? "END" : "MORE"));
+            key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)"group", 5, YAML_PLAIN_SCALAR_STYLE);
+            value = yaml_document_add_mapping(&doc, NULL, YAML_FLOW_MAPPING_STYLE);
+            yella_add_yaml_string_mapping(&doc, value, "identifier", pcl->grp->identifier);
+            yella_add_yaml_string_mapping(&doc, value, "disposition", (pcl->grp->disposition == YELLA_GROUP_DISPOSITION_END) ? u"END" : u"MORE");
+            yaml_document_append_mapping_pair(&doc, top, key, value);
         }
-        cJSON_AddNumberToObject(json, "payload_size", pcl->payload_size);
-        utf8 = cJSON_PrintUnformatted(json);
-        cJSON_Delete(json);
+        yella_add_yaml_number_mapping(&doc, top, "payload_size", pcl->payload_size);
+        utf8 = yella_emit_yaml(&doc);
         CHUCHO_C_INFO(lgr, utf8);
         free(utf8);
     }

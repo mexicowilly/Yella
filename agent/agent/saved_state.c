@@ -22,13 +22,13 @@
 #include "common/settings.h"
 #include "common/file.h"
 #include "common/text_util.h"
+#include "common/yaml_util.h"
 #include <unicode/ustdio.h>
 #include <chucho/log.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
-#include <cjson/cJSON.h>
 
 static bool mac_addresses_changed(yella_fb_mac_addr_vec_t old_addrs, chucho_logger_t* lgr)
 {
@@ -87,12 +87,13 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
     flatbuffers_uint8_vec_t id_vec;
     yella_fb_mac_addr_vec_t mac_addrs_vec;
     flatbuffers_uint8_vec_t addr_bytes;
+    yaml_document_t doc;
+    char* utf8;
+    int top;
+    int key;
+    int value;
     int i;
-    char* utf8_addr;
-    char* utf8_id;
-    cJSON* json;
-    cJSON* mac_addrs;
-    char* log_msg;
+    int seq;
 
     ss = malloc(sizeof(yella_saved_state));
     is_corrupt = false;
@@ -150,11 +151,11 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
     }
     else if (rc == YELLA_DOES_NOT_EXIST)
     {
-        utf8_id = yella_to_utf8(fname);
+        utf8 = yella_to_utf8(fname);
         CHUCHO_C_INFO_L(lgr,
                         "The file %s does not exist. This is first boot.",
-                        utf8_id);
-        free(utf8_id);
+                        utf8);
+        free(utf8);
         reset_ss(ss, lgr);
     }
     else
@@ -163,37 +164,38 @@ yella_saved_state* yella_load_saved_state(chucho_logger_t* lgr)
     }
     if (is_corrupt)
     {
-        utf8_id = yella_to_utf8(fname);
+        utf8 = yella_to_utf8(fname);
         CHUCHO_C_INFO_L(lgr,
                         "The file %s is corrupt. It is being recreated.",
-                        utf8_id);
-        remove(utf8_id);
-        free(utf8_id);
+                        utf8);
+        remove(utf8);
+        free(utf8);
         reset_ss(ss, lgr);
     }
     udsfree(fname);
     ++ss->boot_count;
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
-        json = cJSON_CreateObject();
-        utf8_id = yella_to_utf8(ss->id->text);
-        cJSON_AddStringToObject(json, "id", utf8_id);
-        free(utf8_id);
-        cJSON_AddNumberToObject(json, "boot_count", ss->boot_count);
-        mac_addrs = cJSON_AddArrayToObject(json, "mac_addresses");
+        yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1);
+        top = yaml_document_add_mapping(&doc, NULL, YAML_FLOW_MAPPING_STYLE);
+        yella_add_yaml_string_mapping(&doc, top, "id", ss->id->text);
+        yella_add_yaml_number_mapping(&doc, top, "boot_count", ss->boot_count);
+        key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)"mac_addresses", 13, YAML_PLAIN_SCALAR_STYLE);
+        seq = yaml_document_add_sequence(&doc, NULL, YAML_FLOW_SEQUENCE_STYLE);
         if (ss->mac_addresses->count > 0)
         {
             for (i = 0; i < ss->mac_addresses->count; i++)
             {
-                utf8_addr = yella_to_utf8(ss->mac_addresses->addrs[i].text);
-                cJSON_AddItemToArray(mac_addrs, cJSON_CreateString(utf8_addr));
-                free(utf8_addr);
+                utf8 = yella_to_utf8(ss->mac_addresses->addrs[i].text);
+                value = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)utf8, strlen(utf8), YAML_PLAIN_SCALAR_STYLE);
+                free(utf8);
+                yaml_document_append_sequence_item(&doc, seq, value);
             }
         }
-        log_msg = cJSON_PrintUnformatted(json);
-        CHUCHO_C_INFO(lgr, "Saved state: %s", log_msg);
-        free(log_msg);
-        cJSON_Delete(json);
+        yaml_document_append_mapping_pair(&doc, top, key, seq);
+        utf8 = yella_emit_yaml(&doc);
+        CHUCHO_C_INFO(lgr, "Saved state: %s", utf8);
+        free(utf8);
     }
     return ss;
 }

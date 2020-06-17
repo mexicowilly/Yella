@@ -21,8 +21,8 @@
 #include "sglib.h"
 #include "thread.h"
 #include "ptr_vector.h"
+#include "yaml_util.h"
 #include <chucho/log.h>
-#include <yaml.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -30,7 +30,6 @@
 #include <unicode/ustring.h>
 #include <unicode/uchar.h>
 #include <unicode/ustdio.h>
-#include <cjson/cJSON.h>
 
 void yella_initialize_platform_settings(void);
 
@@ -436,9 +435,11 @@ void yella_log_settings(void)
     size_t j;
     section sct_to_find;
     setting set_to_find;
-    cJSON* json;
-    cJSON* sct;
     char* val_utf8;
+    yaml_document_t doc;
+    int top;
+    int sct_key;
+    int sct_value;
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
@@ -452,15 +453,14 @@ void yella_log_settings(void)
             yella_push_back_ptr_vector(sct_vec, sct_elem->key);
         }
         qsort(yella_ptr_vector_data(sct_vec), yella_ptr_vector_size(sct_vec), sizeof(void*), qsort_ustr_comparator);
-        json = cJSON_CreateObject();
+        yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1);
+        top = yaml_document_add_mapping(&doc, NULL, YAML_BLOCK_MAPPING_STYLE);
         for (i = 0; i < yella_ptr_vector_size(sct_vec); i++)
         {
             sct_to_find.key = yella_ptr_vector_at(sct_vec, i);
             sct_elem = sglib_section_find_member(sections, &sct_to_find);
             assert(sct_elem != NULL);
-            utf8 = yella_to_utf8(sct_elem->key);
-            sct = cJSON_AddObjectToObject(json, utf8);
-            free(utf8);
+            sct_value = yaml_document_add_mapping(&doc, NULL, YAML_BLOCK_MAPPING_STYLE);
             set_vec = yella_create_ptr_vector();
             yella_set_ptr_vector_destructor(set_vec, NULL, NULL);
             for (set_elem = sglib_setting_it_init(&set_itor, sct_elem->settings);
@@ -475,25 +475,20 @@ void yella_log_settings(void)
                 set_to_find.key = yella_ptr_vector_at(set_vec, j);
                 set_elem = sglib_setting_find_member(sct_elem->settings, &set_to_find);
                 assert(set_elem != NULL);
-                utf8 = yella_to_utf8(set_elem->key);
                 if (set_elem->type == YELLA_SETTING_VALUE_TEXT || set_elem->type == YELLA_SETTING_VALUE_DIR)
-                {
-                    val_utf8 = yella_to_utf8(set_elem->value.text);
-                    cJSON_AddStringToObject(sct, utf8, val_utf8);
-                    free(val_utf8);
-                }
+                    yella_add_yaml_ustring_mapping(&doc, sct_value, set_elem->key, set_elem->value.text);
                 else
-                {
-                    cJSON_AddNumberToObject(sct, utf8, set_elem->value.uint);
-                }
-                free(utf8);
+                    yella_add_yaml_unumber_mapping(&doc, sct_value, set_elem->key, set_elem->value.uint);
             }
             yella_destroy_ptr_vector(set_vec);
+            utf8 = yella_to_utf8(sct_elem->key);
+            sct_key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)utf8, strlen(utf8), YAML_PLAIN_SCALAR_STYLE);
+            free(utf8);
+            yaml_document_append_mapping_pair(&doc, top, sct_key, sct_value);
         }
         yella_destroy_ptr_vector(sct_vec);
         yella_unlock_mutex(guard);
-        utf8 = cJSON_Print(json);
-        cJSON_Delete(json);
+        utf8 = yella_emit_yaml(&doc);
         val_utf8 = yella_to_utf8(YELLA_NL);
         CHUCHO_C_INFO(lgr, "Settings:%s%s", val_utf8, utf8);
         free(val_utf8);

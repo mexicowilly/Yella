@@ -1,8 +1,8 @@
 #include "plugin/file/event_source.h"
 #include "plugin/file/file_name_matcher.h"
 #include "common/text_util.h"
+#include "common/yaml_util.h"
 #include <chucho/log.h>
-#include <cjson/cJSON.h>
 #include <stdlib.h>
 
 SGLIB_DEFINE_RBTREE_FUNCTIONS(event_source_spec, left, right, color, EVENT_SOURCE_SPEC_COMPARATOR);
@@ -15,44 +15,49 @@ static void destroy_event_source_spec(event_source_spec* spec)
     free(spec);
 }
 
-static char* specs_to_json(event_source_spec** specs, size_t count)
+static char* specs_to_yaml(event_source_spec** specs, size_t count)
 {
-    cJSON* json;
     char* utf8;
-    cJSON* arr;
     size_t i;
-    char* result;
-    cJSON* spec_arr;
     size_t j;
-    cJSON* cur;
+    yaml_document_t doc;
+    int top;
+    int key;
+    int value;
+    int cur;
+    int seq;
 
-    json = cJSON_CreateObject();
-    spec_arr = cJSON_AddArrayToObject(json, "specs");
+    yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1);
+    top = yaml_document_add_mapping(&doc, NULL, YAML_FLOW_MAPPING_STYLE);
     for (j = 0; j < count; j++)
     {
-        cur = cJSON_CreateObject();
-        utf8 = yella_to_utf8(specs[j]->name);
-        cJSON_AddStringToObject(cur, "name", utf8);
-        free(utf8);
-        arr = cJSON_AddArrayToObject(cur, "includes");
+        cur = yaml_document_add_mapping(&doc, NULL, YAML_FLOW_MAPPING_STYLE);
+        key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)"includes", 8, YAML_PLAIN_SCALAR_STYLE);
+        seq = yaml_document_add_sequence(&doc, NULL, YAML_FLOW_SEQUENCE_STYLE);
         for (i = 0; i < yella_ptr_vector_size(specs[j]->includes); i++)
         {
             utf8 = yella_to_utf8((UChar*)yella_ptr_vector_at(specs[j]->includes, i));
-            cJSON_AddItemToArray(arr, cJSON_CreateString(utf8));
+            value = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)utf8, strlen(utf8), YAML_PLAIN_SCALAR_STYLE);
             free(utf8);
+            yaml_document_append_sequence_item(&doc, seq, value);
         }
-        arr = cJSON_AddArrayToObject(cur, "excludes");
+        yaml_document_append_mapping_pair(&doc, cur, key, seq);
+        key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)"includes", 8, YAML_PLAIN_SCALAR_STYLE);
+        seq = yaml_document_add_sequence(&doc, NULL, YAML_FLOW_SEQUENCE_STYLE);
         for (i = 0; i < yella_ptr_vector_size(specs[j]->excludes); i++)
         {
             utf8 = yella_to_utf8((UChar*)yella_ptr_vector_at(specs[j]->excludes, i));
-            cJSON_AddItemToArray(arr, cJSON_CreateString(utf8));
+            value = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)utf8, strlen(utf8), YAML_PLAIN_SCALAR_STYLE);
             free(utf8);
+            yaml_document_append_sequence_item(&doc, seq, value);
         }
-        cJSON_AddItemToArray(spec_arr, cur);
+        yaml_document_append_mapping_pair(&doc, cur, key, seq);
+        utf8 = yella_to_utf8(specs[j]->name);
+        key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)utf8, strlen(utf8), YAML_PLAIN_SCALAR_STYLE);
+        free(utf8);
+        yaml_document_append_mapping_pair(&doc, top, key, cur);
     }
-    result = cJSON_PrintUnformatted(json);
-    cJSON_Delete(json);
-    return result;
+    return yella_emit_yaml(&doc);
 }
 
 void add_or_replace_event_source_specs(event_source* esrc, event_source_spec** specs, size_t count)
@@ -72,7 +77,7 @@ void add_or_replace_event_source_specs(event_source* esrc, event_source_spec** s
     add_or_replace_event_source_impl_specs(esrc, specs, count);
     if (chucho_logger_permits(esrc->lgr, CHUCHO_INFO))
     {
-        spec_text = specs_to_json(specs, count);
+        spec_text = specs_to_yaml(specs, count);
         CHUCHO_C_INFO(esrc->lgr, "Added config: %s", spec_text);
         free(spec_text);
     }

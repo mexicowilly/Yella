@@ -15,9 +15,11 @@
  */
 
 #include "common/text_util.h"
+#include <unicode/unumberformatter.h>
 #include <chucho/log.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 UChar* yella_from_utf8(const char* const str)
 {
@@ -43,6 +45,37 @@ UChar* yella_from_utf8(const char* const str)
         }
     }
     return buf;
+}
+
+UChar* yella_to_string(int64_t val)
+{
+    UNumberFormatter* fmt;
+    UFormattedNumber* res;
+    UErrorCode ec;
+    UChar* str;
+    int32_t len;
+
+    ec = U_ZERO_ERROR;
+    fmt = unumf_openForSkeletonAndLocale(u"precision-integer", -1, "en_US_POSIX", &ec);
+    assert(U_SUCCESS(ec));
+    res = unumf_openResult(&ec);
+    assert(U_SUCCESS(ec));
+    unumf_formatInt(fmt, val, res, &ec);
+    if (U_SUCCESS(ec))
+    {
+        len = unumf_resultToString(res, NULL, 0, &ec);
+        str = malloc((len + 1) * sizeof(UChar));
+        ec = U_ZERO_ERROR;
+        unumf_resultToString(res, str, len + 1, &ec);
+    }
+    else
+    {
+        CHUCHO_C_ERROR("yella.common", "Could not convert integer to string: %s", u_errorName(ec));
+        str = NULL;
+    }
+    unumf_closeResult(res);
+    unumf_close(fmt);
+    return str;
 }
 
 char* yella_to_utf8(const UChar* const str)
