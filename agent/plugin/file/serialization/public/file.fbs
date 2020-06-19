@@ -8,7 +8,8 @@ namespace yella.fb.file;
 enum attr_type : ushort
 {
     FILE_TYPE = 1,          // ftype field in attr
-    SHA256                  // bytes field in attr
+    SHA256,                 // bytes field in attr
+    POSIX_PERMISSIONS       // psx_permissions field in attr
 }
 
 //
@@ -46,6 +47,22 @@ enum file_type : byte
     WHITEOUT
 }
 
+table posix_permissions
+{
+    owner_read: bool = false;
+    owner_write: bool = false;
+    owner_execute: bool = false;
+    group_read: bool = false;
+    group_write: bool = false;
+    group_execute: bool = false;
+    other_read: bool = false;
+    other_write: bool = false;
+    other_execute: bool = false;
+    set_uid: bool = false;
+    set_gid: bool = false;
+    sticky: bool = false;
+}
+
 table file_state
 {
     config_name: string;
@@ -69,4 +86,5 @@ table attr
     // One of the following will be set according to attr_type. See attr_type doc above for details.
     bytes: [ubyte];
     ftype: file_type = REGULAR;
+    psx_permissions: posix_permissions;
 }

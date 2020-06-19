@@ -5,12 +5,30 @@
 #include "file_builder.h"
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 typedef enum
 {
     ATTR_TYPE_FILE_TYPE,
-    ATTR_TYPE_SHA256
+    ATTR_TYPE_SHA256,
+    ATTR_TYPE_POSIX_PERMISSIONS
 } attribute_type;
+
+typedef struct posix_permissions
+{
+    bool owner_read;
+    bool owner_write;
+    bool owner_execute;
+    bool group_read;
+    bool group_write;
+    bool group_execute;
+    bool other_read;
+    bool other_write;
+    bool other_execute;
+    bool set_uid;
+    bool set_gid;
+    bool sticky;
+} posix_permissions;
 
 typedef struct attribute
 {
@@ -23,6 +41,7 @@ typedef struct attribute
             uint8_t* mem;
             size_t sz;
         } byte_array;
+        posix_permissions psx_permissions;
     } value;
 } attribute;
 

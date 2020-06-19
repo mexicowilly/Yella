@@ -3,11 +3,15 @@ SET(FILE_SO_VERSION 1)
 INCLUDE_DIRECTORIES("${YELLA_SQLITE3_INCLUDE_DIR}"
                     "${OPENSSL_INCLUDE_DIR}")
 
-IF(YELLA_FREEBSD)
+IF(YELLA_POSIX)
     SET(FILE_PLATFORM_SOURCES
+        platform/posix/posix_permissions.c)
+ENDIF()
+IF(YELLA_FREEBSD)
+    LIST(APPEND FILE_PLATFORM_SOURCES
         platform/freebsd/event_source_freebsd.c)
 ELSEIF(YELLA_LIBFSWATCH)
-    SET(FILE_PLATFORM_SOURCES
+    LIST(APPEND FILE_PLATFORM_SOURCES
         platform/fswatch/event_source_fswatch.c)
 ENDIF()
 
@@ -30,6 +34,7 @@ ADD_LIBRARY(file SHARED
             job_queue.c
             job_queue.h
             ../plugin.h
+            posix_permissions.h
             state_db.c
             state_db.h
             state_db_pool.c
