@@ -70,7 +70,7 @@ yella_rc yella_file_contents(const UChar* const name, uint8_t** contents)
     if (f == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR("yella.common",
+        CHUCHO_C_ERROR("common",
                        "Could not open %s for reading: %s",
                        utf8,
                        strerror(err));
@@ -82,7 +82,7 @@ yella_rc yella_file_contents(const UChar* const name, uint8_t** contents)
     fclose(f);
     if (num_read != size)
     {
-        CHUCHO_C_ERROR("yella.common",
+        CHUCHO_C_ERROR("common",
                        "Could not read %s",
                        utf8);
         free(utf8);
@@ -105,7 +105,7 @@ yella_rc yella_remove_file(const UChar* const name)
     }
     else
     {
-        CHUCHO_C_ERROR("yella.common", "Unable to remove file '%s': %s", utf8, strerror(errno));
+        CHUCHO_C_ERROR("common", "Unable to remove file '%s': %s", utf8, strerror(errno));
         rc = YELLA_FILE_SYSTEM_ERROR;
     }
     free(utf8);

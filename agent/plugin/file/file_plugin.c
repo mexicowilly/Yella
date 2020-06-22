@@ -203,6 +203,7 @@ static void load_configs(file_plugin* fplg)
             add_or_replace_event_source_specs(fplg->esrc, especs, yella_fb_file_config_vec_len(cfgs));
             free(especs);
         }
+        free(raw);
     }
     else
     {
@@ -212,7 +213,6 @@ static void load_configs(file_plugin* fplg)
             CHUCHO_C_WARN(fplg->lgr, "Error loading monitor configuration state: %s", yella_strerror(rc));
     }
     udsfree(fname);
-    free(raw);
 }
 
 static void save_configs(const file_plugin* const fplg)
@@ -555,7 +555,7 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
 
     retrieve_file_settings();
     fplg = malloc(sizeof(file_plugin));
-    fplg->lgr = chucho_get_logger("yella.file");
+    fplg->lgr = chucho_get_logger("file");
     fplg->guard = yella_create_mutex();
     fplg->config_guard = yella_create_reader_writer_lock();
     fplg->desc = yella_create_plugin(u"file", u"1", fplg);

@@ -105,7 +105,7 @@ static void log_signal(int signal)
     const sig_info* inf;
 
     inf = signal_info(signal);
-    CHUCHO_C_INFO("yella.agent",
+    CHUCHO_C_INFO("agent",
                   "Signal (%i) (%s) %s",
                   inf->sig,
                   inf->name,

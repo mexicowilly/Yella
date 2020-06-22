@@ -32,7 +32,7 @@ uint8_t* yella_lz4_decompress(const uint8_t* const bytes, size_t* size)
     }
     if (rc < 0)
     {
-        CHUCHO_C_ERROR("yella.common", "Unable to decompress with LZ4");
+        CHUCHO_C_ERROR("common", "Unable to decompress with LZ4");
         free(decmp);
         *size = 0;
         return NULL;

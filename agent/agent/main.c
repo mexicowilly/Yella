@@ -74,14 +74,14 @@ int main(int argc, char* argv[])
     utf8 = yella_to_utf8(yella_settings_get_text(u"agent", u"config-file"));
     chucho_cnf_set_file_name(utf8);
     free(utf8);
-    CHUCHO_C_INFO("yella.agent",
+    CHUCHO_C_INFO("agent",
                   "Yella version " YELLA_VALUE_STR(YELLA_VERSION) " is starting");
     term_evt = yella_create_event();
     set_signal_termination_handler(term_handler, term_evt);
     agent = yella_create_agent();
     if (agent == NULL)
     {
-        CHUCHO_C_ERROR("yella.agent", "Unable to create the agent");
+        CHUCHO_C_ERROR("agent", "Unable to create the agent");
         rc = EXIT_FAILURE;
     }
     else
@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
     }
     yella_destroy_event(term_evt);
     yella_destroy_settings();
-    CHUCHO_C_INFO("yella.agent", "Exiting");
+    CHUCHO_C_INFO("agent", "Exiting");
     chucho_finalize();
     return rc;
 }

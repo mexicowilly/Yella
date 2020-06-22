@@ -58,7 +58,7 @@ static yella_rc stat_impl(const UChar* const name, struct stat* info)
             yrc = YELLA_DOES_NOT_EXIST;
         else
             yrc = YELLA_FILE_SYSTEM_ERROR;
-        CHUCHO_C_ERROR("yella.common",
+        CHUCHO_C_ERROR("common",
                        "Could not get information about '%s': %s",
                        utf8,
                        strerror(err));
@@ -122,7 +122,7 @@ yella_rc yella_apply_function_to_file_contents(const UChar* const name,
             yrc = YELLA_DOES_NOT_EXIST;
         else
             yrc = YELLA_FILE_SYSTEM_ERROR;
-        CHUCHO_C_ERROR("yella.common",
+        CHUCHO_C_ERROR("common",
                        "Could open '%s' for reading: %s",
                        utf8,
                        strerror(errno));
@@ -139,7 +139,7 @@ yella_rc yella_apply_function_to_file_contents(const UChar* const name,
         if (num_read < 0)
         {
             yrc = YELLA_FILE_SYSTEM_ERROR;
-            CHUCHO_C_ERROR("yella.common",
+            CHUCHO_C_ERROR("common",
                            "Could read from '%s': %s",
                            utf8,
                            strerror(errno));
@@ -192,7 +192,7 @@ yella_rc yella_create_directory(const UChar* const name)
     }
     else
     {
-        CHUCHO_C_ERROR("yella.common",
+        CHUCHO_C_ERROR("common",
                        "Could not create directory '%s': %s",
                        utf8,
                        strerror(err));
@@ -220,7 +220,7 @@ yella_directory_iterator* yella_create_directory_iterator(const UChar* const dir
     if (result->dir == NULL)
     {
         err = errno;
-        CHUCHO_C_ERROR("yella.common",
+        CHUCHO_C_ERROR("common",
                        "Could not open directory '%s' for reading: %s",
                        utf8,
                        strerror(err));
@@ -410,7 +410,7 @@ static yella_rc remove_all_impl(const UChar* const name)
         {
             if (remove(utf8) != 0)
             {
-                CHUCHO_C_ERROR("yella.common",
+                CHUCHO_C_ERROR("common",
                                "Unable to remove '%s': %s",
                                utf8,
                                strerror(errno));
@@ -425,7 +425,7 @@ static yella_rc remove_all_impl(const UChar* const name)
     utf8 = yella_to_utf8(name);
     if (remove(utf8) != 0)
     {
-        CHUCHO_C_ERROR("yella.common",
+        CHUCHO_C_ERROR("common",
                        "Unable to remove '%s': %s",
                        utf8,
                        strerror(errno));
@@ -449,7 +449,7 @@ yella_rc yella_remove_all(const UChar* const name)
     }
     if (stat(utf8, &st) != 0)
     {
-        CHUCHO_C_ERROR("yella.common",
+        CHUCHO_C_ERROR("common",
                        "Unable to stat '%s': %s",
                        utf8,
                        strerror(errno));
@@ -463,7 +463,7 @@ yella_rc yella_remove_all(const UChar* const name)
     }
     if (remove(utf8) != 0)
     {
-        CHUCHO_C_ERROR("yella.common",
+        CHUCHO_C_ERROR("common",
                        "Unable to remove '%s': %s",
                        utf8,
                        strerror(errno));

@@ -279,7 +279,7 @@ static yella_rc process_outgoing_in_event(void* rtr_sock, void* out_sock)
     rc = zmq_msg_send(&msg, rtr_sock, ZMQ_SNDMORE);
     if (rc == -1)
     {
-        CHUCHO_C_ERROR("yella.router",
+        CHUCHO_C_ERROR("router",
                        "Could not send message delimiter: %s",
                        zmq_strerror(zmq_errno()));
         zmq_msg_close(&msg);
@@ -292,7 +292,7 @@ static yella_rc process_outgoing_in_event(void* rtr_sock, void* out_sock)
         rc = zmq_msg_recv(&msg, out_sock, 0);
         if (rc == -1)
         {
-            CHUCHO_C_ERROR("yella.router",
+            CHUCHO_C_ERROR("router",
                            "Could not receive message part from outgoing pusher: %s",
                            zmq_strerror(zmq_errno()));
             zmq_msg_close(&msg);
@@ -302,7 +302,7 @@ static yella_rc process_outgoing_in_event(void* rtr_sock, void* out_sock)
         rc = zmq_msg_send(&msg, rtr_sock, (more == 0) ? 0 : ZMQ_SNDMORE);
         if (rc == -1)
         {
-            CHUCHO_C_ERROR("yella.router",
+            CHUCHO_C_ERROR("router",
                            "Could not send message part to router: %s",
                            zmq_strerror(zmq_errno()));
             zmq_msg_close(&msg);
@@ -489,7 +489,7 @@ router* create_router(yella_uuid* id)
     result->mtx = yella_create_mutex();
     result->conn_condition = yella_create_condition_variable();
     result->should_stop = false;
-    result->lgr = chucho_get_logger("yella.router");
+    result->lgr = chucho_get_logger("router");
     result->sp = create_spool();
     if (result->sp == NULL)
     {
@@ -607,7 +607,7 @@ bool send_transient_router_message(sender* sndr, yella_message_part* msgs, size_
         rc = zmq_msg_send(&msg, sndr->sock, (i == count - 1) ? 0 : ZMQ_SNDMORE);
         if (rc != msgs[i].size)
         {
-            CHUCHO_C_ERROR("yella.router",
+            CHUCHO_C_ERROR("router",
                            "Could not send message (%zu): %s",
                            i,
                            zmq_strerror(zmq_errno()));

@@ -362,7 +362,7 @@ yella_rc yella_load_settings_doc(void)
 
     /* Get the logger here, because the config location has been
      * set properly by now. */
-    lgr = chucho_get_logger("yella.settings");
+    lgr = chucho_get_logger("settings");
     file_name = yella_settings_get_text(u"agent", u"config-file");
     if (file_name == NULL)
     {

@@ -85,7 +85,7 @@ void configuration::parse_config_file()
     }
     catch (const std::exception& e)
     {
-        CHUCHO_ERROR(chucho::logger::get("yella.configuration"), "Unable to load configuration file '" << file_name_ << "': " << e.what());
+        CHUCHO_ERROR(chucho::logger::get("configuration"), "Unable to load configuration file '" << file_name_ << "': " << e.what());
     }
 
 }

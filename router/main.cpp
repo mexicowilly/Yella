@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
-        CHUCHO_ERROR(chucho::logger::get("yella.router"), "Unexpected error: " << e.what());
+        CHUCHO_ERROR(chucho::logger::get("router"), "Unexpected error: " << e.what());
         rc = EXIT_FAILURE;
     }
     chucho::finalize();

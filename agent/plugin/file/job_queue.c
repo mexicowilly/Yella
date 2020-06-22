@@ -101,7 +101,7 @@ job_queue* create_job_queue(state_db_pool* pool)
     job_queue* result;
 
     result = calloc(1, sizeof(job_queue));
-    result->lgr = chucho_get_logger("yella.file.job-queue");
+    result->lgr = chucho_get_logger("file.job-queue");
     result->guard = yella_create_mutex();
     result->cond = yella_create_condition_variable();
     result->runner = yella_create_thread(job_queue_main, result);

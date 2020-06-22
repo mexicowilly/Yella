@@ -325,7 +325,7 @@ static void plugin_api_dtor(void* p, void* udata)
     char* utf8;
 
     utf8 = yella_to_utf8(w->name);
-    CHUCHO_C_INFO("yella.agent", "Closing plugin '%s'", utf8);
+    CHUCHO_C_INFO("agent", "Closing plugin '%s'", utf8);
     free(utf8);
     w->stop_func(w->udata);
     udsfree(w->name);
@@ -396,14 +396,14 @@ yella_agent* yella_create_agent(void)
         if (yrc != YELLA_NO_ERROR)
         {
             utf8 = yella_to_utf8(dirs[i]);
-            CHUCHO_C_ERROR("yella.agent", "Could not create %s: %s", utf8, yella_strerror(yrc));
+            CHUCHO_C_ERROR("agent", "Could not create %s: %s", utf8, yella_strerror(yrc));
             free(utf8);
             return NULL;
         }
     }
     result = calloc(1, sizeof(yella_agent));
     result->should_stop = false;
-    result->lgr = chucho_get_logger("yella.agent");
+    result->lgr = chucho_get_logger("agent");
     result->state = yella_load_saved_state(result->lgr);
     yella_save_saved_state(result->state, result->lgr);
     if (yella_settings_get_text(u"agent", u"router") == NULL)

@@ -78,7 +78,7 @@ state_db* get_state_db_from_pool(state_db_pool* pool, const UChar* const config_
             if (oldest != NULL)
             {
                 utf8 = yella_to_utf8(oldest->name);
-                CHUCHO_C_INFO("yella.file.db", "Too many open state databases (%zu open, %zu maximum). Closing '%s'.", pool->count, max_dbs, utf8);
+                CHUCHO_C_INFO("file.db", "Too many open state databases (%zu open, %zu maximum). Closing '%s'.", pool->count, max_dbs, utf8);
                 free(utf8);
                 sglib_state_db_node_delete(&pool->nodes, oldest);
                 destroy_state_db(oldest->db, STATE_DB_ACTION_KEEP);
@@ -91,7 +91,7 @@ state_db* get_state_db_from_pool(state_db_pool* pool, const UChar* const config_
         if (found->db == NULL)
         {
             utf8 = yella_to_utf8(config_name);
-            CHUCHO_C_FATAL("yella.file.db", "Unable to create state db for config %s", utf8);
+            CHUCHO_C_FATAL("file.db", "Unable to create state db for config %s", utf8);
             free(utf8);
             free(found);
             return NULL;

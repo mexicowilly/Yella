@@ -40,7 +40,7 @@ UChar* yella_from_utf8(const char* const str)
         if (ec != U_ZERO_ERROR)
         {
             free(buf);
-            CHUCHO_C_ERROR("yella.common", "Could not convert UTF-8 to UTF-16: %s", u_errorName(ec));
+            CHUCHO_C_ERROR("common", "Could not convert UTF-8 to UTF-16: %s", u_errorName(ec));
             buf = NULL;
         }
     }
@@ -70,7 +70,7 @@ UChar* yella_to_string(int64_t val)
     }
     else
     {
-        CHUCHO_C_ERROR("yella.common", "Could not convert integer to string: %s", u_errorName(ec));
+        CHUCHO_C_ERROR("common", "Could not convert integer to string: %s", u_errorName(ec));
         str = NULL;
     }
     unumf_closeResult(res);
@@ -97,7 +97,7 @@ char* yella_to_utf8(const UChar* const str)
         if (ec != U_ZERO_ERROR)
         {
             free(buf);
-            CHUCHO_C_ERROR("yella.common", "Could not convert UTF-16 to UTF-8: %s", u_errorName(ec));
+            CHUCHO_C_ERROR("common", "Could not convert UTF-16 to UTF-8: %s", u_errorName(ec));
             buf = NULL;
         }
     }

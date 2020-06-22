@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
-        CHUCHO_FATAL(chucho::logger::get("yella.console"), "Unexpected: " << e.what());
+        CHUCHO_FATAL(chucho::logger::get("console"), "Unexpected: " << e.what());
         rc = EXIT_FAILURE;
     }
     return rc;

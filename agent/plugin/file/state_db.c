@@ -60,7 +60,7 @@ state_db* create_state_db(const UChar* const config_name)
     };
 
     st = calloc(1, sizeof(state_db));
-    st->lgr = chucho_get_logger("yella.file.db");
+    st->lgr = chucho_get_logger("file.db");
     name = create_db_name(config_name);
     rc = sqlite3_open16(name, &st->db);
     udsfree(name);

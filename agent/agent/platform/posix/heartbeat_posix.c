@@ -70,7 +70,7 @@ static void set_host_name(flatcc_builder_t* bld, const char* const node_name)
     }
     else
     {
-        CHUCHO_C_INFO("yella.agent", "Cound not get fully qualified host name: %s", gai_strerror(rc));
+        CHUCHO_C_INFO("agent", "Cound not get fully qualified host name: %s", gai_strerror(rc));
     }
 }
 
@@ -111,7 +111,7 @@ static void set_ip_addresses(flatcc_builder_t* bld)
     }
     else
     {
-        CHUCHO_C_INFO("yella.agent", "Unable to get address information: %s", strerror(errno));
+        CHUCHO_C_INFO("agent", "Unable to get address information: %s", strerror(errno));
     }
 }
 

@@ -91,7 +91,7 @@ event_source* create_event_source(event_source_callback cb, void* cb_udata)
     result->guard = yella_create_reader_writer_lock();
     result->callback = cb;
     result->callback_udata = cb_udata;
-    result->lgr = chucho_get_logger("yella.file.event");
+    result->lgr = chucho_get_logger("file.event");
     init_event_source_impl(result);
     return result;
 }
