@@ -325,7 +325,7 @@ static void plugin_api_dtor(void* p, void* udata)
     char* utf8;
 
     utf8 = yella_to_utf8(w->name);
-    CHUCHO_C_INFO("yella.agent", "Closing plugin %s", utf8);
+    CHUCHO_C_INFO("yella.agent", "Closing plugin '%s'", utf8);
     free(utf8);
     w->stop_func(w->udata);
     udsfree(w->name);

@@ -49,7 +49,7 @@ static void job_queue_main(void* udata)
     {
         yella_lock_mutex(jq->guard);
         while (!jq->should_stop && jq->sz == 0 && jq->cb == NULL)
-           yella_wait_milliseconds_for_condition_variable(jq->cond, jq->guard, 250);
+            yella_wait_milliseconds_for_condition_variable(jq->cond, jq->guard, 250);
         if (jq->should_stop)
         {
             yella_unlock_mutex(jq->guard);

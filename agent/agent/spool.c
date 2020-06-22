@@ -519,8 +519,30 @@ static size_t current_spool_size()
     size_t result;
     const UChar* cur;
     size_t cur_size;
+    yella_ptr_vector* to_remove;
+    size_t i;
 
     result = 0;
+    to_remove = yella_create_uds_ptr_vector();
+    itor = yella_create_directory_iterator(yella_settings_get_dir(u"agent", u"spool-dir"));
+    cur = yella_directory_iterator_next(itor);
+    while (cur != NULL)
+    {
+        if (is_spool_file(cur))
+        {
+            cur_size = 0;
+            yella_file_size(cur, &cur_size);
+            if (cur_size == sizeof(YELLA_SPOOL_ID))
+                yella_push_back_ptr_vector(to_remove, udsnew(cur));
+        }
+        cur = yella_directory_iterator_next(itor);
+    }
+    yella_destroy_directory_iterator(itor);
+    for (i = 0; i < yella_ptr_vector_size(to_remove); i++)
+        yella_remove_file(yella_ptr_vector_at(to_remove, i));
+    if (yella_ptr_vector_size(to_remove) > 0)
+        CHUCHO_C_INFO("yella.spool", "Removed %zu empty spool files", yella_ptr_vector_size(to_remove));
+    yella_destroy_ptr_vector(to_remove);
     itor = yella_create_directory_iterator(yella_settings_get_dir(u"agent", u"spool-dir"));
     cur = yella_directory_iterator_next(itor);
     while (cur != NULL)
@@ -602,7 +624,7 @@ void destroy_spool(spool* sp)
     }
 }
 
-bool spool_empty_of_messages(spool * sp)
+bool spool_empty_of_messages(spool* sp)
 {
     bool result;
 
@@ -612,7 +634,7 @@ bool spool_empty_of_messages(spool * sp)
     return result;
 }
 
-spool_stats spool_get_stats(spool * sp)
+spool_stats spool_get_stats(spool* sp)
 {
     spool_stats stats;
 
@@ -625,15 +647,13 @@ spool_stats spool_get_stats(spool * sp)
 }
 
 yella_rc spool_pop(spool* sp,
-                         size_t milliseconds_to_wait,
-                         yella_message_part** parts,
-                         size_t* count)
+                   size_t milliseconds_to_wait,
+                   yella_message_part** parts,
+                   size_t* count)
 {
     uint16_t msg_count;
     uint16_t i;
     uint32_t msg_size;
-    size_t num_read = 0;
-    size_t event_size = 0;
     yella_rc yrc = YELLA_NO_ERROR;
     long msg_off;
     long cur_off;

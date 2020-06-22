@@ -447,7 +447,7 @@ static void spool_main(void* udata)
     while (true)
     {
         yella_lock_mutex(rtr->mtx);
-        while (!rtr->should_stop && rtr->state != ROUTER_CONNECTED && spool_empty_of_messages(rtr->sp))
+        while (!rtr->should_stop && (rtr->state != ROUTER_CONNECTED || (rtr->state == ROUTER_CONNECTED && spool_empty_of_messages(rtr->sp))))
             yella_wait_milliseconds_for_condition_variable(rtr->conn_condition, rtr->mtx, 500);
         st = rtr->state;
         yella_unlock_mutex(rtr->mtx);

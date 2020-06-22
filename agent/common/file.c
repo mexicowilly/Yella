@@ -61,6 +61,7 @@ yella_rc yella_file_contents(const UChar* const name, uint8_t** contents)
     size_t num_read;
     char* utf8;
 
+    *contents = NULL;
     if (!yella_file_exists(name))
         return YELLA_DOES_NOT_EXIST;
     yella_file_size(name, &size);

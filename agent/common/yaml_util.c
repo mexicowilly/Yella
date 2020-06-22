@@ -13,6 +13,7 @@ void yella_add_yaml_number_mapping(yaml_document_t* doc, int node, const char* c
     utf8 = yella_to_utf8(num_str);
     free(num_str);
     v = yaml_document_add_scalar(doc, NULL, (yaml_char_t*)utf8, strlen(utf8), YAML_PLAIN_SCALAR_STYLE);
+    free(utf8);
     yaml_document_append_mapping_pair(doc, node, k, v);
 }
 
@@ -62,7 +63,19 @@ char* yella_emit_yaml(yaml_document_t* doc)
     yaml_emitter_set_unicode(&emitter, 1);
     yaml_emitter_open(&emitter);
     yaml_emitter_dump(&emitter, doc);
-    result[output_written] = 0;
+    if (output_written > 0)
+    {
+        for (output_written -= 1; output_written >= 0; output_written--)
+        {
+            if (result[output_written] != '\n' && result[output_written] != '\r')
+                break;
+        }
+        result[output_written + 1] = 0;
+    }
+    else
+    {
+        result[output_written] = 0;
+    }
     yaml_emitter_close(&emitter);
     yaml_emitter_delete(&emitter);
     return result;
