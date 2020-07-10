@@ -3,7 +3,6 @@
 
 #include "export.h"
 #include "common/uds.h"
-#include <chucho/logger.h>
 #include <stdint.h>
 #include <unicode/ucal.h>
 
@@ -44,9 +43,11 @@ typedef struct yella_parcel
     size_t payload_size;
 } yella_parcel;
 
+struct chucho_logger_t;
+
 YELLA_EXPORT yella_parcel* yella_create_parcel(const UChar* const recipient, const UChar* const type);
 YELLA_EXPORT void yella_destroy_parcel(yella_parcel* pcl);
-YELLA_EXPORT void yella_log_parcel(const yella_parcel* const pcl, chucho_logger_t* lgr);
+YELLA_EXPORT void yella_log_parcel(const yella_parcel* const pcl, struct chucho_logger_t* lgr);
 YELLA_EXPORT uint8_t* yella_pack_parcel(const yella_parcel* const pcl, size_t* size);
 YELLA_EXPORT yella_parcel* yella_unpack_parcel(const uint8_t* const bytes);
 

@@ -3,6 +3,7 @@
 
 #include "plugin/file/job.h"
 #include "plugin/file/state_db_pool.h"
+#include <chucho/logger.h>
 
 typedef struct job_queue job_queue;
 

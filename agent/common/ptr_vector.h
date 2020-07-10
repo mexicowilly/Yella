@@ -21,6 +21,11 @@
 #include "common/ptr_helper.h"
 #include <stddef.h>
 
+#if defined(__cplusplus)
+extern "C"
+{
+#endif
+
 typedef struct yella_ptr_vector yella_ptr_vector;
 
 YELLA_EXPORT yella_ptr_vector* yella_copy_ptr_vector(const yella_ptr_vector* const v);
@@ -38,5 +43,9 @@ YELLA_EXPORT void yella_push_back_ptr_vector(yella_ptr_vector* v, void* p);
 YELLA_EXPORT void yella_push_front_ptr_vector(yella_ptr_vector* v, void* p);
 YELLA_EXPORT void yella_set_ptr_vector_copier(yella_ptr_vector* v, yella_ptr_copier cp, void* udata);
 YELLA_EXPORT void yella_set_ptr_vector_destructor(yella_ptr_vector* v, yella_ptr_destructor pd, void* udata);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif
