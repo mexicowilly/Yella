@@ -1,7 +1,7 @@
 #ifndef YELLA_PLUGIN_HPP__
 #define YELLA_PLUGIN_HPP__
 
-#include "plugin.h"
+#include "plugin/plugin.h"
 #include <chucho/loggable.hpp>
 #include <unicode/unistr.h>
 #include <vector>

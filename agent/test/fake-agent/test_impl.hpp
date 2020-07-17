@@ -3,6 +3,7 @@
 
 #include "agent.hpp"
 #include <chucho/loggable.hpp>
+#include <chucho/marker.hpp>
 #include <yaml-cpp/yaml.h>
 #include <filesystem>
 
@@ -22,6 +23,7 @@ protected:
 
     const YAML::Node& doc_;
     agent agent_;
+    chucho::marker lmrk_;
 };
 
 }

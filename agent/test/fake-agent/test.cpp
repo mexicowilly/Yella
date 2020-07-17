@@ -1,5 +1,6 @@
 #include "test.hpp"
 #include "file_test_impl.hpp"
+#include <chucho/log.hpp>
 
 namespace yella
 {
@@ -20,9 +21,20 @@ test::test(const std::filesystem::path& test_file, const std::filesystem::path& 
     impl_ = std::make_unique<file_test_impl>(doc, plugin);
 }
 
-void test::run()
+bool test::run()
 {
-    impl_->run();
+    bool result = true;
+    try
+    {
+        impl_->run();
+    }
+    catch (const std::exception& e)
+    {
+        CHUCHO_ERROR_L("Test failed: " << e.what());
+        result = false;
+
+    }
+    return result;
 }
 
 }

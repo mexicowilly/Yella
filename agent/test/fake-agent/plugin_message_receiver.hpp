@@ -1,7 +1,7 @@
 #ifndef YELLA_PLUGIN_MESSAGE_RECEIVER_HPP__
 #define YELLA_PLUGIN_MESSAGE_RECEIVER_HPP__
 
-#include "plugin.h"
+#include "plugin/plugin.h"
 
 namespace yella
 {

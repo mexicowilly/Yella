@@ -17,7 +17,7 @@ class test : public chucho::loggable<test>
 public:
     test(const std::filesystem::path& test_file, const std::filesystem::path& plugin);
 
-    void run();
+    bool run();
 
 protected:
     YAML::Node doc;
