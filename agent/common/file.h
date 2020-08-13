@@ -24,6 +24,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#if defined(__cplusplus)
+extern "C"
+{
+#endif
+
 YELLA_EXPORT extern const UChar* YELLA_DIR_SEP;
 
 typedef struct yella_directory_iterator yella_directory_iterator;
@@ -60,5 +65,9 @@ YELLA_EXPORT yella_rc yella_remove_file(const UChar* const name);
 YELLA_EXPORT yella_directory_iterator* yella_create_directory_iterator(const UChar* const dir);
 YELLA_EXPORT void yella_destroy_directory_iterator(yella_directory_iterator* itor);
 YELLA_EXPORT const UChar* yella_directory_iterator_next(yella_directory_iterator* itor);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

@@ -20,6 +20,8 @@ SET(FAKE_AGENT_SOURCES
     agent.cpp
     agent.hpp
     cxxopts.hpp
+    expected_exception.cpp
+    expected_exception.hpp
     file_test_impl.cpp
     file_test_impl.hpp
     main.cpp
@@ -35,7 +37,8 @@ SET(FAKE_AGENT_SOURCES
 
 IF(YELLA_POSIX)
     LIST(APPEND FAKE_AGENT_SOURCES
-         platform/posix/agent_posix.cpp)
+         platform/posix/agent_posix.cpp
+         platform/posix/file_test_impl_posix.cpp)
 ENDIF()
 
 ADD_EXECUTABLE(fake-agent ${FAKE_AGENT_SOURCES})
@@ -44,6 +47,7 @@ TARGET_LINK_LIBRARIES(fake-agent
                       "${YELLA_CHUCHO_LIB}"
                       "${YELLA_FLATBUFFERS_LIB}"
                       "${YELLA_YAML_CPP_LIB}"
+                      OpenSSL::Crypto
                       stdc++fs)
 IF(YELLA_LINUX)
     TARGET_LINK_LIBRARIES(fake-agent dl)

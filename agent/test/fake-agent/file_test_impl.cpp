@@ -1,7 +1,21 @@
 #include "file_test_impl.hpp"
-#include "file_generated.h"
+#include "expected_exception.hpp"
+#include "common/file.h"
 #include <chucho/log.hpp>
+#include <openssl/evp.h>
 #include <fstream>
+#include <thread>
+#include <flatbuffers/flatbuffers.h>
+
+namespace
+{
+
+static void digest_callback(const uint8_t* const buf, size_t sz, void* udata)
+{
+    EVP_DigestUpdate(reinterpret_cast<EVP_MD_CTX*>(udata), buf, sz);
+}
+
+}
 
 namespace yella
 {
@@ -9,9 +23,12 @@ namespace yella
 namespace test
 {
 
+using namespace std::chrono_literals;
+
 file_test_impl::file_test_impl(const YAML::Node& doc, const std::filesystem::path& plugin)
     : test_impl(doc, plugin),
-      working_dir_(std::filesystem::temp_directory_path() / "file-test")
+      working_dir_(std::filesystem::temp_directory_path() / "file-test"),
+      received_msg_count_(0)
 {
     rename_logger(typeid(file_test_impl));
 }
@@ -22,7 +39,7 @@ void file_test_impl::process_after(const YAML::Node& body)
     if (after)
     {
         process_file_state(after);
-
+        std::this_thread::sleep_for(5s);
     }
 }
 
@@ -51,10 +68,7 @@ void file_test_impl::process_file_state(const YAML::Node& body)
     for (const auto& itor : body)
     {
         if (itor.first.Scalar() == "file.state")
-        {
-            const auto& cur = itor.second;
-
-        }
+            expected_states_.emplace_back(itor.second);
     }
 }
 
@@ -141,16 +155,46 @@ void file_test_impl::process_monitor_requests(const YAML::Node& before)
 void file_test_impl::receive_plugin_message(const yella_parcel& pcl)
 {
     std::lock_guard<std::mutex> locker(received_guard_);
-    received_msgs_.emplace_back(pcl);
+    parcel p(pcl);
+    icu::UnicodeString type(u"yella.fb.file.file_states");
+    if (p.type() != type)
+        throw expected("parcel type", type, p.type());
+    if (p.compression() != YELLA_COMPRESSION_LZ4)
+        throw expected("compression type", YELLA_COMPRESSION_LZ4, p.compression());
+    if (p.group_id().get() != nullptr)
+        throw expected("group id", nullptr, p.group_id().get());
+    if (p.group_disposition().get() != nullptr)
+        throw expected("group disposition", nullptr, p.group_disposition().get());
+    std::string rec;
+    p.recipient().toUTF8String(rec);
+    std::string sen;
+    p.sender().toUTF8String(sen);
+    std::string type8;
+    p.type().toUTF8String(type8);
+    CHUCHO_INFO_L_M(lmrk_, "Received message of type '" << type8 << "' from '" << sen << "' to '" << rec << "' (" << p.major_sequence() << ", " << p.minor_sequence() << ")");
+    received_msg_count_++;
+    for (auto st : *flatbuffers::GetRoot<yella::fb::file::file_states>(&p.payload()[0])->states())
+        received_states_.emplace_back(*st);
 }
 
 void file_test_impl::run()
 {
-    for (const auto& cur : doc_)
+    try
     {
-        CHUCHO_INFO_L_M(lmrk_, "Running: " << cur.first.as<std::string>());
-        const auto& body = cur.second;
-        process_before(body);
+        for (const auto& cur : doc_)
+        {
+            CHUCHO_INFO_L_M(lmrk_, "Running: " << cur.first.as<std::string>());
+            const auto& body = cur.second;
+            process_before(body);
+        }
+    }
+    catch (const expected& exp)
+    {
+        CHUCHO_ERROR_L_STR_M(lmrk_, exp.what());
+    }
+    catch (const std::exception& e)
+    {
+        CHUCHO_ERROR_L_M(lmrk_, "Unexpected error: " << e.what());
     }
 }
 
@@ -168,6 +212,163 @@ void file_test_impl::send_message(const std::uint8_t* const data, std::size_t sz
     pcl.payload_size = sz;
     cap->handler(&pcl, cap->udata);
     CHUCHO_INFO_L_M(lmrk_, "Sent 'yella.file.monitor_request'");
+}
+
+file_test_impl::file_type_attribute::file_type_attribute(file_type ftype)
+    : attribute(type::FILE_TYPE),
+      ftype_(ftype)
+{
+}
+
+file_test_impl::file_type_attribute::file_type_attribute(const fb::file::attr& fba)
+    : attribute(type::FILE_TYPE)
+{
+    assert(fba.type() == fb::file::attr_type_FILE_TYPE);
+    switch (fba.ftype())
+    {
+    case fb::file::file_type_BLOCK_SPECIAL:
+        ftype_ = file_type::BLOCK_SPECIAL;
+        break;
+    case fb::file::file_type_CHARACTER_SPECIAL:
+        ftype_ = file_type::CHARACTER_SPECIAL;
+        break;
+    case fb::file::file_type_DIRECTORY:
+        ftype_ = file_type::DIRECTORY;
+        break;
+    case fb::file::file_type_FIFO:
+        ftype_ = file_type::FIFO;
+        break;
+    case fb::file::file_type_REGULAR:
+        ftype_ = file_type::REGULAR;
+        break;
+    case fb::file::file_type_SOCKET:
+        ftype_ = file_type::SOCKET;
+        break;
+    case fb::file::file_type_SYMBOLIC_LINK:
+        ftype_ = file_type::SYMBOLIC_LINK;
+        break;
+    case fb::file::file_type_WHITEOUT:
+        ftype_ = file_type::SYMBOLIC_LINK;
+        break;
+    }
+}
+
+file_test_impl::bytes_attribute::bytes_attribute(type tp, const std::vector<std::uint8_t>& bytes)
+    : attribute(tp),
+      bytes_(bytes)
+{
+}
+
+file_test_impl::bytes_attribute::bytes_attribute(type tp, const fb::file::attr& fba)
+    : attribute(tp),
+      bytes_(fba.bytes()->begin(), fba.bytes()->end())
+{
+    assert(tp == type::SHA256);
+}
+
+file_test_impl::posix_permissions_attribute::posix_permissions_attribute(const fb::file::attr& fba)
+    : attribute(type::POSIX_PERMISSIONS)
+{
+    const auto& fbits = fba.psx_permissions();
+    if (fbits->owner_read())
+        bits_.set(static_cast<std::size_t>(perm::OWNER_READ));
+    if (fbits->owner_write())
+        bits_.set(static_cast<std::size_t>(perm::OWNER_WRITE));
+    if (fbits->owner_execute())
+        bits_.set(static_cast<std::size_t>(perm::OWNER_EXECUTE));
+    if (fbits->group_read())
+        bits_.set(static_cast<std::size_t>(perm::GROUP_READ));
+    if (fbits->group_write())
+        bits_.set(static_cast<std::size_t>(perm::GROUP_WRITE));
+    if (fbits->group_execute())
+        bits_.set(static_cast<std::size_t>(perm::GROUP_EXECUTE));
+    if (fbits->other_read())
+        bits_.set(static_cast<std::size_t>(perm::OTHER_READ));
+    if (fbits->other_write())
+        bits_.set(static_cast<std::size_t>(perm::OTHER_WRITE));
+    if (fbits->other_execute())
+        bits_.set(static_cast<std::size_t>(perm::OTHER_EXECUTE));
+    if (fbits->set_uid())
+        bits_.set(static_cast<std::size_t>(perm::SET_UID));
+    if (fbits->set_gid())
+        bits_.set(static_cast<std::size_t>(perm::SET_GID));
+    if (fbits->sticky())
+        bits_.set(static_cast<std::size_t>(perm::STICKY));
+}
+
+file_test_impl::file_state::file_state(const fb::file::file_state& fb)
+    : file_name_(fb.file_name()->str()),
+      config_name_(fb.config_name()->str())
+{
+    if (fb.cond() == fb::file::condition_ADDED)
+        cond_ = condition::ADDED;
+    else if (fb.cond() == fb::file::condition_CHANGED)
+        cond_ = condition::CHANGED;
+    else if (fb.cond() == fb::file::condition_REMOVED)
+        cond_ = condition::REMOVED;
+    for (auto cur : *fb.attrs())
+    {
+        if (cur->type() == fb::file::attr_type_FILE_TYPE)
+            attrs_.emplace_back(std::make_unique<file_type_attribute>(*cur));
+        else if (cur->type() == fb::file::attr_type_SHA256)
+            attrs_.emplace_back(std::make_unique<bytes_attribute>(attribute::type::SHA256, *cur));
+        else if (cur->type() == fb::file::attr_type_POSIX_PERMISSIONS)
+            attrs_.emplace_back(std::make_unique<posix_permissions_attribute>(*cur));
+    }
+}
+
+file_test_impl::file_state::file_state(const YAML::Node& body)
+{
+    auto n = body["monitor.request.name"];
+    if (n)
+        config_name_ = n.Scalar();
+    n = body["file.name"];
+    if (n)
+        file_name_ = n.Scalar();
+    n = body["condition"];
+    if (n)
+    {
+        if (n.Scalar() == "ADDED")
+            cond_ = condition::ADDED;
+        else if (n.Scalar() == "CHANGED")
+            cond_ = condition::CHANGED;
+        else if (n.Scalar() == "REMOVED")
+            cond_ = condition::REMOVED;
+    }
+    if (std::filesystem::exists(file_name_))
+    {
+        n = body["attrs"];
+        if (n.IsSequence())
+        {
+            for (const auto& cur : n)
+            {
+                if (cur.Scalar() == "SHA256")
+                    maybe_add_sha256_attr();
+                else if (cur.Scalar() == "POSIX_PERMISSIONS")
+                    attrs_.emplace_back(std::make_unique<posix_permissions_attribute>(file_name_));
+                else if (cur.Scalar() == "FILE_TYPE")
+                    attrs_.emplace_back(std::make_unique<file_type_attribute>(file_name_));
+            }
+        }
+    }
+}
+
+void file_test_impl::file_state::maybe_add_sha256_attr()
+{
+    if (std::filesystem::is_regular_file(file_name_) || std::filesystem::is_symlink(file_name_))
+    {
+        auto ctx = EVP_MD_CTX_new();
+        EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
+        // This method is used because otherwise it's a pain in the ass to get the file
+        // contents without following symlinks
+        yella_apply_function_to_file_contents(file_name_.u16string().c_str(), digest_callback, ctx);
+        unsigned char md[EVP_MAX_MD_SIZE];
+        unsigned md_len;
+        EVP_DigestFinal_ex(ctx, md, &md_len);
+        EVP_MD_CTX_free(ctx);
+        std::vector<std::uint8_t> md_bytes(md, md + md_len);
+        attrs_.emplace_back(std::make_unique<bytes_attribute>(attribute::type::SHA256, md_bytes));
+    }
 }
 
 }
