@@ -6,6 +6,7 @@
 #include "file_generated.h"
 #include <mutex>
 #include <bitset>
+#include <condition_variable>
 
 namespace yella
 {
@@ -34,10 +35,15 @@ private:
 
         virtual ~attribute() = default;
 
+        virtual void emit(YAML::Emitter& e) const;
         type get_type() const { return type_; }
 
     protected:
+        friend bool operator== (const attribute& lhs, const attribute& rhs) { return lhs.equal_to(rhs); }
+
         attribute(type tp) : type_(tp) { }
+
+        virtual bool equal_to(const attribute& rhs) const;
 
         type type_;
     };
@@ -61,7 +67,11 @@ private:
         file_type_attribute(const fb::file::attr& fba);
         file_type_attribute(const std::filesystem::path& file_name);
 
+        virtual void emit(YAML::Emitter& e) const override;
         file_type get_file_type() const { return ftype_; }
+
+    protected:
+        virtual bool equal_to(const attribute& rhs) const override;
 
     private:
         file_type ftype_;
@@ -73,7 +83,11 @@ private:
         bytes_attribute(type tp, const std::vector<std::uint8_t>& bytes);
         bytes_attribute(type tp, const fb::file::attr& fba);
 
+        virtual void emit(YAML::Emitter& e) const override;
         const std::vector<std::uint8_t>& get_bytes() const { return bytes_; }
+
+    protected:
+        virtual bool equal_to(const attribute& rhs) const override;
 
     private:
         std::vector<std::uint8_t> bytes_;
@@ -101,7 +115,11 @@ private:
         posix_permissions_attribute(const std::filesystem::path& file_name);
         posix_permissions_attribute(const fb::file::attr& fba);
 
-        bool has(perm p) { return bits_.test(static_cast<std::size_t>(p)); }
+        virtual void emit(YAML::Emitter& e) const override;
+        bool has(perm p) const { return bits_.test(static_cast<std::size_t>(p)); }
+
+    protected:
+        virtual bool equal_to(const attribute& rhs) const override;
 
     private:
         std::bitset<12> bits_;
@@ -117,22 +135,54 @@ private:
             REMOVED
         };
 
-        file_state(const std::filesystem::path& fname, const std::vector<attribute::type>& attrs);
+        struct attr_type_less
+        {
+            constexpr bool operator() (const std::unique_ptr<attribute>& lhs, const std::unique_ptr<attribute>& rhs) const { return lhs->get_type() < rhs->get_type(); }
+        };
+
         file_state(const fb::file::file_state& fb);
         file_state(const YAML::Node& body);
 
-        const std::vector<std::unique_ptr<attribute>>& get_attributes() const { return attrs_; }
+        bool operator== (const file_state& other) const;
+        bool operator!= (const file_state& other) const { return !operator==(other); }
+
+        const std::set<std::unique_ptr<attribute>, attr_type_less>& get_attributes() const { return attrs_; }
         condition get_condition() const { return cond_; }
         const std::string& get_config_name() const { return config_name_; }
         const std::filesystem::path& get_file_name() const { return file_name_; }
+        UDate get_time() const { return time_; }
+        std::string to_text() const;
 
     private:
         void maybe_add_sha256_attr();
 
+        UDate time_;
         std::filesystem::path file_name_;
         std::string config_name_;
         condition cond_;
-        std::vector<std::unique_ptr<attribute>> attrs_;
+        std::set<std::unique_ptr<attribute>, attr_type_less> attrs_;
+    };
+
+    struct file_state_less
+    {
+        constexpr bool operator() (const file_state& lhs, const file_state& rhs) const
+        {
+            bool result = false;
+            auto cmp = lhs.get_config_name().compare(rhs.get_config_name());
+            if (cmp < 0)
+            {
+                result = true;
+            }
+            else if (cmp == 0)
+            {
+                auto cmp2 = lhs.get_file_name().compare(rhs.get_file_name());
+                if (cmp2 < 0)
+                    result = true;
+                else if (cmp2 == 0)
+                    result = lhs.get_time() < rhs.get_time();
+            }
+            return result;
+        }
     };
 
     void process_after(const YAML::Node& body);
@@ -142,13 +192,22 @@ private:
     void process_monitor_requests(const YAML::Node& before);
     void process_exists(const YAML::Node& before);
     void send_message(const std::uint8_t* const data, std::size_t sz);
+    template <class rep, class prd>
+    bool wait_for_states(std::size_t count, const std::chrono::duration<rep, prd>& max_time);
 
-    std::filesystem::path working_dir_;
     std::mutex received_guard_;
-    std::vector<file_state> expected_states_;
+    std::multiset<file_state, file_state_less> expected_states_;
     std::size_t received_msg_count_;
-    std::vector<file_state> received_states_;
+    std::multiset<file_state, file_state_less> received_states_;
+    std::condition_variable received_cond_;
 };
+
+template <class rep, class prd>
+bool file_test_impl::wait_for_states(std::size_t count, const std::chrono::duration<rep, prd>& max_time)
+{
+    std::unique_lock<std::mutex> lock(received_guard_);
+    return received_cond_.wait_for(lock, max_time, [this,count]() { return received_states_.size() >= count; });
+}
 
 }
 

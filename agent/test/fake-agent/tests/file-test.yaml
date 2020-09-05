@@ -1,22 +1,16 @@
 plugin.type: file
 
 "one config with one regular file":
-    before:
-      exists: test.txt
-      monitor.request:
-        action: REPLACE_ALL
-        name: mr1
-        include: test.txt
-        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
-    after:
-      file.state:
-        monitor.request.name: mr1
-        condition: ADDED
-        file.name: test.txt
-        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
-
-chucho::logger:
-  name: <root>
-  chucho::cout_writer:
-    chucho::pattern_formatter:
-      pattern: '%p %D{%H:%M:%S.%q}: %k%m%n'
+  before:
+    exists: test.txt
+    monitor.request:
+      action: REPLACE_ALL
+      config.name: mr1
+      include: test.txt
+      attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
+  after:
+    file.state:
+      config.name: mr1
+      condition: ADDED
+      file.name: test.txt
+      attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]

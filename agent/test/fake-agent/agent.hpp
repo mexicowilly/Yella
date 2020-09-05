@@ -16,7 +16,7 @@ namespace test
 class agent : public chucho::loggable<agent>
 {
 public:
-    agent(const std::filesystem::path& plugin, plugin_message_receiver& rcvr);
+    agent(const std::filesystem::path& plugin, plugin_message_receiver& rcvr, const std::filesystem::path& working_dir);
     ~agent();
 
     const plugin& current_plugin() const;
@@ -28,6 +28,7 @@ private:
     void load_plugin(const std::filesystem::path& plugin);
     void unload_plugin();
 
+    std::filesystem::path working_dir_;
     void* shared_object_;
     yella_plugin_start_func start_func_;
     yella_plugin_status_func status_func_;

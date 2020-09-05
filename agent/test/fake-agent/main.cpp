@@ -13,11 +13,15 @@ int main(int argc, char* argv[])
         cxxopts::Options opts("fake-agent", "Tests plugins");
         opts.add_options()
             ("t,test", "The test file", cxxopts::value<std::string>())
-            ("p,plugin", "The plugin to test", cxxopts::value<std::string>());
+            ("p,plugin", "The plugin to test", cxxopts::value<std::string>())
+            ("c,chucho", "The Chucho config file", cxxopts::value<std::string>());
         auto result = opts.parse(argc, argv);
         if (result["test"].count() && result["plugin"].count())
         {
-            chucho::configuration::set_file_name(result["test"].as<std::string>());
+            if (result["chucho"].count())
+                chucho::configuration::set_file_name(result["chucho"].as<std::string>());
+            else
+                chucho::configuration::set_file_name(result["test"].as<std::string>());
             yella::test::test tst(result["test"].as<std::string>(), result["plugin"].as<std::string>());
             tst.run();
         }

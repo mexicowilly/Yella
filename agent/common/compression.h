@@ -5,7 +5,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
-YELLA_EXPORT uint8_t* yella_lz4_compress(const uint8_t* const bytes, size_t* size);
-YELLA_EXPORT uint8_t* yella_lz4_decompress(const uint8_t* const bytes, size_t* size);
+#if defined(__cplusplus)
+extern "C"
+{
+#endif
+
+YELLA_EXPORT uint8_t * yella_lz4_compress(const uint8_t * const bytes, size_t * size);
+YELLA_EXPORT uint8_t * yella_lz4_decompress(const uint8_t * const bytes, size_t * size);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

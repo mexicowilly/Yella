@@ -16,14 +16,17 @@ namespace test
 class test_impl : public chucho::loggable<test_impl>, public plugin_message_receiver
 {
 public:
+    virtual ~test_impl();
+
     virtual void run() = 0;
 
 protected:
     test_impl(const YAML::Node& doc, const std::filesystem::path& plugin);
 
     const YAML::Node& doc_;
-    agent agent_;
     chucho::marker lmrk_;
+    std::filesystem::path working_dir_;
+    agent agent_;
 };
 
 }

@@ -91,7 +91,6 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
     element* existing_elem;
     uds top_dir;
     yella_file_type ftype;
-    char* utf8;
 
     special = first_unescaped_special_char(incl);
     if (special == NULL)

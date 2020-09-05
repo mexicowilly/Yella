@@ -196,6 +196,7 @@ void add_accumulator_message(accumulator* acc,
         sglib_msg_node_add(&acc->recipients, found);
     }
     yella_fb_file_file_state_start(&found->bld);
+    yella_fb_file_file_state_milliseconds_since_epoch_add(&found->bld, ucal_getNow());
     utf8 = yella_to_utf8(config_name);
     yella_fb_file_file_state_config_name_create_str(&found->bld, utf8);
     free(utf8);

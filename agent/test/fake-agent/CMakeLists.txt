@@ -5,11 +5,14 @@ INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}"
                     "${YELLA_GEN_DIR}")
 
 ADD_CUSTOM_COMMAND(OUTPUT "${YELLA_GEN_DIR}/parcel_generated.h"
-                   COMMAND "${YELLA_FLATC}" --cpp -o "${YELLA_GEN_DIR}" "${CMAKE_SOURCE_DIR}/agent/common/serialization/public/parcel.fbs")
+                   COMMAND "${YELLA_FLATC}" --cpp -o "${YELLA_GEN_DIR}" "${CMAKE_SOURCE_DIR}/agent/common/serialization/public/parcel.fbs"
+                   DEPENDS "${CMAKE_SOURCE_DIR}/agent/common/serialization/public/parcel.fbs")
 ADD_CUSTOM_COMMAND(OUTPUT "${YELLA_GEN_DIR}/plugin_generated.h"
-                   COMMAND "${YELLA_FLATC}" --cpp -o "${YELLA_GEN_DIR}" "${CMAKE_SOURCE_DIR}/agent/plugin/serialization/public/plugin.fbs")
+                   COMMAND "${YELLA_FLATC}" --cpp -o "${YELLA_GEN_DIR}" "${CMAKE_SOURCE_DIR}/agent/plugin/serialization/public/plugin.fbs"
+                   DEPENDS "${CMAKE_SOURCE_DIR}/agent/plugin/serialization/public/plugin.fbs")
 ADD_CUSTOM_COMMAND(OUTPUT "${YELLA_GEN_DIR}/file_generated.h"
-                   COMMAND "${YELLA_FLATC}" --cpp -o "${YELLA_GEN_DIR}" -I "${CMAKE_SOURCE_DIR}/agent/plugin/serialization/public" "${CMAKE_SOURCE_DIR}/agent/plugin/file/serialization/public/file.fbs")
+                   COMMAND "${YELLA_FLATC}" --cpp -o "${YELLA_GEN_DIR}" -I "${CMAKE_SOURCE_DIR}/agent/plugin/serialization/public" "${CMAKE_SOURCE_DIR}/agent/plugin/file/serialization/public/file.fbs"
+                   DEPENDS "${CMAKE_SOURCE_DIR}/agent/plugin/file/serialization/public/file.fbs")
 ADD_CUSTOM_TARGET(fake-agent-gen
                   DEPENDS
                   "${YELLA_GEN_DIR}/parcel_generated.h"

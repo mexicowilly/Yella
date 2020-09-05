@@ -78,7 +78,7 @@ void add_or_replace_event_source_specs(event_source* esrc, event_source_spec** s
     if (chucho_logger_permits(esrc->lgr, CHUCHO_INFO))
     {
         spec_text = specs_to_yaml(specs, count);
-        CHUCHO_C_INFO(esrc->lgr, "Added config: %s", spec_text);
+        CHUCHO_C_INFO(esrc->lgr, "Added event source spec: %s", spec_text);
         free(spec_text);
     }
 }

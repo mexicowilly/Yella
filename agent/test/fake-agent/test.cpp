@@ -32,7 +32,6 @@ bool test::run()
     {
         CHUCHO_ERROR_L("Test failed: " << e.what());
         result = false;
-
     }
     return result;
 }
