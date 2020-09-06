@@ -297,6 +297,7 @@ static config_node* process_plugin_config(file_plugin* fplg, yella_fb_file_monit
 {
     yella_fb_plugin_config_table_t fb_cfg;
     config_node* cfg;
+    UChar* utf16;
 
     if (!yella_fb_file_monitor_request_config_is_present(tbl))
     {
@@ -311,7 +312,9 @@ static config_node* process_plugin_config(file_plugin* fplg, yella_fb_file_monit
     }
     CHUCHO_C_INFO(fplg->lgr, "Received monitor request '%s'", yella_fb_plugin_config_name(fb_cfg));
     cfg = malloc(sizeof(config_node));
-    cfg->name = udsnew(yella_from_utf8(yella_fb_plugin_config_name(fb_cfg)));
+    utf16 = yella_from_utf8(yella_fb_plugin_config_name(fb_cfg));
+    cfg->name = udsnew(utf16);
+    free(utf16);
     *act = yella_fb_plugin_config_action(fb_cfg);
     return cfg;
 }

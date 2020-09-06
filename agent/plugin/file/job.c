@@ -4,7 +4,6 @@
 #include "plugin/file/state_db_pool.h"
 #include "common/file.h"
 #include "common/uds_util.h"
-#include "common/text_util.h"
 #include <unicode/ustring.h>
 #include <sys/param.h>
 

@@ -43,7 +43,7 @@ static char* specs_to_yaml(event_source_spec** specs, size_t count)
             yaml_document_append_sequence_item(&doc, seq, value);
         }
         yaml_document_append_mapping_pair(&doc, cur, key, seq);
-        key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)"includes", 8, YAML_PLAIN_SCALAR_STYLE);
+        key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)"excludes", 8, YAML_PLAIN_SCALAR_STYLE);
         seq = yaml_document_add_sequence(&doc, NULL, YAML_FLOW_SEQUENCE_STYLE);
         for (i = 0; i < yella_ptr_vector_size(specs[j]->excludes); i++)
         {
