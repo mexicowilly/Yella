@@ -26,6 +26,7 @@ static char* specs_to_yaml(event_source_spec** specs, size_t count)
     int value;
     int cur;
     int seq;
+    char* result;
 
     yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1);
     top = yaml_document_add_mapping(&doc, NULL, YAML_FLOW_MAPPING_STYLE);
@@ -57,7 +58,9 @@ static char* specs_to_yaml(event_source_spec** specs, size_t count)
         free(utf8);
         yaml_document_append_mapping_pair(&doc, top, key, cur);
     }
-    return yella_emit_yaml(&doc);
+    result = yella_emit_yaml(&doc);
+    yaml_document_delete(&doc);
+    return result;
 }
 
 void add_or_replace_event_source_specs(event_source* esrc, event_source_spec** specs, size_t count)

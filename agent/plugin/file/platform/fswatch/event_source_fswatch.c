@@ -5,7 +5,7 @@
 #include "common/text_util.h"
 #include "common/uds_util.h"
 #include "common/file.h"
-#include "common/text_util.h"
+#include "common/yaml_util.h"
 #include <chucho/log.h>
 #include <libfswatch/c/libfswatch.h>
 #include <unicode/ustring.h>
@@ -36,10 +36,11 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
     const UChar* cur_inc;
     const UChar* spesh;
     yella_ptr_vector* paths;
-    uds log_msg;
-    int32_t cur_len;
     char* utf8;
     yella_ptr_vector* uniq;
+    yaml_document_t doc;
+    int seq;
+    int value;
 
     paths = yella_create_uds_ptr_vector();
     for (cur_spec = sglib_event_source_spec_it_init(&spec_itor, esrc->specs);
@@ -76,15 +77,19 @@ static yella_ptr_vector* get_paths(const event_source* const esrc)
         paths = uniq;
         if (chucho_logger_permits(esrc->lgr, CHUCHO_INFO))
         {
-            log_msg = udscatprintf(udsempty(), u"Watching paths:%S", YELLA_NL);
+            yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1);
+            seq = yaml_document_add_sequence(&doc, NULL, YAML_FLOW_SEQUENCE_STYLE);
             for (i = 0; i < yella_ptr_vector_size(paths); i++)
-                log_msg = udscatprintf(log_msg, u"  '%S'%S", yella_ptr_vector_at(paths, i), YELLA_NL);
-            cur_len = u_strlen(YELLA_NL);
-            udsrange(log_msg, 0, -cur_len - 1);
-            utf8 = yella_to_utf8(log_msg);
-            CHUCHO_C_INFO(esrc->lgr, "%s", utf8);
+            {
+                utf8 = yella_to_utf8(yella_ptr_vector_at(paths, i));
+                value = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)utf8, strlen(utf8), YAML_PLAIN_SCALAR_STYLE);
+                free(utf8);
+                yaml_document_append_sequence_item(&doc, seq, value);
+            }
+            utf8 = yella_emit_yaml(&doc);
+            yaml_document_delete(&doc);
+            CHUCHO_C_INFO(esrc->lgr, "Watching paths: %s", utf8);
             free(utf8);
-            udsfree(log_msg);
         }
     }
     return paths;

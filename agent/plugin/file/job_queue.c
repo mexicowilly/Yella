@@ -166,6 +166,7 @@ void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr)
         yella_add_yaml_number_mapping(&doc, top, "slowest_job_microseconds", stats.slowest_job_microseconds);
         yella_add_yaml_number_mapping(&doc, top, "fastest_job_microseconds", stats.fastest_job_microseconds);
         utf8 = yella_emit_yaml(&doc);
+        yaml_document_delete(&doc);
         CHUCHO_C_INFO(lgr, "Job queue stats: %s", utf8);
         free(utf8);
     }
