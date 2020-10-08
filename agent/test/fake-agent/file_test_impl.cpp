@@ -33,7 +33,11 @@ file_test_impl::file_test_impl(const YAML::Node& doc, const std::filesystem::pat
       received_msg_count_(0)
 {
     rename_logger(typeid(file_test_impl));
-    CHUCHO_INFO_L("Working directory: " << working_dir_);
+}
+
+file_test_impl::~file_test_impl()
+{
+    destroy_agent();
 }
 
 void file_test_impl::process_after(const YAML::Node& body)
@@ -41,7 +45,13 @@ void file_test_impl::process_after(const YAML::Node& body)
     auto after = body["after"];
     if (after)
     {
-        process_file_state(after);
+        for (const auto& itor : after)
+        {
+            const auto& p = itor.begin();
+            if (p->first.Scalar() == "file.state")
+                expected_states_.emplace(p->second);
+        }
+        CHUCHO_INFO_L_M(lmrk_, "Expected state count: " << expected_states_.size());
         if (!wait_for_states(expected_states_.size(), 5s * expected_states_.size()))
         {
             std::lock_guard<std::mutex> lock(received_guard_);
@@ -55,8 +65,19 @@ void file_test_impl::process_before(const YAML::Node& body)
     auto before = body["before"];
     if (before)
     {
-        process_exists(before);
-        process_monitor_requests(before);
+        for (const auto& itor : before)
+        {
+            // This is a completely weird API for getting a map's key/value pair
+            const auto& p = itor.begin();
+            if (p->first.Scalar() == "exists")
+                process_exists(p->second);
+            else if (p->first.Scalar() == "monitor.request")
+                process_monitor_request(p->second);
+            else if (p->first.Scalar() == "pause")
+                process_pause(p->second);
+            else if (p->first.Scalar() == "grow")
+                process_grow(p->second);
+        }
     }
     YAML::Emitter emitter;
     emitter << YAML::Flow;
@@ -67,23 +88,16 @@ void file_test_impl::process_before(const YAML::Node& body)
     CHUCHO_INFO_L_M(lmrk_, "Loggers: " << emitter.c_str());
 }
 
-void file_test_impl::process_exists(const YAML::Node& before)
+void file_test_impl::process_exists(const YAML::Node& body)
 {
-    auto exists = before["exists"];
-    if (exists)
-    {
-        std::ofstream out(working_dir_ / exists.Scalar());
-        out << "file contents";
-    }
+    std::ofstream out(working_dir_ / body.Scalar());
+    out << "file contents";
 }
 
-void file_test_impl::process_file_state(const YAML::Node& body)
+void file_test_impl::process_grow(const YAML::Node& body)
 {
-    for (const auto& itor : body)
-    {
-        if (itor.first.Scalar() == "file.state")
-            expected_states_.emplace(itor.second);
-    }
+    std::ofstream out(working_dir_ / body.Scalar(), std::ios::ate | std::ios::out);
+    out << "Here's some text!";
 }
 
 void file_test_impl::process_monitor_request(const YAML::Node& body)
@@ -163,16 +177,20 @@ void file_test_impl::process_monitor_request(const YAML::Node& body)
     send_message(fbld.GetBufferPointer(), fbld.GetSize());
 }
 
-void file_test_impl::process_monitor_requests(const YAML::Node& before)
+void file_test_impl::process_pause(const YAML::Node& body)
 {
-    for (const auto& cur : before)
+    try
     {
-        if (cur.first.Scalar() == "monitor.request")
-            process_monitor_request(cur.second);
+        auto num = std::stoul(body.Scalar());
+        std::this_thread::sleep_for(std::chrono::seconds(num));
+    }
+    catch (...)
+    {
+        CHUCHO_WARN_L_M(lmrk_, "Could not convert '" + body.Scalar() + "' to a number");
     }
 }
 
-void file_test_impl::receive_plugin_message(const yella_parcel& pcl)
+void file_test_impl::receive_plugin_message_impl(const yella_parcel& pcl)
 {
     parcel p(pcl);
     icu::UnicodeString type(u"yella.fb.file.file_states");
@@ -228,7 +246,7 @@ void file_test_impl::run()
 
 void file_test_impl::send_message(const std::uint8_t* const data, std::size_t sz)
 {
-    const plugin& plg = agent_.current_plugin();
+    const plugin& plg = agent_->current_plugin();
     auto cap = std::find_if(plg.in_caps().begin(), plg.in_caps().end(), [](const plugin::in_cap& cap) { return cap.name == u"file.monitor_request"; });
     if (cap == plg.in_caps().end())
         throw std::runtime_error("This plugin does not support 'file.monitor_request'");

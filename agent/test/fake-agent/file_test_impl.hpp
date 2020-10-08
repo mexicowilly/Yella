@@ -18,9 +18,12 @@ class file_test_impl : public test_impl
 {
 public:
     file_test_impl(const YAML::Node& doc, const std::filesystem::path& plugin);
+    ~file_test_impl();
 
-    virtual void receive_plugin_message(const yella_parcel& pcl) override;
     virtual void run() override;
+
+protected:
+    virtual void receive_plugin_message_impl(const yella_parcel& pcl) override;
 
 private:
     class attribute
@@ -187,10 +190,10 @@ private:
 
     void process_after(const YAML::Node& body);
     void process_before(const YAML::Node& body);
-    void process_file_state(const YAML::Node& body);
+    void process_exists(const YAML::Node& body);
+    void process_grow(const YAML::Node& body);
     void process_monitor_request(const YAML::Node& body);
-    void process_monitor_requests(const YAML::Node& before);
-    void process_exists(const YAML::Node& before);
+    void process_pause(const YAML::Node& body);
     void send_message(const std::uint8_t* const data, std::size_t sz);
     template <class rep, class prd>
     bool wait_for_states(std::size_t count, const std::chrono::duration<rep, prd>& max_time);

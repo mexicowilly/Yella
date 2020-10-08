@@ -11,9 +11,9 @@ namespace yella
 namespace test
 {
 
-agent::agent(const std::filesystem::path& plugin, plugin_message_receiver& rcvr, const std::filesystem::path& working_dir)
+agent::agent(const std::filesystem::path& plugin, std::function<void(const yella_parcel&)>&& rcvr, const std::filesystem::path& working_dir)
     : working_dir_(working_dir),
-      rcvr_(rcvr)
+      rcvr_(std::move(rcvr))
 {
     std::filesystem::create_directories(working_dir);
     YAML::Emitter emitter;
@@ -55,7 +55,7 @@ agent::~agent()
 
 void agent::plugin_send(void* ag, yella_parcel* pcl)
 {
-    reinterpret_cast<agent*>(ag)->rcvr_.receive_plugin_message(*pcl);
+    reinterpret_cast<agent*>(ag)->rcvr_(*pcl);
 }
 
 void agent::update()

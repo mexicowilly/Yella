@@ -1,7 +1,6 @@
 #ifndef YELLA_AGENT_HPP__
 #define YELLA_AGENT_HPP__
 
-#include "plugin_message_receiver.hpp"
 #include "plugin.hpp"
 #include <chucho/loggable.hpp>
 #include <filesystem>
@@ -16,7 +15,7 @@ namespace test
 class agent : public chucho::loggable<agent>
 {
 public:
-    agent(const std::filesystem::path& plugin, plugin_message_receiver& rcvr, const std::filesystem::path& working_dir);
+    agent(const std::filesystem::path& plugin, std::function<void(const yella_parcel&)>&& rcvr, const std::filesystem::path& working_dir);
     ~agent();
 
     const plugin& current_plugin() const;
@@ -33,7 +32,7 @@ private:
     yella_plugin_start_func start_func_;
     yella_plugin_status_func status_func_;
     yella_plugin_stop_func stop_func_;
-    plugin_message_receiver& rcvr_;
+    std::function<void(const yella_parcel&)> rcvr_;
     plugin current_plugin_;
 };
 

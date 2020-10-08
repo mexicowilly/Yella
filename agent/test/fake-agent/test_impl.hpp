@@ -13,7 +13,7 @@ namespace yella
 namespace test
 {
 
-class test_impl : public chucho::loggable<test_impl>, public plugin_message_receiver
+class test_impl : public chucho::loggable<test_impl>
 {
 public:
     virtual ~test_impl();
@@ -23,11 +23,22 @@ public:
 protected:
     test_impl(const YAML::Node& doc, const std::filesystem::path& plugin);
 
+    void destroy_agent();
+    virtual void receive_plugin_message_impl(const yella_parcel& pcl) = 0;
+
     const YAML::Node& doc_;
     chucho::marker lmrk_;
     std::filesystem::path working_dir_;
-    agent agent_;
+    std::unique_ptr<agent> agent_;
+
+private:
+    void receive_plugin_message(const yella_parcel& pcl);
 };
+
+inline void test_impl::destroy_agent()
+{
+    agent_.reset();
+}
 
 }
 
