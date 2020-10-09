@@ -18,6 +18,7 @@ public:
     expected(const std::string& ctx, const icu::UnicodeString& exp, const icu::UnicodeString& got);
     expected(const std::string& ctx, std::size_t exp, std::size_t got);
     expected(const std::string& ctx, const void* exp, const void* got);
+    expected(const std::string& ctx, const std::string& exp, const std::string& got);
 
     virtual const char* what() const noexcept override;
 

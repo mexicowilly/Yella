@@ -144,7 +144,7 @@ private:
         };
 
         file_state(const fb::file::file_state& fb);
-        file_state(const YAML::Node& body);
+        file_state(const std::filesystem::path& working_dir, const YAML::Node& body);
 
         bool operator== (const file_state& other) const;
         bool operator!= (const file_state& other) const { return !operator==(other); }
@@ -209,7 +209,8 @@ template <class rep, class prd>
 bool file_test_impl::wait_for_states(std::size_t count, const std::chrono::duration<rep, prd>& max_time)
 {
     std::unique_lock<std::mutex> lock(received_guard_);
-    return received_cond_.wait_for(lock, max_time, [this,count]() { return received_states_.size() >= count; });
+    return received_cond_.wait_for(lock, max_time, [this, count]() { return received_states_.size() >= count; }) &&
+           received_states_.size() == count;
 }
 
 }

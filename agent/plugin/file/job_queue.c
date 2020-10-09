@@ -7,6 +7,7 @@
 #include "common/yaml_util.h"
 #include <unicode/ustring.h>
 #include <chucho/log.h>
+#include <inttypes.h>
 
 typedef struct queue
 {
@@ -42,6 +43,7 @@ static void job_queue_main(void* udata)
     queue* front;
     uint64_t start_micros;
     uint64_t job_micros;
+    char* utf8;
 
     jq = (job_queue*)udata;
     CHUCHO_C_INFO(jq->lgr, "Job queue thread starting");
@@ -71,9 +73,21 @@ static void job_queue_main(void* udata)
             sglib_queue_delete(&jq->q, front);
             --jq->sz;
             yella_unlock_mutex(jq->guard);
+            if (chucho_logger_permits(jq->lgr, CHUCHO_INFO))
+            {
+                utf8 = yella_to_utf8(front->jb->config_name);
+                CHUCHO_C_INFO(jq->lgr, "Starting job for config '%s'", utf8);
+                free(utf8);
+            }
             start_micros = yella_microseconds_since_epoch();
             run_job(front->jb, jq->db_pool);
             job_micros = yella_microseconds_since_epoch() - start_micros;
+            if (chucho_logger_permits(jq->lgr, CHUCHO_INFO))
+            {
+                utf8 = yella_to_utf8(front->jb->config_name);
+                CHUCHO_C_INFO(jq->lgr, "Ended job for config '%s' (%" PRId64 " microseonds)", utf8, job_micros);
+                free(utf8);
+            }
             jq->accumulated_microseconds += job_micros;
             destroy_job(front->jb);
             free(front);

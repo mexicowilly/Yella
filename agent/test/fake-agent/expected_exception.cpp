@@ -31,6 +31,13 @@ expected::expected(const std::string& ctx, const void* exp, const void* got)
     msg_ = stream.str();
 }
 
+expected::expected(const std::string& ctx, const std::string& exp, const std::string& got)
+{
+    std::ostringstream stream;
+    stream << ctx << ": Expected '" << exp << "' got '" << got << "'";
+    msg_ = stream.str();
+}
+
 const char* expected::what() const noexcept
 {
     return msg_.c_str();

@@ -49,13 +49,20 @@ void file_test_impl::process_after(const YAML::Node& body)
         {
             const auto& p = itor.begin();
             if (p->first.Scalar() == "file.state")
-                expected_states_.emplace(p->second);
+                expected_states_.emplace(working_dir_, p->second);
         }
         CHUCHO_INFO_L_M(lmrk_, "Expected state count: " << expected_states_.size());
         if (!wait_for_states(expected_states_.size(), 5s * expected_states_.size()))
         {
             std::lock_guard<std::mutex> lock(received_guard_);
             throw expected("number of received states", expected_states_.size(), received_states_.size());
+        }
+        auto rcv = received_states_.begin();
+        for (const auto& exp : expected_states_)
+        {
+            if (exp != *rcv)
+                throw expected("file state", exp.to_text(), rcv->to_text());
+            ++rcv;
         }
     }
 }
@@ -472,7 +479,7 @@ file_test_impl::file_state::file_state(const fb::file::file_state& fb)
     }
 }
 
-file_test_impl::file_state::file_state(const YAML::Node& body)
+file_test_impl::file_state::file_state(const std::filesystem::path& working_dir, const YAML::Node& body)
     : time_(0)
 {
     auto n = body["config.name"];
@@ -480,7 +487,7 @@ file_test_impl::file_state::file_state(const YAML::Node& body)
         config_name_ = n.Scalar();
     n = body["file.name"];
     if (n)
-        file_name_ = n.Scalar();
+        file_name_ = working_dir / n.Scalar();
     n = body["condition"];
     if (n)
     {
