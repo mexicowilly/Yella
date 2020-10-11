@@ -15,6 +15,8 @@ agent::agent(const std::filesystem::path& plugin, std::function<void(const yella
     : working_dir_(working_dir),
       rcvr_(std::move(rcvr))
 {
+    std::error_code ec;
+    std::filesystem::remove_all(working_dir, ec);
     std::filesystem::create_directories(working_dir);
     YAML::Emitter emitter;
     emitter << YAML::BeginMap;

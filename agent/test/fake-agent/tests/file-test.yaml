@@ -2,17 +2,17 @@ plugin.type: file
 
 "one config with one regular file":
   before:
-    - exists: test.txt
+    - exists: one_add.txt
     - monitor.request:
         action: REPLACE_ALL
         config.name: mr1
-        include: test.txt
+        include: one_add.txt
         attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
   after:
     - file.state:
         config.name: mr1
         condition: ADDED
-        file.name: test.txt
+        file.name: one_add.txt
         attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
 
 #"one config with one regular file change":

@@ -20,7 +20,7 @@ public:
     file_test_impl(const YAML::Node& doc, const std::filesystem::path& plugin);
     ~file_test_impl();
 
-    virtual void run() override;
+    virtual bool run() override;
 
 protected:
     virtual void receive_plugin_message_impl(const yella_parcel& pcl) override;
@@ -188,6 +188,7 @@ private:
         }
     };
 
+    void clear_plugin_work();
     void process_after(const YAML::Node& body);
     void process_before(const YAML::Node& body);
     void process_exists(const YAML::Node& body);

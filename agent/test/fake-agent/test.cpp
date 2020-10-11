@@ -26,7 +26,7 @@ bool test::run()
     bool result = true;
     try
     {
-        impl_->run();
+        result = impl_->run();
     }
     catch (const std::exception& e)
     {

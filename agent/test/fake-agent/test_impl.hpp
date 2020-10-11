@@ -18,7 +18,7 @@ class test_impl : public chucho::loggable<test_impl>
 public:
     virtual ~test_impl();
 
-    virtual void run() = 0;
+    virtual bool run() = 0;
 
 protected:
     test_impl(const YAML::Node& doc, const std::filesystem::path& plugin);

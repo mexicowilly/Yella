@@ -23,7 +23,8 @@ int main(int argc, char* argv[])
             else
                 chucho::configuration::set_file_name(result["test"].as<std::string>());
             yella::test::test tst(result["test"].as<std::string>(), result["plugin"].as<std::string>());
-            tst.run();
+            if (!tst.run())
+                rc = EXIT_FAILURE;
         }
         else
         {

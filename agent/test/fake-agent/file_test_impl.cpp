@@ -40,6 +40,30 @@ file_test_impl::~file_test_impl()
     destroy_agent();
 }
 
+void file_test_impl::clear_plugin_work()
+{
+    agent_->update();
+    const plugin& plg = agent_->current_plugin();
+    for (const auto& in_cap : plg.in_caps())
+    {
+        for (const auto& cfg : in_cap.configs)
+        {
+            flatbuffers::FlatBufferBuilder fbld;
+            std::string utf8;
+            cfg.toUTF8String(utf8);
+            auto name = fbld.CreateString(utf8);
+            fb::plugin::configBuilder cbld(fbld);
+            cbld.add_action(fb::plugin::config_action_REPLACE_ALL);
+            cbld.add_name(name);
+            auto config = cbld.Finish();
+            fb::file::monitor_requestBuilder bld(fbld);
+            bld.add_config(config);
+            fbld.Finish(bld.Finish());
+            send_message(fbld.GetBufferPointer(), fbld.GetSize());
+        }
+    }
+}
+
 void file_test_impl::process_after(const YAML::Node& body)
 {
     auto after = body["after"];
@@ -61,7 +85,7 @@ void file_test_impl::process_after(const YAML::Node& body)
         for (const auto& exp : expected_states_)
         {
             if (exp != *rcv)
-                throw expected("file state", exp.to_text(), rcv->to_text());
+                throw expected("file state (ignore timestamp)", exp.to_text(), rcv->to_text());
             ++rcv;
         }
     }
@@ -229,8 +253,9 @@ void file_test_impl::receive_plugin_message_impl(const yella_parcel& pcl)
     received_cond_.notify_one();
 }
 
-void file_test_impl::run()
+bool file_test_impl::run()
 {
+    bool result = true;
     try
     {
         for (const auto& cur : doc_)
@@ -239,16 +264,24 @@ void file_test_impl::run()
             const auto& body = cur.second;
             process_before(body);
             process_after(body);
+            CHUCHO_INFO_L_STR_M(lmrk_, "Clearing plugin configs");
+            clear_plugin_work();
+            CHUCHO_INFO_L_STR_M(lmrk_, "Removing test data");
+            std::filesystem::remove_all(working_dir_);
+            std::filesystem::create_directory(working_dir_);
         }
     }
     catch (const expected& exp)
     {
         CHUCHO_ERROR_L_STR_M(lmrk_, exp.what());
+        result = false;
     }
     catch (const std::exception& e)
     {
         CHUCHO_ERROR_L_M(lmrk_, "Unexpected error: " << e.what());
+        result = false;
     }
+    return result;
 }
 
 void file_test_impl::send_message(const std::uint8_t* const data, std::size_t sz)
