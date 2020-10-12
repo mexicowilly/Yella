@@ -297,6 +297,7 @@ static config_node* process_plugin_config(file_plugin* fplg, yella_fb_file_monit
 {
     yella_fb_plugin_config_table_t fb_cfg;
     config_node* cfg;
+    UChar* utf16;
 
     if (!yella_fb_file_monitor_request_config_is_present(tbl))
     {
@@ -311,7 +312,9 @@ static config_node* process_plugin_config(file_plugin* fplg, yella_fb_file_monit
     }
     CHUCHO_C_INFO(fplg->lgr, "Received monitor request '%s'", yella_fb_plugin_config_name(fb_cfg));
     cfg = malloc(sizeof(config_node));
-    cfg->name = udsnew(yella_from_utf8(yella_fb_plugin_config_name(fb_cfg)));
+    utf16 = yella_from_utf8(yella_fb_plugin_config_name(fb_cfg));
+    cfg->name = udsnew(utf16);
+    free(utf16);
     *act = yella_fb_plugin_config_action(fb_cfg);
     return cfg;
 }
@@ -436,11 +439,12 @@ static void install_config_node(file_plugin* fplg, config_node* cfg, bool is_emp
     char* utf8;
     size_t i;
     event_source_spec* espec;
+    job* jb;
 
     yella_write_lock_reader_writer_lock(fplg->config_guard);
     assert(yella_ptr_vector_size(fplg->desc->in_caps) == 1);
     mon = yella_ptr_vector_at(fplg->desc->in_caps, 0);
-    assert(u_strcmp(mon->name, u"file.monitor_requests") == 0);
+    assert(u_strcmp(mon->name, u"file.monitor_request") == 0);
     if (act == yella_fb_plugin_config_action_REPLACE_ALL)
         yella_clear_ptr_vector(mon->configs);
     for (i = 0; i < yella_ptr_vector_size(mon->configs); i++)
@@ -469,6 +473,13 @@ static void install_config_node(file_plugin* fplg, config_node* cfg, bool is_emp
     else
     {
         sglib_config_node_add(&fplg->configs, cfg);
+        jb = create_job(cfg->name, cfg->recipient, fplg->acc);
+        jb->includes = yella_copy_ptr_vector(cfg->includes);
+        jb->excludes = yella_copy_ptr_vector(cfg->excludes);
+        jb->attr_type_count = cfg->attr_type_count;
+        jb->attr_types = malloc(sizeof(attribute_type) * jb->attr_type_count);
+        memcpy(jb->attr_types, cfg->attr_types, sizeof(attribute_type) * jb->attr_type_count);
+        push_job_queue(fplg->jq, jb);
         espec = malloc(sizeof(event_source_spec));
         espec->name = udsdup(cfg->name);
         espec->includes = yella_copy_ptr_vector(cfg->includes);
@@ -493,7 +504,7 @@ static yella_rc monitor_handler(const yella_parcel* const pcl, void* udata)
     size_t actual_size;
 
     fplg = (file_plugin*)udata;
-    assert(u_strcmp(pcl->type, u"yella.file.monitor_request") == 0);
+    assert(u_strcmp(pcl->type, u"file.monitor_request") == 0);
     assert(pcl->cmp == YELLA_COMPRESSION_NONE);
     if (pcl->cmp == YELLA_COMPRESSION_NONE)
     {
@@ -560,9 +571,9 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     fplg->config_guard = yella_create_reader_writer_lock();
     fplg->desc = yella_create_plugin(u"file", u"1", fplg);
     yella_push_back_ptr_vector(fplg->desc->in_caps,
-                               yella_create_plugin_in_cap(u"yella.file.monitor_request", 1, monitor_handler, fplg));
+                               yella_create_plugin_in_cap(u"file.monitor_request", 1, monitor_handler, fplg));
     yella_push_back_ptr_vector(fplg->desc->out_caps,
-                               yella_create_plugin_out_cap(u"yella.file.change", 1));
+                               yella_create_plugin_out_cap(u"file.change", 1));
     fplg->db_pool = create_state_db_pool();
     fplg->acc = create_accumulator(agnt, api);
     fplg->jq = create_job_queue(fplg->db_pool);

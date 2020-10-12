@@ -6,6 +6,7 @@
 #include <setjmp.h>
 #include <stdlib.h>
 #include <cmocka.h>
+#include <chucho/logger.h>
 #include <unicode/ustring.h>
 
 static void pack_unpack(void** arg)

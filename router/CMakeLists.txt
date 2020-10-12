@@ -11,7 +11,7 @@ INCLUDE_DIRECTORIES("${YELLA_FLATBUFFERS_INCLUDE_DIR}"
 
 ADD_CUSTOM_COMMAND(OUTPUT "${YELLA_GEN_DIR}/parcel_generated.h"
                    COMMAND "${YELLA_FLATC}" --cpp -o "${YELLA_GEN_DIR}" "${CMAKE_SOURCE_DIR}/agent/common/serialization/public/parcel.fbs")
-ADD_CUSTOM_TARGET(flatb-gen
+ADD_CUSTOM_TARGET(router-gen
                   DEPENDS "${YELLA_GEN_DIR}/parcel_generated.h")
 
 SET(YELLA_ROUTER_SOURCES
@@ -45,5 +45,5 @@ TARGET_LINK_LIBRARIES(yella-router
                       "${YELLA_ZEROMQ_LIB}"
                       "${YELLA_RABBITMQ_LIB}"
                       Threads::Threads)
-ADD_DEPENDENCIES(yella-router flatb-gen)
+ADD_DEPENDENCIES(yella-router router-gen)
 ADD_DEPENDENCIES(all-targets yella-router)

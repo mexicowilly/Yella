@@ -140,7 +140,7 @@ yella_rc yella_apply_function_to_file_contents(const UChar* const name,
         {
             yrc = YELLA_FILE_SYSTEM_ERROR;
             CHUCHO_C_ERROR("common",
-                           "Could read from '%s': %s",
+                           "Could not read from '%s': %s",
                            utf8,
                            strerror(errno));
         }

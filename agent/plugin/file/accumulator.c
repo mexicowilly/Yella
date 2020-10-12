@@ -96,7 +96,7 @@ static void worker_main(void* arg)
         {
             if (cur->count > 0 && (time_limit_reached || flatcc_builder_get_buffer_size(&cur->bld) >= max_msg_sz))
             {
-                pcl = yella_create_parcel(cur->recipient, u"yella.agent.file.change");
+                pcl = yella_create_parcel(cur->recipient, u"yella.fb.file.file_states");
                 pcl->cmp = YELLA_COMPRESSION_LZ4;
                 pcl->seq.minor = minor_seq++;
                 yella_fb_file_file_states_states_add(&cur->bld, yella_fb_file_file_state_vec_end(&cur->bld));
@@ -127,7 +127,7 @@ static void worker_main(void* arg)
     {
         if (cur->count > 0)
         {
-            pcl = yella_create_parcel(cur->recipient, u"file.change");
+            pcl = yella_create_parcel(cur->recipient, u"yella.fb.file.file_states");
             pcl->cmp = YELLA_COMPRESSION_LZ4;
             pcl->seq.minor = minor_seq++;
             yella_fb_file_file_states_states_add(&cur->bld, yella_fb_file_file_state_vec_end(&cur->bld));
@@ -196,6 +196,7 @@ void add_accumulator_message(accumulator* acc,
         sglib_msg_node_add(&acc->recipients, found);
     }
     yella_fb_file_file_state_start(&found->bld);
+    yella_fb_file_file_state_milliseconds_since_epoch_add(&found->bld, ucal_getNow());
     utf8 = yella_to_utf8(config_name);
     yella_fb_file_file_state_config_name_create_str(&found->bld, utf8);
     free(utf8);

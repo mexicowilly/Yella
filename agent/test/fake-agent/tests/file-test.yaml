@@ -1,0 +1,38 @@
+plugin.type: file
+
+"one config with one regular file":
+  before:
+    - exists: one_add.txt
+    - monitor.request:
+        action: REPLACE_ALL
+        config.name: mr1
+        include: one_add.txt
+        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
+  after:
+    - file.state:
+        config.name: mr1
+        condition: ADDED
+        file.name: one_add.txt
+        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
+
+#"one config with one regular file change":
+#  before:
+#    - exists: test.txt
+#    - monitor.request:
+#        action: REPLACE_ALL
+#        config.name: mr1
+#        include: test.txt
+#        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
+#    - pause: 1s
+#    - grow: test.txt
+#  after:
+#    - file.state:
+#        config.name: mr1
+#        condition: ADDED
+#        file.name: test.txt
+#        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
+#    - file.state:
+#        config.name: mr1
+#        condition: CHANGED
+#        file.name: test.txt
+#        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]

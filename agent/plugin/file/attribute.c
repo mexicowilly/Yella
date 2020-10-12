@@ -244,7 +244,7 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
             yella_fb_file_posix_permissions_set_gid_add(bld, true);
         if (attr->value.psx_permissions.sticky)
             yella_fb_file_posix_permissions_sticky_add(bld, true);
-        yella_fb_file_posix_permissions_end(bld);
+        yella_fb_file_attr_psx_permissions_add(bld, yella_fb_file_posix_permissions_end(bld));
         break;
     default:
         assert(false);

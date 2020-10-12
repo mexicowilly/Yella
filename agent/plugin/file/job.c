@@ -4,7 +4,6 @@
 #include "plugin/file/state_db_pool.h"
 #include "common/file.h"
 #include "common/uds_util.h"
-#include "common/text_util.h"
 #include <unicode/ustring.h>
 #include <sys/param.h>
 
@@ -91,7 +90,6 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
     element* existing_elem;
     uds top_dir;
     yella_file_type ftype;
-    char* utf8;
 
     special = first_unescaped_special_char(incl);
     if (special == NULL)

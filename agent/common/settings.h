@@ -23,6 +23,11 @@
 #include <string.h>
 #include <stdint.h>
 
+#if defined(__cplusplus)
+extern "C"
+{
+#endif
+
 typedef enum yella_setting_value_type
 {
     YELLA_SETTING_VALUE_TEXT,
@@ -51,5 +56,9 @@ YELLA_EXPORT void yella_settings_set_byte_size(const UChar* const section, const
 YELLA_EXPORT void yella_settings_set_dir(const UChar* const section, const UChar* const key, const UChar* const val);
 YELLA_EXPORT void yella_settings_set_text(const UChar* const section, const UChar* const key, const UChar* const val);
 YELLA_EXPORT void yella_settings_set_uint(const UChar* const section, const UChar* const key, uint64_t val);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

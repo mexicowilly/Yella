@@ -34,7 +34,7 @@
 #define __UDS_H
 
 #define UDS_MAX_PREALLOC (1024*1024)
-const char *UDS_NOINIT;
+extern const char *UDS_NOINIT;
 
 #include "export.h"
 #include <sys/types.h>
@@ -82,8 +82,8 @@ struct __attribute__ ((packed)) udshdr64 {
 #define UDS_TYPE_64 4
 #define UDS_TYPE_MASK 7
 #define UDS_TYPE_BITS 3
-#define UDS_HDR_VAR(T,s) struct udshdr##T *sh = (void*)(((void*)s)-(sizeof(struct udshdr##T)));
-#define UDS_HDR(T,s) ((struct udshdr##T *)(((void*)s)-(sizeof(struct udshdr##T))))
+#define UDS_HDR_VAR(T,s) struct udshdr##T *sh = (struct udshdr##T *)(((char*)s)-(sizeof(struct udshdr##T)));
+#define UDS_HDR(T,s) ((struct udshdr##T *)(((char*)s)-(sizeof(struct udshdr##T))))
 #define UDS_TYPE_5_LEN(f) ((f)>>UDS_TYPE_BITS)
 #define UDS_FLAGS(s) (*(((unsigned short*)s) - 1))
 

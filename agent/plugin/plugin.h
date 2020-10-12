@@ -7,7 +7,11 @@
 #include "common/parcel.h"
 #include "common/message_part.h"
 #include "plugin_reader.h"
-#include <chucho/logger.h>
+
+#if defined(__cplusplus)
+extern "C"
+{
+#endif
 
 typedef struct yella_agent_api
 {
@@ -47,10 +51,14 @@ YELLA_EXPORT yella_plugin* yella_create_plugin(const UChar* const name, const UC
 YELLA_EXPORT yella_plugin_in_cap* yella_create_plugin_in_cap(const UChar* const name, int version, yella_in_cap_handler handler, void* udata);
 YELLA_EXPORT yella_plugin_out_cap* yella_create_plugin_out_cap(const UChar* const name, int version);
 YELLA_EXPORT void yella_destroy_plugin(yella_plugin* plug);
-YELLA_EXPORT void yella_log_plugin_config(chucho_logger_t* lgr, yella_fb_plugin_config_table_t cfg);
+YELLA_EXPORT void yella_log_plugin_config(struct chucho_logger_t* lgr, yella_fb_plugin_config_table_t cfg);
 
 typedef yella_plugin* (*yella_plugin_start_func)(const yella_agent_api* api, void* agent);
 typedef yella_rc (*yella_plugin_stop_func)(void* udata);
 typedef yella_plugin* (*yella_plugin_status_func)(void* udata);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

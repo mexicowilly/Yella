@@ -26,6 +26,7 @@ static char* specs_to_yaml(event_source_spec** specs, size_t count)
     int value;
     int cur;
     int seq;
+    char* result;
 
     yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1);
     top = yaml_document_add_mapping(&doc, NULL, YAML_FLOW_MAPPING_STYLE);
@@ -42,7 +43,7 @@ static char* specs_to_yaml(event_source_spec** specs, size_t count)
             yaml_document_append_sequence_item(&doc, seq, value);
         }
         yaml_document_append_mapping_pair(&doc, cur, key, seq);
-        key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)"includes", 8, YAML_PLAIN_SCALAR_STYLE);
+        key = yaml_document_add_scalar(&doc, NULL, (yaml_char_t*)"excludes", 8, YAML_PLAIN_SCALAR_STYLE);
         seq = yaml_document_add_sequence(&doc, NULL, YAML_FLOW_SEQUENCE_STYLE);
         for (i = 0; i < yella_ptr_vector_size(specs[j]->excludes); i++)
         {
@@ -57,7 +58,9 @@ static char* specs_to_yaml(event_source_spec** specs, size_t count)
         free(utf8);
         yaml_document_append_mapping_pair(&doc, top, key, cur);
     }
-    return yella_emit_yaml(&doc);
+    result = yella_emit_yaml(&doc);
+    yaml_document_delete(&doc);
+    return result;
 }
 
 void add_or_replace_event_source_specs(event_source* esrc, event_source_spec** specs, size_t count)
@@ -78,7 +81,7 @@ void add_or_replace_event_source_specs(event_source* esrc, event_source_spec** s
     if (chucho_logger_permits(esrc->lgr, CHUCHO_INFO))
     {
         spec_text = specs_to_yaml(specs, count);
-        CHUCHO_C_INFO(esrc->lgr, "Added config: %s", spec_text);
+        CHUCHO_C_INFO(esrc->lgr, "Added event source spec: %s", spec_text);
         free(spec_text);
     }
 }

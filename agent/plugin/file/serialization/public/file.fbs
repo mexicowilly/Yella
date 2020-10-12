@@ -65,6 +65,7 @@ table posix_permissions
 
 table file_state
 {
+    milliseconds_since_epoch: uint64;
     config_name: string;
     cond: condition = ADDED;
     file_name: string;
