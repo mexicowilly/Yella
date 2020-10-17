@@ -352,7 +352,7 @@ UChar* yella_getcwd(void)
     return result;
 }
 
-yella_rc yella_get_file_type(const UChar* const name, yella_file_type* tp)
+yella_rc yella_get_file_type(const UChar* const name, yella_file_type* tp, void** stat_buf)
 {
     struct stat info;
     yella_rc result;
@@ -378,6 +378,11 @@ yella_rc yella_get_file_type(const UChar* const name, yella_file_type* tp)
         else if (S_ISWHT(info.st_mode))
             *tp = YELLA_FILE_TYPE_WHITEOUT;
 #endif
+        if (stat_buf != NULL)
+        {
+            *stat_buf = malloc(sizeof(struct stat));
+            memcpy(*stat_buf, &info, sizeof(struct stat));
+        }
     }
     return result;
 }

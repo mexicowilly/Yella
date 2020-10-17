@@ -202,7 +202,7 @@ static void file_type(void** arg)
 
     cwd = yella_getcwd();
     assert_non_null(cwd);
-    yrc = yella_get_file_type(cwd, &tp);
+    yrc = yella_get_file_type(cwd, &tp, NULL);
     assert_int_equal(YELLA_NO_ERROR, yrc);
     assert_int_equal(YELLA_FILE_TYPE_DIRECTORY, tp);
     f = fopen("file_type_regular", "w");
@@ -210,11 +210,11 @@ static void file_type(void** arg)
     fwrite(cwd, sizeof(UChar), u_strlen(cwd), f);
     fclose(f);
     free(cwd);
-    yrc = yella_get_file_type(u"file_type_regular", &tp);
+    yrc = yella_get_file_type(u"file_type_regular", &tp, NULL);
     assert_int_equal(YELLA_NO_ERROR, yrc);
     assert_int_equal(YELLA_FILE_TYPE_REGULAR, tp);
     remove("file_type_regular");
-    yrc = yella_get_file_type(u"doggy-doggy-wonderdog", &tp);
+    yrc = yella_get_file_type(u"doggy-doggy-wonderdog", &tp, NULL);
     assert_int_equal(YELLA_DOES_NOT_EXIST, yrc);
 }
 

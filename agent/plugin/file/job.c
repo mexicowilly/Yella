@@ -73,7 +73,7 @@ static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const
         process_element(cur, existing_elem, j, db);
         if (existing_elem != NULL)
             destroy_element(existing_elem);
-        if (yella_get_file_type(cur, &ftype) == YELLA_NO_ERROR &&
+        if (yella_get_file_type(cur, &ftype, NULL) == YELLA_NO_ERROR &&
             ftype == YELLA_FILE_TYPE_DIRECTORY)
         {
             crawl_dir(cur, cur_incl, j, db);
@@ -108,7 +108,7 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
         if (special >= incl)
         {
             top_dir = udsnewlen(incl, (special == incl) ? 1 : special - incl);
-            if (yella_get_file_type(top_dir, &ftype) == YELLA_NO_ERROR &&
+            if (yella_get_file_type(top_dir, &ftype, NULL) == YELLA_NO_ERROR &&
                 ftype == YELLA_FILE_TYPE_DIRECTORY)
             {
                 crawl_dir(top_dir, incl, j, db);

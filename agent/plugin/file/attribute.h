@@ -3,6 +3,7 @@
 
 #include "export.h"
 #include "file_builder.h"
+#include <unicode/ustring.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -11,7 +12,13 @@ typedef enum
 {
     ATTR_TYPE_FILE_TYPE,
     ATTR_TYPE_SHA256,
-    ATTR_TYPE_POSIX_PERMISSIONS
+    ATTR_TYPE_POSIX_PERMISSIONS,
+    ATTR_TYPE_USER,
+    ATTR_TYPE_GROUP,
+    ATTR_TYPE_SIZE,
+    ATTR_TYPE_ACCESS_TIME,
+    ATTR_TYPE_METADATA_CHANGE_TIME,
+    ATTR_TYPE_MODIFICATION_TIME
 } attribute_type;
 
 typedef struct posix_permissions
@@ -42,6 +49,13 @@ typedef struct attribute
             size_t sz;
         } byte_array;
         posix_permissions psx_permissions;
+        struct
+        {
+            uint64_t id;
+            UChar* name;
+        } user_group;
+        size_t size;
+        uint64_t millis_since_epoch;
     } value;
 } attribute;
 

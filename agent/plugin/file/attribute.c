@@ -1,5 +1,6 @@
 #include "attribute.h"
 #include "common/file.h"
+#include "common/text_util.h"
 #include <string.h>
 
 static yella_file_type fb_to_file_type(yella_fb_file_file_type_enum_t fbt)
@@ -89,6 +90,24 @@ uint16_t attribute_type_to_fb(attribute_type atp)
     case ATTR_TYPE_POSIX_PERMISSIONS:
         result = yella_fb_file_attr_type_POSIX_PERMISSIONS;
         break;
+    case ATTR_TYPE_USER:
+        result = yella_fb_file_attr_type_USER;
+        break;
+    case ATTR_TYPE_GROUP:
+        result = yella_fb_file_attr_type_GROUP;
+        break;
+    case ATTR_TYPE_SIZE:
+        result = yella_fb_file_attr_type_SIZE;
+        break;
+    case ATTR_TYPE_ACCESS_TIME:
+        result = yella_fb_file_attr_type_ACCESS_TIME;
+        break;
+    case ATTR_TYPE_METADATA_CHANGE_TIME:
+        result = yella_fb_file_attr_type_METADATA_CHANGE_TIME;
+        break;
+    case ATTR_TYPE_MODIFICATION_TIME:
+        result = yella_fb_file_attr_type_MODIFICATION_TIME;
+        break;
     default:
         assert(false);
     }
@@ -108,12 +127,26 @@ int compare_attributes(const attribute* const lhs, const attribute* const rhs)
             rc = lhs->value.integer - rhs->value.integer;
             break;
         case ATTR_TYPE_SHA256:
-            rc = (int)lhs->value.byte_array.sz - (int)rhs->value.byte_array.sz;
+            rc = (int64_t)lhs->value.byte_array.sz - (int64_t)rhs->value.byte_array.sz;
             if (rc == 0)
                 rc = memcmp(lhs->value.byte_array.mem, rhs->value.byte_array.mem, lhs->value.byte_array.sz);
             break;
         case ATTR_TYPE_POSIX_PERMISSIONS:
             rc = memcmp(&lhs->value.psx_permissions, &rhs->value.psx_permissions, sizeof(posix_permissions));
+            break;
+        case ATTR_TYPE_USER:
+        case ATTR_TYPE_GROUP:
+            rc = (int64_t)lhs->value.user_group.id - (int64_t)rhs->value.user_group.id;
+            if (rc == 0)
+                rc = u_strcmp(lhs->value.user_group.name, rhs->value.user_group.name);
+            break;
+        case ATTR_TYPE_SIZE:
+            rc = (int64_t)lhs->value.size - (int64_t)rhs->value.size;
+            break;
+        case ATTR_TYPE_ACCESS_TIME:
+        case ATTR_TYPE_METADATA_CHANGE_TIME:
+        case ATTR_TYPE_MODIFICATION_TIME:
+            rc = (int64_t)lhs->value.millis_since_epoch - (int64_t)rhs->value.millis_since_epoch;
             break;
         default:
             assert(false);
@@ -127,6 +160,7 @@ attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl)
     attribute* result;
     flatbuffers_uint8_vec_t bytes;
     yella_fb_file_posix_permissions_table_t psx_permissions;
+    yella_fb_file_user_group_table_t usr_grp;
 
     result = malloc(sizeof(attribute));
     switch (yella_fb_file_attr_type(tbl))
@@ -158,6 +192,29 @@ attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl)
         result->value.psx_permissions.set_gid = yella_fb_file_posix_permissions_set_gid(psx_permissions) ? true : false;
         result->value.psx_permissions.sticky = yella_fb_file_posix_permissions_sticky(psx_permissions) ? true : false;
         break;
+    case yella_fb_file_attr_type_USER:
+    case yella_fb_file_attr_type_GROUP:
+        result->type = (yella_fb_file_attr_type(tbl) == yella_fb_file_attr_type_USER) ? ATTR_TYPE_USER : ATTR_TYPE_GROUP;
+        usr_grp = yella_fb_file_attr_usr_grp(tbl);
+        result->value.user_group.id = yella_fb_file_user_group_id(usr_grp);
+        result->value.user_group.name = yella_from_utf8(yella_fb_file_user_group_name(usr_grp));
+        break;
+    case yella_fb_file_attr_type_SIZE:
+        result->type = ATTR_TYPE_SIZE;
+        result->value.size = yella_fb_file_attr_unsigned_int(tbl);
+        break;
+    case yella_fb_file_attr_type_ACCESS_TIME:
+        result->type = ATTR_TYPE_ACCESS_TIME;
+        result->value.millis_since_epoch = yella_fb_file_attr_millis_since_epoch(tbl);
+        break;
+    case yella_fb_file_attr_type_METADATA_CHANGE_TIME:
+        result->type = ATTR_TYPE_METADATA_CHANGE_TIME;
+        result->value.millis_since_epoch = yella_fb_file_attr_millis_since_epoch(tbl);
+        break;
+    case yella_fb_file_attr_type_MODIFICATION_TIME:
+        result->type = ATTR_TYPE_MODIFICATION_TIME;
+        result->value.millis_since_epoch = yella_fb_file_attr_millis_since_epoch(tbl);
+        break;
     default:
         assert(false);
     }
@@ -170,6 +227,10 @@ void destroy_attribute(attribute* attr)
     {
     case ATTR_TYPE_SHA256:
         free(attr->value.byte_array.mem);
+        break;
+    case ATTR_TYPE_USER:
+    case ATTR_TYPE_GROUP:
+        free(attr->value.user_group.name);
         break;
     default:
         break;
@@ -192,6 +253,24 @@ attribute_type fb_to_attribute_type(uint16_t fb)
     case yella_fb_file_attr_type_POSIX_PERMISSIONS:
         result = ATTR_TYPE_POSIX_PERMISSIONS;
         break;
+    case yella_fb_file_attr_type_USER:
+        result = ATTR_TYPE_USER;
+        break;
+    case yella_fb_file_attr_type_GROUP:
+        result = ATTR_TYPE_GROUP;
+        break;
+    case yella_fb_file_attr_type_SIZE:
+        result = ATTR_TYPE_SIZE;
+        break;
+    case yella_fb_file_attr_type_ACCESS_TIME:
+        result = ATTR_TYPE_ACCESS_TIME;
+        break;
+    case yella_fb_file_attr_type_METADATA_CHANGE_TIME:
+        result = ATTR_TYPE_METADATA_CHANGE_TIME;
+        break;
+    case yella_fb_file_attr_type_MODIFICATION_TIME:
+        result = ATTR_TYPE_MODIFICATION_TIME;
+        break;
     default:
         assert(false);
     }
@@ -202,6 +281,7 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
 {
     yella_fb_file_attr_type_enum_t fb_type;
     yella_fb_file_posix_permissions_table_t psx_permissions;
+    char* utf8;
 
     yella_fb_file_attr_start(bld);
     switch (attr->type)
@@ -245,6 +325,32 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
         if (attr->value.psx_permissions.sticky)
             yella_fb_file_posix_permissions_sticky_add(bld, true);
         yella_fb_file_attr_psx_permissions_add(bld, yella_fb_file_posix_permissions_end(bld));
+        break;
+    case ATTR_TYPE_USER:
+    case ATTR_TYPE_GROUP:
+        fb_type = (attr->type == ATTR_TYPE_USER) ? yella_fb_file_attr_type_USER : yella_fb_file_attr_type_GROUP;
+        yella_fb_file_user_group_start(bld);
+        yella_fb_file_user_group_id_add(bld, attr->value.user_group.id);
+        utf8 = yella_to_utf8(attr->value.user_group.name);
+        yella_fb_file_user_group_name_create_str(bld, utf8);
+        free(utf8);
+        yella_fb_file_attr_usr_grp_add(bld, yella_fb_file_user_group_end(bld));
+        break;
+    case ATTR_TYPE_SIZE:
+        fb_type = yella_fb_file_attr_type_SIZE;
+        yella_fb_file_attr_unsigned_int_add(bld, attr->value.size);
+        break;
+    case ATTR_TYPE_ACCESS_TIME:
+        fb_type = yella_fb_file_attr_type_ACCESS_TIME;
+        yella_fb_file_attr_millis_since_epoch_add(bld, attr->value.millis_since_epoch);
+        break;
+    case ATTR_TYPE_METADATA_CHANGE_TIME:
+        fb_type = yella_fb_file_attr_type_METADATA_CHANGE_TIME;
+        yella_fb_file_attr_millis_since_epoch_add(bld, attr->value.millis_since_epoch);
+        break;
+    case ATTR_TYPE_MODIFICATION_TIME:
+        fb_type = yella_fb_file_attr_type_MODIFICATION_TIME;
+        yella_fb_file_attr_millis_since_epoch_add(bld, attr->value.millis_since_epoch);
         break;
     default:
         assert(false);

@@ -5,7 +5,7 @@ INCLUDE_DIRECTORIES("${YELLA_SQLITE3_INCLUDE_DIR}"
 
 IF(YELLA_POSIX)
     SET(FILE_PLATFORM_SOURCES
-        platform/posix/posix_permissions.c)
+        platform/posix/stat_collector_posix.c)
 ENDIF()
 IF(YELLA_FREEBSD)
     LIST(APPEND FILE_PLATFORM_SOURCES
@@ -34,7 +34,7 @@ ADD_LIBRARY(file SHARED
             job_queue.c
             job_queue.h
             ../plugin.h
-            posix_permissions.h
+            stat_collector.h
             state_db.c
             state_db.h
             state_db_pool.c

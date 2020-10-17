@@ -9,7 +9,13 @@ enum attr_type : ushort
 {
     FILE_TYPE = 1,          // ftype field in attr
     SHA256,                 // bytes field in attr
-    POSIX_PERMISSIONS       // psx_permissions field in attr
+    POSIX_PERMISSIONS,      // psx_permissions field in attr
+    USER,                   // usr_grp field in attr
+    GROUP,                  // usr_grp field in attr
+    SIZE,                   // unsigned_int field in attr
+    ACCESS_TIME,            // millis_since_epoch field in attr
+    METADATA_CHANGE_TIME,   // millis_since_epoch field in attr
+    MODIFICATION_TIME       // millis_since_epoch field in attr
 }
 
 //
@@ -88,4 +94,13 @@ table attr
     bytes: [ubyte];
     ftype: file_type = REGULAR;
     psx_permissions: posix_permissions;
+    usr_grp: user_group;
+    unsigned_int: uint64;
+    millis_since_epoch: uint64;
+}
+
+table user_group
+{
+    id: uint64;
+    name: string;
 }
