@@ -69,6 +69,12 @@ table posix_permissions
     sticky: bool = false;
 }
 
+table user_group
+{
+    id: uint64;
+    name: string;
+}
+
 table file_state
 {
     milliseconds_since_epoch: uint64;
@@ -97,10 +103,4 @@ table attr
     usr_grp: user_group;
     unsigned_int: uint64;
     millis_since_epoch: uint64;
-}
-
-table user_group
-{
-    id: uint64;
-    name: string;
 }
