@@ -7,6 +7,7 @@
 #include "common/ptr_vector.h"
 #include "common/uds.h"
 #include "plugin/plugin.h"
+#include <chucho/logger.h>
 
 typedef struct job
 {
@@ -25,6 +26,6 @@ YELLA_PRIV_EXPORT job* create_job(const UChar* const cfg_name,
                                   accumulator* acc);
 YELLA_PRIV_EXPORT void destroy_job(job* j);
 /* Ownership of db_pool is not transferred */
-YELLA_PRIV_EXPORT void run_job(const job* const j, state_db_pool* db_pool);
+YELLA_PRIV_EXPORT void run_job(const job* const j, state_db_pool* db_pool, chucho_logger_t* lgr);
 
 #endif

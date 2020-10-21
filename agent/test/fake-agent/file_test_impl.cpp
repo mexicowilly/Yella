@@ -433,24 +433,36 @@ file_test_impl::posix_permissions_attribute::posix_permissions_attribute(const f
     : attribute(type::POSIX_PERMISSIONS)
 {
     const auto& fbits = fba.psx_permissions();
-    if (fbits->owner_read())
-        bits_.set(static_cast<std::size_t>(perm::OWNER_READ));
-    if (fbits->owner_write())
-        bits_.set(static_cast<std::size_t>(perm::OWNER_WRITE));
-    if (fbits->owner_execute())
-        bits_.set(static_cast<std::size_t>(perm::OWNER_EXECUTE));
-    if (fbits->group_read())
-        bits_.set(static_cast<std::size_t>(perm::GROUP_READ));
-    if (fbits->group_write())
-        bits_.set(static_cast<std::size_t>(perm::GROUP_WRITE));
-    if (fbits->group_execute())
-        bits_.set(static_cast<std::size_t>(perm::GROUP_EXECUTE));
-    if (fbits->other_read())
-        bits_.set(static_cast<std::size_t>(perm::OTHER_READ));
-    if (fbits->other_write())
-        bits_.set(static_cast<std::size_t>(perm::OTHER_WRITE));
-    if (fbits->other_execute())
-        bits_.set(static_cast<std::size_t>(perm::OTHER_EXECUTE));
+    auto perm = fbits->owner();
+    if (perm != nullptr)
+    {
+        if (perm->read())
+            bits_.set(static_cast<std::size_t>(perm::OWNER_READ));
+        if (perm->write())
+            bits_.set(static_cast<std::size_t>(perm::OWNER_WRITE));
+        if (perm->execute())
+            bits_.set(static_cast<std::size_t>(perm::OWNER_EXECUTE));
+    }
+    perm = fbits->group();
+    if (perm != nullptr)
+    {
+        if (perm->read())
+            bits_.set(static_cast<std::size_t>(perm::GROUP_READ));
+        if (perm->write())
+            bits_.set(static_cast<std::size_t>(perm::GROUP_WRITE));
+        if (perm->execute())
+            bits_.set(static_cast<std::size_t>(perm::GROUP_EXECUTE));
+    }
+    perm = fbits->other();
+    if (perm != nullptr)
+    {
+        if (perm->read())
+            bits_.set(static_cast<std::size_t>(perm::OTHER_READ));
+        if (perm->write())
+            bits_.set(static_cast<std::size_t>(perm::OTHER_WRITE));
+        if (perm->execute())
+            bits_.set(static_cast<std::size_t>(perm::OTHER_EXECUTE));
+    }
     if (fbits->set_uid())
         bits_.set(static_cast<std::size_t>(perm::SET_UID));
     if (fbits->set_gid())

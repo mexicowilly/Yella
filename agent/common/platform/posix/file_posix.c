@@ -123,7 +123,7 @@ yella_rc yella_apply_function_to_file_contents(const UChar* const name,
         else
             yrc = YELLA_FILE_SYSTEM_ERROR;
         CHUCHO_C_ERROR("common",
-                       "Could open '%s' for reading: %s",
+                       "Could not open '%s' for reading: %s",
                        utf8,
                        strerror(errno));
     }

@@ -30,6 +30,7 @@ struct job_queue
     void* cb_data;
     job_queue_stats stats;
     uint64_t accumulated_microseconds;
+    chucho_logger_t* job_lgr;
 };
 
 #define JOB_COMPARATOR(lhs, rhs) (u_strcmp(lhs->jb->config_name, rhs->jb->config_name))
@@ -80,7 +81,7 @@ static void job_queue_main(void* udata)
                 free(utf8);
             }
             start_micros = yella_microseconds_since_epoch();
-            run_job(front->jb, jq->db_pool);
+            run_job(front->jb, jq->db_pool, jq->job_lgr);
             job_micros = yella_microseconds_since_epoch() - start_micros;
             if (chucho_logger_permits(jq->lgr, CHUCHO_INFO))
             {
@@ -116,6 +117,7 @@ job_queue* create_job_queue(state_db_pool* pool)
 
     result = calloc(1, sizeof(job_queue));
     result->lgr = chucho_get_logger("file.job-queue");
+    result->job_lgr = chucho_get_logger("file.job");
     result->guard = yella_create_mutex();
     result->cond = yella_create_condition_variable();
     result->runner = yella_create_thread(job_queue_main, result);
@@ -143,6 +145,7 @@ void destroy_job_queue(job_queue* jq)
         destroy_job(q->jb);
         free(q);
     }
+    chucho_release_logger(jq->job_lgr);
     chucho_release_logger(jq->lgr);
     free(jq);
 }

@@ -3,6 +3,7 @@
 
 #include "export.h"
 #include "file_builder.h"
+#include "common/ptr_vector.h"
 #include <unicode/ustring.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -18,24 +19,45 @@ typedef enum
     ATTR_TYPE_SIZE,
     ATTR_TYPE_ACCESS_TIME,
     ATTR_TYPE_METADATA_CHANGE_TIME,
-    ATTR_TYPE_MODIFICATION_TIME
+    ATTR_TYPE_MODIFICATION_TIME,
+    ATTR_TYPE_POSIX_ACL
 } attribute_type;
+
+typedef struct posix_permission
+{
+    bool read;
+    bool write;
+    bool execute;
+} posix_permission;
 
 typedef struct posix_permissions
 {
-    bool owner_read;
-    bool owner_write;
-    bool owner_execute;
-    bool group_read;
-    bool group_write;
-    bool group_execute;
-    bool other_read;
-    bool other_write;
-    bool other_execute;
+    posix_permission owner;
+    posix_permission group;
+    posix_permission other;
     bool set_uid;
     bool set_gid;
     bool sticky;
 } posix_permissions;
+
+typedef enum
+{
+    PACL_ENTRY_TYPE_USER,
+    PACL_ENTRY_TYPE_GROUP
+} posix_acl_entry_type;
+
+typedef struct user_group
+{
+    uint64_t id;
+    UChar* name;
+} user_group;
+
+typedef struct posix_acl_entry
+{
+    posix_acl_entry_type type;
+    user_group usr_grp;
+    posix_permission perm;
+} posix_acl_entry;
 
 typedef struct attribute
 {
@@ -49,13 +71,10 @@ typedef struct attribute
             size_t sz;
         } byte_array;
         posix_permissions psx_permissions;
-        struct
-        {
-            uint64_t id;
-            UChar* name;
-        } user_group;
+        user_group usr_grp;
         size_t size;
         uint64_t millis_since_epoch;
+        yella_ptr_vector* posix_acl_entries;
     } value;
 } attribute;
 
