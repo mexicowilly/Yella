@@ -26,7 +26,7 @@ UChar* get_group_name(uint64_t gid, chucho_logger_t* lgr)
     if (grp_result == NULL)
     {
         CHUCHO_C_ERROR(lgr, "Error getting group name for '%" PRIu64 "': %s", gid, strerror(errno));
-        result = malloc(1);
+        result = malloc(sizeof(UChar));
         result[0] = 0;
     }
     else
@@ -54,7 +54,7 @@ UChar* get_user_name(uint64_t uid, chucho_logger_t* lgr)
     if (pwd_result == NULL)
     {
         CHUCHO_C_ERROR(lgr, "Error getting user name for '%" PRIu64 "': %s", uid, strerror(errno));
-        result = malloc(1);
+        result = malloc(sizeof(UChar));
         result[0] = 0;
     }
     else

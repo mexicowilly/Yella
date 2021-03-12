@@ -24,7 +24,7 @@ static int qsort_compare_posix_acl_entries(const void* lhs, const void* rhs)
     result = e1->type - e2->type;
     if (result == 0)
     {
-        result = (int64_t) e1->usr_grp.id - (int64_t) e2->usr_grp.id;
+        result = (int64_t)e1->usr_grp.id - (int64_t)e2->usr_grp.id;
         if (result == 0)
             result = u_strcmp(e1->usr_grp.name, e2->usr_grp.name);
     }
@@ -35,7 +35,6 @@ yella_ptr_vector* get_posix_acl(const UChar* const file_name, chucho_logger_t* l
 {
     acl_t acl;
     char* utf8;
-    int err;
     acl_entry_t entry;
     yella_ptr_vector* result;
     posix_acl_entry* result_entry;
@@ -48,8 +47,7 @@ yella_ptr_vector* get_posix_acl(const UChar* const file_name, chucho_logger_t* l
     acl = acl_get_file(utf8, ACL_TYPE_ACCESS);
     if (acl == NULL)
     {
-        err = errno;
-        CHUCHO_C_ERROR(lgr, "Error getting ACL for '%s': %s", utf8, strerror(err));
+        CHUCHO_C_ERROR(lgr, "Error getting ACL for '%s': %s", utf8, strerror(errno));
     }
     else
     {
