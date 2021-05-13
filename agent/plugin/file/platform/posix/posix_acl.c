@@ -80,7 +80,8 @@ yella_ptr_vector* get_posix_acl(const UChar* const file_name, chucho_logger_t* l
                     result_entry->type = PACL_ENTRY_TYPE_GROUP;
                     result_entry->usr_grp.id = *(gid_t*)qualifier;
                     acl_free(qualifier);
-                    result_entry->usr_grp.name = get_user_name(result_entry->usr_grp.id, lgr);
+                    result_entry->usr_grp.name = get_group_name(result_entry->usr_grp.id, lgr);
+                    acl_get_permset(entry, &permset);
                     result_entry->perm.read = acl_get_perm(permset, ACL_READ) ? true : false;
                     result_entry->perm.write = acl_get_perm(permset, ACL_WRITE) ? true : false;
                     result_entry->perm.execute = acl_get_perm(permset, ACL_EXECUTE) ? true : false;

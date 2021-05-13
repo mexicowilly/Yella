@@ -4,6 +4,7 @@
 #include "test_impl.hpp"
 #include "parcel.hpp"
 #include "file_generated.h"
+#include <unicode/datefmt.h>
 #include <mutex>
 #include <bitset>
 #include <condition_variable>
@@ -33,7 +34,13 @@ private:
         {
             FILE_TYPE,
             SHA256,
-            POSIX_PERMISSIONS
+            POSIX_PERMISSIONS,
+            USER,
+            GROUP,
+            SIZE,
+            ACCESS_TIME,
+            METADATA_CHANGE_TIME,
+            MODIFICATION_TIME
         };
 
         virtual ~attribute() = default;
@@ -128,6 +135,55 @@ private:
         std::bitset<12> bits_;
     };
 
+    class user_group_attribute : public attribute
+    {
+    public:
+        user_group_attribute(type tp, const fb::file::attr& fba);
+        user_group_attribute(type tp, const std::filesystem::path& file_name);
+
+        virtual void emit(YAML::Emitter& e) const override;
+
+    protected:
+        virtual bool equal_to(const attribute& rhs) const override;
+
+    private:
+        std::uint64_t id_;
+        std::string name_;
+    };
+
+    class unsigned_int_attribute : public attribute
+    {
+    public:
+        unsigned_int_attribute(type tp, const fb::file::attr& fba);
+        unsigned_int_attribute(type tp, std::uint64_t val);
+
+        virtual void emit(YAML::Emitter& e) const override;
+
+    protected:
+        virtual bool equal_to(const attribute& rhs) const override;
+
+    private:
+        std::uint64_t value_;
+    };
+
+    class milliseconds_since_epoch_attribute : public attribute
+    {
+    public:
+        milliseconds_since_epoch_attribute(type tp, const fb::file::attr& fba);
+        milliseconds_since_epoch_attribute(type tp, const std::filesystem::path& file_name);
+
+        virtual void emit(YAML::Emitter& e) const override;
+
+    protected:
+        virtual bool equal_to(const attribute& rhs) const override;
+
+    private:
+        void initialize_time_format();
+
+        UDate time_;
+        std::unique_ptr<icu::DateFormat> tfmt_;
+    };
+
     class file_state
     {
     public:
@@ -164,6 +220,7 @@ private:
         std::string config_name_;
         condition cond_;
         std::set<std::unique_ptr<attribute>, attr_type_less> attrs_;
+        std::unique_ptr<icu::DateFormat> tfmt_;
     };
 
     struct file_state_less

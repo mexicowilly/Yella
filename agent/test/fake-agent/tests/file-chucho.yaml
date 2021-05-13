@@ -1,13 +1,11 @@
 - chucho::logger:
     name: <root>
     level: trace
-    chucho::cout_writer:
+    chucho::cout_writer: &writer_def
       chucho::pattern_formatter:
         pattern: '%-5p %D{%H:%M:%S.%q}: %k%m%n'
 
 - chucho::logger:
     name: file
-    chucho::cout_writer:
-      chucho::pattern_formatter:
-        pattern: '%-5p %D{%H:%M:%S.%q} %c: %k%m%n'
+    chucho::cout_writer: *writer_def
     writes_to_ancestors: false

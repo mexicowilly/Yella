@@ -5,7 +5,6 @@
 #include <chucho/log.hpp>
 #include <openssl/evp.h>
 #include <flatbuffers/flatbuffers.h>
-#include <unicode/datefmt.h>
 #include <fstream>
 #include <thread>
 #include <iomanip>
@@ -305,14 +304,32 @@ void file_test_impl::attribute::emit(YAML::Emitter& e) const
     e << YAML::Key;
     switch (type_)
     {
+    case type::ACCESS_TIME:
+        e << "ACCESS_TIME";
+        break;
     case type::FILE_TYPE:
         e << "FILE_TYPE";
+        break;
+    case type::GROUP:
+        e << "GROUP";
+        break;
+    case type::METADATA_CHANGE_TIME:
+        e << "METADATA_CHANGE_TIME";
+        break;
+    case type::MODIFICATION_TIME:
+        e << "MODIFICATION_TIME";
         break;
     case type::POSIX_PERMISSIONS:
         e << "POSIX_PERMISSIONS";
         break;
     case type::SHA256:
         e << "SHA256";
+        break;
+    case type::SIZE:
+        e << "SIZE";
+        break;
+    case type::USER:
+        e << "USER";
         break;
     }
     e << YAML::Value;
@@ -502,11 +519,95 @@ bool file_test_impl::posix_permissions_attribute::equal_to(const attribute& rhs)
     return ppa != nullptr && attribute::equal_to(rhs) && bits_ == ppa->bits_;
 }
 
+file_test_impl::user_group_attribute::user_group_attribute(type tp, const fb::file::attr& fba)
+    : attribute(tp)
+{
+    const auto& ug = fba.usr_grp();
+    id_ = ug->id();
+    name_ = ug->name()->str();
+}
+
+void file_test_impl::user_group_attribute::emit(YAML::Emitter& e) const
+{
+    attribute::emit(e);
+    e << YAML::Key << "id" << YAML::Value << id_;
+    e << YAML::Key << "name" << YAML::Value << name_;
+}
+
+bool file_test_impl::user_group_attribute::equal_to(const attribute& rhs) const
+{
+    auto uga = dynamic_cast<const user_group_attribute*>(&rhs);
+    return uga != nullptr &&
+           attribute::equal_to(rhs) &&
+           id_ == uga->id_ &&
+           name_ == uga->name_;
+}
+
+file_test_impl::unsigned_int_attribute::unsigned_int_attribute(type tp, const fb::file::attr& fba)
+    : attribute(tp),
+      value_(fba.unsigned_int())
+{
+}
+
+file_test_impl::unsigned_int_attribute::unsigned_int_attribute(type tp, std::uint64_t val)
+    : attribute(tp),
+      value_(val)
+{
+}
+
+void file_test_impl::unsigned_int_attribute::emit(YAML::Emitter& e) const
+{
+    attribute::emit(e);
+    e << value_;
+}
+
+bool file_test_impl::unsigned_int_attribute::equal_to(const attribute& rhs) const
+{
+    auto uia = dynamic_cast<const unsigned_int_attribute*>(&rhs);
+    return uia != nullptr && attribute::equal_to(rhs) && value_ == uia->value_;
+}
+
+file_test_impl::milliseconds_since_epoch_attribute::milliseconds_since_epoch_attribute(type tp, const fb::file::attr& fba)
+    : attribute(tp),
+      time_(fba.milliseconds_since_epoch())
+{
+    initialize_time_format();
+}
+
+void file_test_impl::milliseconds_since_epoch_attribute::emit(YAML::Emitter& e) const
+{
+    icu::UnicodeString utd;
+    tfmt_->format(time_, utd);
+    std::string td;
+    utd.toUTF8String(td);
+    e << td;
+}
+
+bool file_test_impl::milliseconds_since_epoch_attribute::equal_to(const attribute& rhs) const
+{
+    auto msea = dynamic_cast<const milliseconds_since_epoch_attribute*>(&rhs);
+    return msea != nullptr && attribute::equal_to(rhs) && time_ == msea->time_;
+}
+
+void file_test_impl::milliseconds_since_epoch_attribute::initialize_time_format()
+{
+    UErrorCode ec = U_ZERO_ERROR;
+    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMdd'T'HHmmss.SSS", ec));
+    tfmt_->setTimeZone(*icu::TimeZone::getGMT());
+    if (!U_SUCCESS(ec))
+        throw std::runtime_error("Error creating time formatter");
+}
+
 file_test_impl::file_state::file_state(const fb::file::file_state& fb)
     : time_(fb.milliseconds_since_epoch()),
       file_name_(fb.file_name()->str()),
       config_name_(fb.config_name()->str())
 {
+    UErrorCode ec = U_ZERO_ERROR;
+    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMdd'T'HHmmss.SSS", ec));
+    tfmt_->setTimeZone(*icu::TimeZone::getGMT());
+    if (!U_SUCCESS(ec))
+        throw std::runtime_error("Error creating time formatter");
     if (fb.cond() == fb::file::condition_ADDED)
         cond_ = condition::ADDED;
     else if (fb.cond() == fb::file::condition_CHANGED)
@@ -515,12 +616,36 @@ file_test_impl::file_state::file_state(const fb::file::file_state& fb)
         cond_ = condition::REMOVED;
     for (auto cur : *fb.attrs())
     {
-        if (cur->type() == fb::file::attr_type_FILE_TYPE)
+        switch (cur->type())
+        {
+        case fb::file::attr_type_FILE_TYPE:
             attrs_.emplace(std::make_unique<file_type_attribute>(*cur));
-        else if (cur->type() == fb::file::attr_type_SHA256)
+            break;
+        case fb::file::attr_type_SHA256:
             attrs_.emplace(std::make_unique<bytes_attribute>(attribute::type::SHA256, *cur));
-        else if (cur->type() == fb::file::attr_type_POSIX_PERMISSIONS)
+            break;
+        case fb::file::attr_type_POSIX_PERMISSIONS:
             attrs_.emplace(std::make_unique<posix_permissions_attribute>(*cur));
+            break;
+        case fb::file::attr_type_USER:
+            attrs_.emplace(std::make_unique<user_group_attribute>(attribute::type::USER, *cur));
+            break;
+        case fb::file::attr_type_GROUP:
+            attrs_.emplace(std::make_unique<user_group_attribute>(attribute::type::GROUP, *cur));
+            break;
+        case fb::file::attr_type_SIZE:
+            attrs_.emplace(std::make_unique<unsigned_int_attribute>(attribute::type::SIZE, *cur));
+            break;
+        case fb::file::attr_type_ACCESS_TIME:
+            attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::ACCESS_TIME, *cur));
+            break;
+        case fb::file::attr_type_METADATA_CHANGE_TIME:
+            attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::METADATA_CHANGE_TIME, *cur));
+            break;
+        case fb::file::attr_type_MODIFICATION_TIME:
+            attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::MODIFICATION_TIME, *cur));
+            break;
+        }
     }
 }
 
@@ -556,6 +681,12 @@ file_test_impl::file_state::file_state(const std::filesystem::path& working_dir,
                     attrs_.emplace(std::make_unique<posix_permissions_attribute>(file_name_));
                 else if (cur.Scalar() == "FILE_TYPE")
                     attrs_.emplace(std::make_unique<file_type_attribute>(file_name_));
+                else if (cur.Scalar() == "USER")
+                    attrs_.emplace(std::make_unique<user_group_attribute>(attribute::type::USER, file_name_));
+                else if (cur.Scalar() == "GROUP")
+                    attrs_.emplace(std::make_unique<user_group_attribute>(attribute::type::GROUP, file_name_));
+                else if (cur.Scalar() == "SIZE")
+                    attrs_.emplace(std::make_unique<unsigned_int_attribute>(attribute::type::SIZE, std::filesystem::file_size(file_name_)));
             }
         }
     }
@@ -575,14 +706,8 @@ bool file_test_impl::file_state::operator== (const file_state& other) const
 
 std::string file_test_impl::file_state::to_text() const
 {
-    UErrorCode ec = U_ZERO_ERROR;
-    auto fmt = icu::DateFormat::createInstanceForSkeleton(u"yyyyMMdd'T'HHmmss.SSS", ec);
-    fmt->setTimeZone(*icu::TimeZone::getGMT());
-    if (!U_SUCCESS(ec))
-        throw std::runtime_error("Error creating time formatter");
     icu::UnicodeString utd;
-    fmt->format(time_, utd);
-    delete fmt;
+    tfmt_->format(time_, utd);
     std::string td;
     utd.toUTF8String(td);
     YAML::Emitter emitter;

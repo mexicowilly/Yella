@@ -13,9 +13,9 @@ enum attr_type : ushort
     USER,                   // usr_grp field in attr
     GROUP,                  // usr_grp field in attr
     SIZE,                   // unsigned_int field in attr
-    ACCESS_TIME,            // millis_since_epoch field in attr
-    METADATA_CHANGE_TIME,   // millis_since_epoch field in attr
-    MODIFICATION_TIME,      // millis_since_epoch field in attr
+    ACCESS_TIME,            // milliseconds_since_epoch field in attr
+    METADATA_CHANGE_TIME,   // milliseconds_since_epoch field in attr
+    MODIFICATION_TIME,      // milliseconds_since_epoch field in attr
     POSIX_ACL               // psx_acl field in attr
 }
 
