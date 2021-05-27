@@ -184,6 +184,46 @@ private:
         std::unique_ptr<icu::DateFormat> tfmt_;
     };
 
+    class posix_acl_attribute : public attribute
+    {
+    public:
+        class entry
+        {
+        public:
+            enum class permission
+            {
+                READ = 0,
+                WRITE,
+                EXECUTE
+            };
+
+            enum class type
+            {
+                USER,
+                GROUP
+            };
+
+            entry(const fb::file::posix_access_control_entry& fbe);
+
+        private:
+            type type_;
+            std::bitset<3> permissions_;
+            std::uint64_t id_;
+            std::string name_;
+        };
+
+        posix_acl_attribute(const fb::file::attr& fba);
+        posix_acl_attribute(const std::filesystem::path& file_name);
+
+        virtual void emit(YAML::Emitter& e) const override;
+
+    protected:
+        virtual bool equal_to(const attribute& rhs) const override;
+
+    private:
+        std::vector<entry> entries_;
+    };
+
     class file_state
     {
     public:

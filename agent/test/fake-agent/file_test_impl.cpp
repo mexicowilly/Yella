@@ -576,8 +576,10 @@ file_test_impl::milliseconds_since_epoch_attribute::milliseconds_since_epoch_att
 
 void file_test_impl::milliseconds_since_epoch_attribute::emit(YAML::Emitter& e) const
 {
+    attribute::emit(e);
     icu::UnicodeString utd;
     tfmt_->format(time_, utd);
+    utd.findAndReplace(u" ", u"T");
     std::string td;
     utd.toUTF8String(td);
     e << td;
@@ -592,7 +594,7 @@ bool file_test_impl::milliseconds_since_epoch_attribute::equal_to(const attribut
 void file_test_impl::milliseconds_since_epoch_attribute::initialize_time_format()
 {
     UErrorCode ec = U_ZERO_ERROR;
-    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMdd'T'HHmmss.SSS", ec));
+    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMddHHmmssSSS", icu::Locale::getRoot(), ec));
     tfmt_->setTimeZone(*icu::TimeZone::getGMT());
     if (!U_SUCCESS(ec))
         throw std::runtime_error("Error creating time formatter");
@@ -604,7 +606,7 @@ file_test_impl::file_state::file_state(const fb::file::file_state& fb)
       config_name_(fb.config_name()->str())
 {
     UErrorCode ec = U_ZERO_ERROR;
-    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMdd'T'HHmmss.SSS", ec));
+    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMddHHmmssSSS", icu::Locale::getRoot(), ec));
     tfmt_->setTimeZone(*icu::TimeZone::getGMT());
     if (!U_SUCCESS(ec))
         throw std::runtime_error("Error creating time formatter");
@@ -652,6 +654,11 @@ file_test_impl::file_state::file_state(const fb::file::file_state& fb)
 file_test_impl::file_state::file_state(const std::filesystem::path& working_dir, const YAML::Node& body)
     : time_(0)
 {
+    UErrorCode ec = U_ZERO_ERROR;
+    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMddHHmmssSSS", icu::Locale::getRoot(), ec));
+    tfmt_->setTimeZone(*icu::TimeZone::getGMT());
+    if (!U_SUCCESS(ec))
+        throw std::runtime_error("Error creating time formatter");
     auto n = body["config.name"];
     if (n)
         config_name_ = n.Scalar();
@@ -673,11 +680,10 @@ file_test_impl::file_state::file_state(const std::filesystem::path& working_dir,
         n = body["attrs"];
         if (n.IsSequence())
         {
+            bool should_get_sha256 = false;
             for (const auto& cur : n)
             {
-                if (cur.Scalar() == "SHA256")
-                    maybe_add_sha256_attr();
-                else if (cur.Scalar() == "POSIX_PERMISSIONS")
+                if (cur.Scalar() == "POSIX_PERMISSIONS")
                     attrs_.emplace(std::make_unique<posix_permissions_attribute>(file_name_));
                 else if (cur.Scalar() == "FILE_TYPE")
                     attrs_.emplace(std::make_unique<file_type_attribute>(file_name_));
@@ -687,7 +693,17 @@ file_test_impl::file_state::file_state(const std::filesystem::path& working_dir,
                     attrs_.emplace(std::make_unique<user_group_attribute>(attribute::type::GROUP, file_name_));
                 else if (cur.Scalar() == "SIZE")
                     attrs_.emplace(std::make_unique<unsigned_int_attribute>(attribute::type::SIZE, std::filesystem::file_size(file_name_)));
+                else if (cur.Scalar() == "MODIFICATION_TIME")
+                    attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::MODIFICATION_TIME, file_name_));
+                else if (cur.Scalar() == "METADATA_CHANGE_TIME")
+                    attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::METADATA_CHANGE_TIME, file_name_));
+                else if (cur.Scalar() == "ACCESS_TIME")
+                    attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::ACCESS_TIME, file_name_));
+                else if (cur.Scalar() == "SHA256")
+                    should_get_sha256 = true;
             }
+            if (should_get_sha256)
+                maybe_add_sha256_attr();
         }
     }
 }
@@ -708,6 +724,7 @@ std::string file_test_impl::file_state::to_text() const
 {
     icu::UnicodeString utd;
     tfmt_->format(time_, utd);
+    utd.findAndReplace(u" ", u"T");
     std::string td;
     utd.toUTF8String(td);
     YAML::Emitter emitter;

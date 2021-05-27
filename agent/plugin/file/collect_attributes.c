@@ -5,6 +5,8 @@
 #include "common/text_util.h"
 #include "attribute.h"
 #include <openssl/evp.h>
+#include <chucho/log.h>
+#include <inttypes.h>
 
 static void digest_callback(const uint8_t* const buf, size_t sz, void* udata)
 {
@@ -86,13 +88,14 @@ static void handle_posix_permissions(element* elem, void* stat_buf)
     add_element_attribute(elem, attr);
 }
 
-static void handle_sha256(element* elem, yella_file_type ftype)
+static bool handle_sha256(element* elem, yella_file_type ftype)
 {
     EVP_MD_CTX* ctx;
     unsigned char md[EVP_MAX_MD_SIZE];
     unsigned md_len;
     yella_rc yrc;
     attribute* attr;
+    bool rc = false;
 
     if (ftype == YELLA_FILE_TYPE_REGULAR || ftype == YELLA_FILE_TYPE_SYMBOLIC_LINK)
     {
@@ -108,9 +111,11 @@ static void handle_sha256(element* elem, yella_file_type ftype)
             attr->value.byte_array.sz = md_len;
             memcpy(attr->value.byte_array.mem, md, md_len);
             add_element_attribute(elem, attr);
+            rc = true;
         }
         EVP_MD_CTX_free(ctx);
     }
+    return rc;
 }
 
 static void handle_size(element* elem, void* stat_buf)
@@ -143,6 +148,7 @@ element* collect_attributes(const UChar* const name,
     size_t i;
     void* stat_buf;
     bool should_reset_access_time;
+    bool should_get_access_time;
 
     if (yella_file_exists(name))
     {
@@ -150,16 +156,13 @@ element* collect_attributes(const UChar* const name,
             return NULL;
         result = create_element(name);
         should_reset_access_time = false;
+        should_get_access_time = false;
         for (i = 0; i < attr_type_count; i++)
         {
             switch (attr_types[i])
             {
             case ATTR_TYPE_FILE_TYPE:
                 handle_file_type(result, ftype);
-                break;
-            case ATTR_TYPE_SHA256:
-                handle_sha256(result, ftype);
-                should_reset_access_time = true;
                 break;
             case ATTR_TYPE_POSIX_PERMISSIONS:
                 handle_posix_permissions(result, stat_buf);
@@ -174,7 +177,7 @@ element* collect_attributes(const UChar* const name,
                 handle_size(result, stat_buf);
                 break;
             case ATTR_TYPE_ACCESS_TIME:
-                handle_access_time(result, stat_buf);
+                should_get_access_time = true;
                 break;
             case ATTR_TYPE_METADATA_CHANGE_TIME:
                 handle_metadata_change_time(result, stat_buf);
@@ -185,10 +188,15 @@ element* collect_attributes(const UChar* const name,
             case ATTR_TYPE_POSIX_ACL:
                 handle_posix_acl(result, lgr);
                 break;
+            case ATTR_TYPE_SHA256:
+                should_reset_access_time = handle_sha256(result, ftype);
+                break;
             }
         }
         if (should_reset_access_time)
             reset_access_time(name, stat_buf, lgr);
+        if (should_get_access_time)
+            handle_access_time(result, stat_buf);
         free(stat_buf);
     }
     else
