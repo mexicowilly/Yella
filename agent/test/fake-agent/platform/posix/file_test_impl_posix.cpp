@@ -4,6 +4,41 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <grp.h>
+#include <acl/libacl.h>
+
+namespace
+{
+
+std::string get_group_name(gid_t id)
+{
+    auto sz = sysconf(_SC_GETGR_R_SIZE_MAX);
+    if (sz == -1)
+        sz = 1024 * 8;
+    std::vector<char> buf(sz);
+    struct group grp;
+    struct group* grp_result;
+    getgrgid_r(id, &grp, &buf[0], sz, &grp_result);
+    if (grp_result == NULL)
+        throw std::runtime_error("Error getting group name: " + std::string(std::strerror(errno)));
+    return grp.gr_name;
+}
+
+std::string get_user_name(uid_t id)
+{
+    auto sz = sysconf(_SC_GETPW_R_SIZE_MAX);
+    if (sz == -1)
+        sz = 1024 * 8;
+    std::vector<char> buf(sz);
+    errno = 0;
+    struct passwd pwd;
+    struct passwd* pwd_result;
+    getpwuid_r(id, &pwd, &buf[0], sz, &pwd_result);
+    if (pwd_result == nullptr)
+        throw std::runtime_error("Error getting user name: " + std::string(std::strerror(errno)));
+    return pwd.pw_name;
+}
+
+}
 
 namespace yella
 {
@@ -78,42 +113,13 @@ file_test_impl::user_group_attribute::user_group_attribute(type tp, const std::f
     long sz;
     if (tp == type::USER)
     {
-        sz = sysconf(_SC_GETPW_R_SIZE_MAX);
-        if (sz == -1)
-            sz = 1024 * 8;
-        std::vector<char> buf(sz);
-        errno = 0;
-        struct passwd pwd;
-        struct passwd* pwd_result;
-        getpwuid_r(stat_buf.st_uid, &pwd, &buf[0], sz, &pwd_result);
-        if (pwd_result == nullptr)
-        {
-            throw std::runtime_error("Error getting user name: " + std::string(std::strerror(errno)));
-        }
-        else
-        {
-            id_ = stat_buf.st_uid;
-            name_ = pwd.pw_name;
-        }
+        id_ = stat_buf.st_uid;
+        name_ = get_user_name(id_);
     }
     else if (tp == type::GROUP)
     {
-        sz = sysconf(_SC_GETGR_R_SIZE_MAX);
-        if (sz == -1)
-            sz = 1024 * 8;
-        std::vector<char> buf(sz);
-        struct group grp;
-        struct group* grp_result;
-        getgrgid_r(stat_buf.st_gid, &grp, &buf[0], sz, &grp_result);
-        if (grp_result == NULL)
-        {
-            throw std::runtime_error("Error getting group name: " + std::string(std::strerror(errno)));
-        }
-        else
-        {
-            id_ = stat_buf.st_gid;
-            name_ = grp.gr_name;
-        }
+        id_ = stat_buf.st_gid;
+        name_ = get_group_name(id_);
     }
     else
     {
@@ -135,6 +141,63 @@ file_test_impl::milliseconds_since_epoch_attribute::milliseconds_since_epoch_att
     else if (tp == type::MODIFICATION_TIME)
         time_ = (stat_buf.st_mtim.tv_sec * 1000) + (stat_buf.st_mtim.tv_nsec / 1000000);
 
+}
+
+file_test_impl::posix_acl_attribute::entry::entry(void* native)
+{
+    auto e = reinterpret_cast<acl_entry_t>(native);
+    acl_tag_t tag;
+    acl_get_tag_type(e, &tag);
+    void* qualifier;
+    acl_permset_t permset;
+    if (tag == ACL_USER)
+    {
+        type_ = type::USER;
+        qualifier = acl_get_qualifier(e);
+        id_ = *(uid_t*)qualifier;
+        acl_free(qualifier);
+        name_ = get_user_name(id_);
+        acl_get_permset(e, &permset);
+        if (acl_get_perm(permset, ACL_READ))
+            permissions_.set(static_cast<std::size_t>(permission::READ));
+        if (acl_get_perm(permset, ACL_WRITE))
+            permissions_.set(static_cast<std::size_t>(permission::WRITE));
+        if (acl_get_perm(permset, ACL_EXECUTE))
+            permissions_.set(static_cast<std::size_t>(permission::EXECUTE));
+    }
+    else if (tag == ACL_GROUP)
+    {
+        type_ = type::GROUP;
+        qualifier = acl_get_qualifier(e);
+        id_ = *(uid_t*)qualifier;
+        acl_free(qualifier);
+        name_ = get_group_name(id_);
+        acl_get_permset(e, &permset);
+        if (acl_get_perm(permset, ACL_READ))
+            permissions_.set(static_cast<std::size_t>(permission::READ));
+        if (acl_get_perm(permset, ACL_WRITE))
+            permissions_.set(static_cast<std::size_t>(permission::WRITE));
+        if (acl_get_perm(permset, ACL_EXECUTE))
+            permissions_.set(static_cast<std::size_t>(permission::EXECUTE));
+    }
+}
+
+file_test_impl::posix_acl_attribute::posix_acl_attribute(const std::filesystem::path& file_name)
+    : attribute(type::POSIX_ACL)
+{
+    auto acl = acl_get_file(file_name.c_str(), ACL_TYPE_ACCESS);
+    if (acl != nullptr)
+    {
+        acl_entry_t e;
+        if (acl_get_entry(acl, ACL_FIRST_ENTRY, &e))
+        {
+            do
+            {
+                entries_.emplace(e);
+            } while (acl_get_entry(acl, ACL_NEXT_ENTRY, &e));
+        }
+        acl_free(acl);
+    }
 }
 
 }

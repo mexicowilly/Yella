@@ -331,6 +331,9 @@ void file_test_impl::attribute::emit(YAML::Emitter& e) const
     case type::USER:
         e << "USER";
         break;
+    case type::POSIX_ACL:
+        e << "POSIX_ACL";
+        break;
     }
     e << YAML::Value;
 }
@@ -600,6 +603,84 @@ void file_test_impl::milliseconds_since_epoch_attribute::initialize_time_format(
         throw std::runtime_error("Error creating time formatter");
 }
 
+file_test_impl::posix_acl_attribute::entry::entry(const fb::file::posix_access_control_entry& fbe)
+    : id_(std::numeric_limits<std::uint64_t>::max())
+{
+    if (fbe.type() == fb::file::posix_access_control_entry_type_GROUP)
+        type_ = type::GROUP;
+    else if (fbe.type() == fb::file::posix_access_control_entry_type_USER)
+        type_ = type::USER;
+    auto perms = fbe.permission();
+    if (perms != nullptr)
+    {
+        permissions_.set(static_cast<std::size_t>(permission::READ), perms->read());
+        permissions_.set(static_cast<std::size_t>(permission::WRITE), perms->write());
+        permissions_.set(static_cast<std::size_t>(permission::EXECUTE), perms->execute());
+    }
+    auto usr_grp = fbe.usr_grp();
+    if (usr_grp)
+    {
+        id_ = usr_grp->id();
+        if (usr_grp->name() != nullptr)
+            name_ = usr_grp->name()->str();
+    }
+}
+
+bool file_test_impl::posix_acl_attribute::entry::operator== (const entry& rhs) const
+{
+    return type_ == rhs.type_ &&
+           permissions_ == rhs.permissions_ &&
+           id_ == rhs.id_ &&
+           name_ == rhs.name_;
+}
+
+bool file_test_impl::posix_acl_attribute::entry::operator< (const entry& rhs) const
+{
+    std::int64_t diff = static_cast<std::int64_t>(type_) - static_cast<std::int64_t>(rhs.type_);
+    if (diff == 0)
+    {
+        diff = static_cast<int64_t>(id_) - static_cast<int64_t>(rhs.id_);
+        if (diff == 0)
+            diff = name_.compare(rhs.name_);
+    }
+    return diff < 0;
+}
+
+void file_test_impl::posix_acl_attribute::entry::emit(YAML::Emitter& e) const
+{
+    e << YAML::Key << "type" << YAML::Value << ((type_ == type::USER) ? "USER" : "GROUP");
+    e << YAML::Key << "id" << YAML::Value << name_ << '(' << id_ << ')';
+    e << YAML::Key << "permissions" << YAML::Value;
+    e << (permissions_.test(static_cast<std::size_t>(permission::READ)) ? 'r' : '-');
+    e << (permissions_.test(static_cast<std::size_t>(permission::WRITE)) ? 'w' : '-');
+    e << (permissions_.test(static_cast<std::size_t>(permission::EXECUTE)) ? 'x' : '-');
+}
+
+file_test_impl::posix_acl_attribute::posix_acl_attribute(const fb::file::attr& fba)
+    : attribute(type::POSIX_ACL)
+{
+    if (fba.psx_acl() != nullptr)
+    {
+        for (auto cur : *fba.psx_acl())
+            entries_.emplace(*cur);
+    }
+}
+
+void file_test_impl::posix_acl_attribute::emit(YAML::Emitter& e) const
+{
+    attribute::emit(e);
+    e << YAML::BeginSeq;
+    for (const auto& ent : entries_)
+        ent.emit(e);
+    e << YAML::EndSeq;
+}
+
+bool file_test_impl::posix_acl_attribute::equal_to(const attribute& rhs) const
+{
+    auto pacla = dynamic_cast<const posix_acl_attribute*>(&rhs);
+    return pacla != nullptr && attribute::equal_to(rhs) && entries_ == pacla->entries_;
+}
+
 file_test_impl::file_state::file_state(const fb::file::file_state& fb)
     : time_(fb.milliseconds_since_epoch()),
       file_name_(fb.file_name()->str()),
@@ -646,6 +727,9 @@ file_test_impl::file_state::file_state(const fb::file::file_state& fb)
             break;
         case fb::file::attr_type_MODIFICATION_TIME:
             attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::MODIFICATION_TIME, *cur));
+            break;
+        case fb::file::attr_type_POSIX_ACL:
+            attrs_.emplace(std::make_unique<posix_acl_attribute>(*cur));
             break;
         }
     }

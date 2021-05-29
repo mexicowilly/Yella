@@ -52,6 +52,9 @@ TARGET_LINK_LIBRARIES(fake-agent
                       "${YELLA_YAML_CPP_LIB}"
                       OpenSSL::Crypto
                       stdc++fs)
+IF(YELLA_POSIX)
+    TARGET_LINK_LIBRARIES(fake-agent "${YELLA_ACL_LIB}")
+ENDIF()
 IF(YELLA_LINUX)
     TARGET_LINK_LIBRARIES(fake-agent dl)
 ENDIF()

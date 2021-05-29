@@ -40,7 +40,8 @@ private:
             SIZE,
             ACCESS_TIME,
             METADATA_CHANGE_TIME,
-            MODIFICATION_TIME
+            MODIFICATION_TIME,
+            POSIX_ACL
         };
 
         virtual ~attribute() = default;
@@ -204,6 +205,12 @@ private:
             };
 
             entry(const fb::file::posix_access_control_entry& fbe);
+            entry(void* native);
+
+            bool operator== (const entry& rhs) const;
+            bool operator< (const entry& rhs) const;
+
+            void emit(YAML::Emitter& e) const;
 
         private:
             type type_;
@@ -221,7 +228,7 @@ private:
         virtual bool equal_to(const attribute& rhs) const override;
 
     private:
-        std::vector<entry> entries_;
+        std::set<entry> entries_;
     };
 
     class file_state
