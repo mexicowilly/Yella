@@ -369,6 +369,7 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
     char* utf8;
     size_t i;
     posix_acl_entry* entry;
+    yella_fb_file_posix_access_control_entry_type_enum_t fb_pacl_type;
 
     yella_fb_file_attr_start(bld);
     switch (attr->type)
@@ -460,11 +461,29 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
             {
                 entry = yella_ptr_vector_at(attr->value.posix_acl_entries, i);
                 yella_fb_file_posix_access_control_entry_start(bld);
-                yella_fb_file_posix_access_control_entry_type_add(bld, (entry->type == PACL_ENTRY_TYPE_USER) ?
-                    yella_fb_file_posix_access_control_entry_type_USER : yella_fb_file_posix_access_control_entry_type_GROUP);
-                utf8 = yella_to_utf8(entry->usr_grp.name);
-                yella_fb_file_posix_access_control_entry_usr_grp_add(bld, yella_fb_file_user_group_create(bld, entry->usr_grp.id, flatbuffers_string_create_str(bld, utf8)));
-                free(utf8);
+                if (entry->type == PACL_ENTRY_TYPE_USER)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_USER;
+                else if (entry->type == PACL_ENTRY_TYPE_GROUP)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_GROUP;
+                else if (entry->type == PACL_ENTRY_TYPE_MASK)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_MASK;
+                else if (entry->type == PACL_ENTRY_TYPE_USER_OBJ)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_USER_OBJ;
+                else if (entry->type == PACL_ENTRY_TYPE_GROUP_OBJ)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_GROUP_OBJ;
+                else if (entry->type == PACL_ENTRY_TYPE_OTHER)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_OTHER;
+                yella_fb_file_posix_access_control_entry_type_add(bld, fb_pacl_type);
+                if (entry->type == PACL_ENTRY_TYPE_USER || entry->type == PACL_ENTRY_TYPE_GROUP)
+                {
+                    utf8 = yella_to_utf8(entry->usr_grp.name);
+                    yella_fb_file_posix_access_control_entry_usr_grp_add(bld, yella_fb_file_user_group_create(bld,
+                                                                                                              entry->usr_grp.id,
+                                                                                                              flatbuffers_string_create_str(
+                                                                                                              bld,
+                                                                                                              utf8)));
+                    free(utf8);
+                }
                 yella_fb_file_posix_access_control_entry_permission_add(bld, yella_fb_file_posix_permission_create(bld, entry->perm.read, entry->perm.write, entry->perm.execute));
                 yella_fb_file_posix_access_control_entry_vec_push(bld, yella_fb_file_posix_access_control_entry_end(bld));
             }

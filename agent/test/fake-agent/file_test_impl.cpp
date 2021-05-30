@@ -606,10 +606,27 @@ void file_test_impl::milliseconds_since_epoch_attribute::initialize_time_format(
 file_test_impl::posix_acl_attribute::entry::entry(const fb::file::posix_access_control_entry& fbe)
     : id_(std::numeric_limits<std::uint64_t>::max())
 {
-    if (fbe.type() == fb::file::posix_access_control_entry_type_GROUP)
-        type_ = type::GROUP;
-    else if (fbe.type() == fb::file::posix_access_control_entry_type_USER)
+    switch (fbe.type())
+    {
+    case fb::file::posix_access_control_entry_type_USER:
         type_ = type::USER;
+        break;
+    case fb::file::posix_access_control_entry_type_GROUP:
+        type_ = type::GROUP;
+        break;
+    case fb::file::posix_access_control_entry_type_MASK:
+        type_ = type::MASK;
+        break;
+    case fb::file::posix_access_control_entry_type_USER_OBJ:
+        type_ = type::USER_OBJ;
+        break;
+    case fb::file::posix_access_control_entry_type_GROUP_OBJ:
+        type_ = type::GROUP_OBJ;
+        break;
+    case fb::file::posix_access_control_entry_type_OTHER:
+        type_ = type::OTHER;
+        break;
+    }
     auto perms = fbe.permission();
     if (perms != nullptr)
     {
@@ -618,7 +635,7 @@ file_test_impl::posix_acl_attribute::entry::entry(const fb::file::posix_access_c
         permissions_.set(static_cast<std::size_t>(permission::EXECUTE), perms->execute());
     }
     auto usr_grp = fbe.usr_grp();
-    if (usr_grp)
+    if (usr_grp != nullptr)
     {
         id_ = usr_grp->id();
         if (usr_grp->name() != nullptr)
@@ -648,12 +665,41 @@ bool file_test_impl::posix_acl_attribute::entry::operator< (const entry& rhs) co
 
 void file_test_impl::posix_acl_attribute::entry::emit(YAML::Emitter& e) const
 {
-    e << YAML::Key << "type" << YAML::Value << ((type_ == type::USER) ? "USER" : "GROUP");
-    e << YAML::Key << "id" << YAML::Value << name_ << '(' << id_ << ')';
+    e << YAML::BeginMap;
+    e << YAML::Key << "type" << YAML::Value;
+    std::string id_value;
+    switch (type_)
+    {
+    case type::USER:
+        e << "USER";
+        id_value = name_ + '(' + std::to_string(id_) + ')';
+        e << YAML::Key << "id" << YAML::Value << id_value;
+        break;
+    case type::GROUP:
+        e << "GROUP";
+        id_value = name_ + '(' + std::to_string(id_) + ')';
+        e << YAML::Key << "id" << YAML::Value << id_value;
+        break;
+    case type::MASK:
+        e << "MASK";
+        break;
+    case type::USER_OBJ:
+        e << "USER_OBJ";
+        break;
+    case type::GROUP_OBJ:
+        e << "GROUP_OBJ";
+        break;
+    case type::OTHER:
+        e << "OTHER";
+        break;
+    }
     e << YAML::Key << "permissions" << YAML::Value;
-    e << (permissions_.test(static_cast<std::size_t>(permission::READ)) ? 'r' : '-');
-    e << (permissions_.test(static_cast<std::size_t>(permission::WRITE)) ? 'w' : '-');
-    e << (permissions_.test(static_cast<std::size_t>(permission::EXECUTE)) ? 'x' : '-');
+    std::string perm;
+    perm += (permissions_.test(static_cast<std::size_t>(permission::READ)) ? 'r' : '-');
+    perm += (permissions_.test(static_cast<std::size_t>(permission::WRITE)) ? 'w' : '-');
+    perm += (permissions_.test(static_cast<std::size_t>(permission::EXECUTE)) ? 'x' : '-');
+    e << perm;
+    e << YAML::EndMap;
 }
 
 file_test_impl::posix_acl_attribute::posix_acl_attribute(const fb::file::attr& fba)
@@ -785,6 +831,8 @@ file_test_impl::file_state::file_state(const std::filesystem::path& working_dir,
                     attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::ACCESS_TIME, file_name_));
                 else if (cur.Scalar() == "SHA256")
                     should_get_sha256 = true;
+                else if (cur.Scalar() == "POSIX_ACL")
+                    attrs_.emplace(std::make_unique<posix_acl_attribute>(file_name_));
             }
             if (should_get_sha256)
                 maybe_add_sha256_attr();

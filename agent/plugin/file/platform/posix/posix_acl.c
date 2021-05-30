@@ -31,7 +31,7 @@ static int qsort_compare_posix_acl_entries(const void* lhs, const void* rhs)
     return result;
 }
 
-yella_ptr_vector* get_posix_acl(const UChar* const file_name, chucho_logger_t* lgr)
+yella_ptr_vector* get_posix_acl(const element* elem, chucho_logger_t* lgr)
 {
     acl_t acl;
     char* utf8;
@@ -41,9 +41,10 @@ yella_ptr_vector* get_posix_acl(const UChar* const file_name, chucho_logger_t* l
     acl_tag_t tag;
     void* qualifier;
     acl_permset_t permset;
+    const attribute* usr_grp_attr;
 
     result = NULL;
-    utf8 = yella_to_utf8(file_name);
+    utf8 = yella_to_utf8(element_name(elem));
     acl = acl_get_file(utf8, ACL_TYPE_ACCESS);
     if (acl == NULL)
     {
@@ -57,36 +58,42 @@ yella_ptr_vector* get_posix_acl(const UChar* const file_name, chucho_logger_t* l
         {
             do
             {
+                result_entry = malloc(sizeof(posix_acl_entry));
                 acl_get_tag_type(entry, &tag);
-                if (tag == ACL_USER)
+                switch (tag)
                 {
-                    qualifier = acl_get_qualifier(entry);
-                    result_entry = malloc(sizeof(posix_acl_entry));
+                case ACL_USER:
                     result_entry->type = PACL_ENTRY_TYPE_USER;
-                    result_entry->usr_grp.id = *(uid_t*)qualifier;
+                    qualifier = acl_get_qualifier(entry);
+                    result_entry->usr_grp.id = *(uid_t*) qualifier;
                     acl_free(qualifier);
                     result_entry->usr_grp.name = get_user_name(result_entry->usr_grp.id, lgr);
-                    acl_get_permset(entry, &permset);
-                    result_entry->perm.read = acl_get_perm(permset, ACL_READ) ? true : false;
-                    result_entry->perm.write = acl_get_perm(permset, ACL_WRITE) ? true : false;
-                    result_entry->perm.execute = acl_get_perm(permset, ACL_EXECUTE) ? true : false;
-                    yella_push_back_ptr_vector(result, result_entry);
-
-                }
-                else if (tag == ACL_GROUP)
-                {
-                    qualifier = acl_get_qualifier(entry);
-                    result_entry = malloc(sizeof(posix_acl_entry));
+                    break;
+                case ACL_GROUP:
                     result_entry->type = PACL_ENTRY_TYPE_GROUP;
-                    result_entry->usr_grp.id = *(gid_t*)qualifier;
+                    qualifier = acl_get_qualifier(entry);
+                    result_entry->usr_grp.id = *(gid_t*) qualifier;
                     acl_free(qualifier);
                     result_entry->usr_grp.name = get_group_name(result_entry->usr_grp.id, lgr);
-                    acl_get_permset(entry, &permset);
-                    result_entry->perm.read = acl_get_perm(permset, ACL_READ) ? true : false;
-                    result_entry->perm.write = acl_get_perm(permset, ACL_WRITE) ? true : false;
-                    result_entry->perm.execute = acl_get_perm(permset, ACL_EXECUTE) ? true : false;
-                    yella_push_back_ptr_vector(result, result_entry);
+                    break;
+                case ACL_MASK:
+                    result_entry->type = PACL_ENTRY_TYPE_MASK;
+                    break;
+                case ACL_USER_OBJ:
+                    result_entry->type = PACL_ENTRY_TYPE_USER_OBJ;
+                    break;
+                case ACL_GROUP_OBJ:
+                    result_entry->type = PACL_ENTRY_TYPE_GROUP_OBJ;
+                    break;
+                case ACL_OTHER:
+                    result_entry->type = PACL_ENTRY_TYPE_OTHER;
+                    break;
                 }
+                acl_get_permset(entry, &permset);
+                result_entry->perm.read = acl_get_perm(permset, ACL_READ) ? true : false;
+                result_entry->perm.write = acl_get_perm(permset, ACL_WRITE) ? true : false;
+                result_entry->perm.execute = acl_get_perm(permset, ACL_EXECUTE) ? true : false;
+                yella_push_back_ptr_vector(result, result_entry);
             } while (acl_get_entry(acl, ACL_NEXT_ENTRY, &entry));
             qsort(yella_ptr_vector_data(result), yella_ptr_vector_size(result), sizeof(void*), qsort_compare_posix_acl_entries);
         }

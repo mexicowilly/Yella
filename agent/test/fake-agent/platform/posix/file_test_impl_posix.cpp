@@ -144,42 +144,49 @@ file_test_impl::milliseconds_since_epoch_attribute::milliseconds_since_epoch_att
 }
 
 file_test_impl::posix_acl_attribute::entry::entry(void* native)
+    : id_(std::numeric_limits<std::uint64_t>::max())
 {
     auto e = reinterpret_cast<acl_entry_t>(native);
     acl_tag_t tag;
     acl_get_tag_type(e, &tag);
     void* qualifier;
     acl_permset_t permset;
-    if (tag == ACL_USER)
+    switch (tag)
     {
+    case ACL_USER:
         type_ = type::USER;
         qualifier = acl_get_qualifier(e);
-        id_ = *(uid_t*)qualifier;
+        id_ = *(uid_t*) qualifier;
         acl_free(qualifier);
         name_ = get_user_name(id_);
-        acl_get_permset(e, &permset);
-        if (acl_get_perm(permset, ACL_READ))
-            permissions_.set(static_cast<std::size_t>(permission::READ));
-        if (acl_get_perm(permset, ACL_WRITE))
-            permissions_.set(static_cast<std::size_t>(permission::WRITE));
-        if (acl_get_perm(permset, ACL_EXECUTE))
-            permissions_.set(static_cast<std::size_t>(permission::EXECUTE));
-    }
-    else if (tag == ACL_GROUP)
-    {
+        break;
+    case ACL_GROUP:
         type_ = type::GROUP;
         qualifier = acl_get_qualifier(e);
-        id_ = *(uid_t*)qualifier;
+        id_ = *(gid_t*) qualifier;
         acl_free(qualifier);
         name_ = get_group_name(id_);
-        acl_get_permset(e, &permset);
-        if (acl_get_perm(permset, ACL_READ))
-            permissions_.set(static_cast<std::size_t>(permission::READ));
-        if (acl_get_perm(permset, ACL_WRITE))
-            permissions_.set(static_cast<std::size_t>(permission::WRITE));
-        if (acl_get_perm(permset, ACL_EXECUTE))
-            permissions_.set(static_cast<std::size_t>(permission::EXECUTE));
+        break;
+    case ACL_MASK:
+        type_ = type::MASK;
+        break;
+    case ACL_USER_OBJ:
+        type_ = type::USER_OBJ;
+        break;
+    case ACL_GROUP_OBJ:
+        type_ = type::GROUP_OBJ;
+        break;
+    case ACL_OTHER:
+        type_ = type::OTHER;
+        break;
     }
+    acl_get_permset(e, &permset);
+    if (acl_get_perm(permset, ACL_READ))
+        permissions_.set(static_cast<std::size_t>(permission::READ));
+    if (acl_get_perm(permset, ACL_WRITE))
+        permissions_.set(static_cast<std::size_t>(permission::WRITE));
+    if (acl_get_perm(permset, ACL_EXECUTE))
+        permissions_.set(static_cast<std::size_t>(permission::EXECUTE));
 }
 
 file_test_impl::posix_acl_attribute::posix_acl_attribute(const std::filesystem::path& file_name)

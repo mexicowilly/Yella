@@ -68,7 +68,7 @@ static void handle_posix_acl(element* elem, chucho_logger_t* lgr)
     attribute* attr;
     yella_ptr_vector* acl;
 
-    acl = get_posix_acl(element_name(elem), lgr);
+    acl = get_posix_acl(elem, lgr);
     if (acl != NULL)
     {
         attr = malloc(sizeof(attribute));

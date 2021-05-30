@@ -201,7 +201,11 @@ private:
             enum class type
             {
                 USER,
-                GROUP
+                GROUP,
+                MASK,
+                USER_OBJ,
+                GROUP_OBJ,
+                OTHER
             };
 
             entry(const fb::file::posix_access_control_entry& fbe);

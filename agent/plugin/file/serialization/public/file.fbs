@@ -88,7 +88,11 @@ table attr
 enum posix_access_control_entry_type : byte
 {
     USER = 1,
-    GROUP
+    GROUP,
+    MASK,
+    USER_OBJ,
+    GROUP_OBJ,
+    OTHER
 }
 
 table posix_permission

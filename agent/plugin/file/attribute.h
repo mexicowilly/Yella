@@ -43,7 +43,11 @@ typedef struct posix_permissions
 typedef enum
 {
     PACL_ENTRY_TYPE_USER,
-    PACL_ENTRY_TYPE_GROUP
+    PACL_ENTRY_TYPE_GROUP,
+    PACL_ENTRY_TYPE_MASK,
+    PACL_ENTRY_TYPE_USER_OBJ,
+    PACL_ENTRY_TYPE_GROUP_OBJ,
+    PACL_ENTRY_TYPE_OTHER
 } posix_acl_entry_type;
 
 typedef struct user_group
