@@ -232,7 +232,7 @@ static const void* get_value(const UChar* const sct, const UChar* const key, yel
         return set_found->value.text;
 }
 
-static int qsort_ustr_comparator(const void * lhs, const void * rhs)
+static int qsort_ustr_comparator(const void* lhs, const void* rhs)
 {
     const UChar* ulhs;
     const UChar* urhs;

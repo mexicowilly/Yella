@@ -226,6 +226,7 @@ static void single(void** arg)
     test_node* tn;
     attr_node* expect;
     int i;
+    chucho_logger_t* lgr;
 
     td = *arg;
     file_name = udscatprintf(udsempty(), u"%Ssingle", td->data_dir);
@@ -273,7 +274,9 @@ static void single(void** arg)
             sglib_attr_node_add(&tn->attrs, expect);
         }
         sglib_test_node_add(&td->files, tn);
-        run_job(j, td->db_pool);
+        lgr = chucho_get_logger("job_test");
+        run_job(j, td->db_pool, lgr);
+        chucho_release_logger(lgr);
         yella_sleep_this_thread_milliseconds(1250);
         destroy_job(j);
         assert_int_equal(sglib_test_node_len(td->files), 0);
@@ -288,6 +291,7 @@ void wild(void** arg)
     job* j;
     attr_node* expect;
     UFILE* uf;
+    chucho_logger_t* lgr;
 
     td = *arg;
     j = create_job(u"wild-cfg", td->recipient, td->acc);
@@ -327,7 +331,9 @@ void wild(void** arg)
     sglib_test_node_add(&td->files, tn);
     uf = u_fopen_u(tn->file_name, "w", NULL, NULL);
     u_fclose(uf);
-    run_job(j, td->db_pool);
+    lgr = chucho_get_logger("job_test");
+    run_job(j, td->db_pool, lgr);
+    chucho_release_logger(lgr);
     yella_sleep_this_thread_milliseconds(1250);
     destroy_job(j);
     assert_int_equal(sglib_test_node_len(td->files), 0);

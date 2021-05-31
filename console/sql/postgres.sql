@@ -38,4 +38,3 @@ CREATE TABLE configuration
     out_cap_id INT REFERENCES out_capability,
     name TEXT NOT NULL
 );
-

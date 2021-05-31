@@ -18,9 +18,12 @@ static void file_type(void** arg)
     element* elem1;
     element* elem2;
     attribute* attr;
+    chucho_logger_t* lgr;
 
     tp = ATTR_TYPE_FILE_TYPE;
-    elem1 = collect_attributes(FILE_NAME, &tp, 1);
+    lgr = chucho_get_logger("collect_attributes_test");
+    elem1 = collect_attributes(FILE_NAME, &tp, 1, lgr);
+    chucho_release_logger(lgr);
     assert_non_null(elem1);
     elem2 = create_element(FILE_NAME);
     attr = malloc(sizeof(attribute));
@@ -36,9 +39,12 @@ static void non_existent(void** arg)
 {
     element* elem;
     attribute_type tp;
+    chucho_logger_t* lgr;
 
     tp = ATTR_TYPE_FILE_TYPE;
-    elem = collect_attributes(u"doggies-and-monkies.xxx", &tp, 1);
+    lgr = chucho_get_logger("collect_attributes_test");
+    elem = collect_attributes(u"doggies-and-monkies.xxx", &tp, 1, lgr);
+    chucho_release_logger(lgr);
     assert_null(elem);
 }
 
@@ -54,9 +60,12 @@ static void sha256(void** arg)
     size_t fsize;
     char* utf8;
     FILE* f;
+    chucho_logger_t* lgr;
 
     tp = ATTR_TYPE_SHA256;
-    elem1 = collect_attributes(FILE_NAME, &tp, 1);
+    lgr = chucho_get_logger("collect_attributes_test");
+    elem1 = collect_attributes(FILE_NAME, &tp, 1, lgr);
+    chucho_release_logger(lgr);
     assert_non_null(elem1);
     elem2 = create_element(FILE_NAME);
     attr = malloc(sizeof(attribute));

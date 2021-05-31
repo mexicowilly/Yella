@@ -13,9 +13,10 @@ enum attr_type : ushort
     USER,                   // usr_grp field in attr
     GROUP,                  // usr_grp field in attr
     SIZE,                   // unsigned_int field in attr
-    ACCESS_TIME,            // millis_since_epoch field in attr
-    METADATA_CHANGE_TIME,   // millis_since_epoch field in attr
-    MODIFICATION_TIME       // millis_since_epoch field in attr
+    ACCESS_TIME,            // milliseconds_since_epoch field in attr
+    METADATA_CHANGE_TIME,   // milliseconds_since_epoch field in attr
+    MODIFICATION_TIME,      // milliseconds_since_epoch field in attr
+    POSIX_ACL               // psx_acl field in attr
 }
 
 //
@@ -41,40 +42,6 @@ enum condition : byte
     REMOVED
 }
 
-enum file_type : byte
-{
-    BLOCK_SPECIAL = 1,
-    CHARACTER_SPECIAL,
-    DIRECTORY,
-    FIFO,
-    SYMBOLIC_LINK,
-    REGULAR,
-    SOCKET,
-    WHITEOUT
-}
-
-table posix_permissions
-{
-    owner_read: bool = false;
-    owner_write: bool = false;
-    owner_execute: bool = false;
-    group_read: bool = false;
-    group_write: bool = false;
-    group_execute: bool = false;
-    other_read: bool = false;
-    other_write: bool = false;
-    other_execute: bool = false;
-    set_uid: bool = false;
-    set_gid: bool = false;
-    sticky: bool = false;
-}
-
-table user_group
-{
-    id: uint64;
-    name: string;
-}
-
 table file_state
 {
     milliseconds_since_epoch: uint64;
@@ -93,6 +60,18 @@ table file_states
 // Attribute definitions
 //
 
+enum file_type : byte
+{
+    BLOCK_SPECIAL = 1,
+    CHARACTER_SPECIAL,
+    DIRECTORY,
+    FIFO,
+    SYMBOLIC_LINK,
+    REGULAR,
+    SOCKET,
+    WHITEOUT
+}
+
 table attr
 {
     type: attr_type = FILE_TYPE;
@@ -102,5 +81,46 @@ table attr
     psx_permissions: posix_permissions;
     usr_grp: user_group;
     unsigned_int: uint64;
-    millis_since_epoch: uint64;
+    milliseconds_since_epoch: uint64;
+    psx_acl: [posix_access_control_entry];
+}
+
+enum posix_access_control_entry_type : byte
+{
+    USER = 1,
+    GROUP,
+    MASK,
+    USER_OBJ,
+    GROUP_OBJ,
+    OTHER
+}
+
+table posix_permission
+{
+    read: bool = false;
+    write: bool = false;
+    execute: bool = false;
+}
+
+table posix_permissions
+{
+    owner: posix_permission;
+    group: posix_permission;
+    other: posix_permission;
+    set_uid: bool = false;
+    set_gid: bool = false;
+    sticky: bool = false;
+}
+
+table user_group
+{
+    id: uint64;
+    name: string;
+}
+
+table posix_access_control_entry
+{
+    type: posix_access_control_entry_type = USER;
+    usr_grp: user_group;
+    permission: posix_permission;
 }

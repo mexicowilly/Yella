@@ -5,7 +5,6 @@
 #include <chucho/log.hpp>
 #include <openssl/evp.h>
 #include <flatbuffers/flatbuffers.h>
-#include <unicode/datefmt.h>
 #include <fstream>
 #include <thread>
 #include <iomanip>
@@ -305,14 +304,35 @@ void file_test_impl::attribute::emit(YAML::Emitter& e) const
     e << YAML::Key;
     switch (type_)
     {
+    case type::ACCESS_TIME:
+        e << "ACCESS_TIME";
+        break;
     case type::FILE_TYPE:
         e << "FILE_TYPE";
+        break;
+    case type::GROUP:
+        e << "GROUP";
+        break;
+    case type::METADATA_CHANGE_TIME:
+        e << "METADATA_CHANGE_TIME";
+        break;
+    case type::MODIFICATION_TIME:
+        e << "MODIFICATION_TIME";
         break;
     case type::POSIX_PERMISSIONS:
         e << "POSIX_PERMISSIONS";
         break;
     case type::SHA256:
         e << "SHA256";
+        break;
+    case type::SIZE:
+        e << "SIZE";
+        break;
+    case type::USER:
+        e << "USER";
+        break;
+    case type::POSIX_ACL:
+        e << "POSIX_ACL";
         break;
     }
     e << YAML::Value;
@@ -433,24 +453,36 @@ file_test_impl::posix_permissions_attribute::posix_permissions_attribute(const f
     : attribute(type::POSIX_PERMISSIONS)
 {
     const auto& fbits = fba.psx_permissions();
-    if (fbits->owner_read())
-        bits_.set(static_cast<std::size_t>(perm::OWNER_READ));
-    if (fbits->owner_write())
-        bits_.set(static_cast<std::size_t>(perm::OWNER_WRITE));
-    if (fbits->owner_execute())
-        bits_.set(static_cast<std::size_t>(perm::OWNER_EXECUTE));
-    if (fbits->group_read())
-        bits_.set(static_cast<std::size_t>(perm::GROUP_READ));
-    if (fbits->group_write())
-        bits_.set(static_cast<std::size_t>(perm::GROUP_WRITE));
-    if (fbits->group_execute())
-        bits_.set(static_cast<std::size_t>(perm::GROUP_EXECUTE));
-    if (fbits->other_read())
-        bits_.set(static_cast<std::size_t>(perm::OTHER_READ));
-    if (fbits->other_write())
-        bits_.set(static_cast<std::size_t>(perm::OTHER_WRITE));
-    if (fbits->other_execute())
-        bits_.set(static_cast<std::size_t>(perm::OTHER_EXECUTE));
+    auto perm = fbits->owner();
+    if (perm != nullptr)
+    {
+        if (perm->read())
+            bits_.set(static_cast<std::size_t>(perm::OWNER_READ));
+        if (perm->write())
+            bits_.set(static_cast<std::size_t>(perm::OWNER_WRITE));
+        if (perm->execute())
+            bits_.set(static_cast<std::size_t>(perm::OWNER_EXECUTE));
+    }
+    perm = fbits->group();
+    if (perm != nullptr)
+    {
+        if (perm->read())
+            bits_.set(static_cast<std::size_t>(perm::GROUP_READ));
+        if (perm->write())
+            bits_.set(static_cast<std::size_t>(perm::GROUP_WRITE));
+        if (perm->execute())
+            bits_.set(static_cast<std::size_t>(perm::GROUP_EXECUTE));
+    }
+    perm = fbits->other();
+    if (perm != nullptr)
+    {
+        if (perm->read())
+            bits_.set(static_cast<std::size_t>(perm::OTHER_READ));
+        if (perm->write())
+            bits_.set(static_cast<std::size_t>(perm::OTHER_WRITE));
+        if (perm->execute())
+            bits_.set(static_cast<std::size_t>(perm::OTHER_EXECUTE));
+    }
     if (fbits->set_uid())
         bits_.set(static_cast<std::size_t>(perm::SET_UID));
     if (fbits->set_gid())
@@ -490,11 +522,221 @@ bool file_test_impl::posix_permissions_attribute::equal_to(const attribute& rhs)
     return ppa != nullptr && attribute::equal_to(rhs) && bits_ == ppa->bits_;
 }
 
+file_test_impl::user_group_attribute::user_group_attribute(type tp, const fb::file::attr& fba)
+    : attribute(tp)
+{
+    const auto& ug = fba.usr_grp();
+    id_ = ug->id();
+    name_ = ug->name()->str();
+}
+
+void file_test_impl::user_group_attribute::emit(YAML::Emitter& e) const
+{
+    attribute::emit(e);
+    e << YAML::Key << "id" << YAML::Value << id_;
+    e << YAML::Key << "name" << YAML::Value << name_;
+}
+
+bool file_test_impl::user_group_attribute::equal_to(const attribute& rhs) const
+{
+    auto uga = dynamic_cast<const user_group_attribute*>(&rhs);
+    return uga != nullptr &&
+           attribute::equal_to(rhs) &&
+           id_ == uga->id_ &&
+           name_ == uga->name_;
+}
+
+file_test_impl::unsigned_int_attribute::unsigned_int_attribute(type tp, const fb::file::attr& fba)
+    : attribute(tp),
+      value_(fba.unsigned_int())
+{
+}
+
+file_test_impl::unsigned_int_attribute::unsigned_int_attribute(type tp, std::uint64_t val)
+    : attribute(tp),
+      value_(val)
+{
+}
+
+void file_test_impl::unsigned_int_attribute::emit(YAML::Emitter& e) const
+{
+    attribute::emit(e);
+    e << value_;
+}
+
+bool file_test_impl::unsigned_int_attribute::equal_to(const attribute& rhs) const
+{
+    auto uia = dynamic_cast<const unsigned_int_attribute*>(&rhs);
+    return uia != nullptr && attribute::equal_to(rhs) && value_ == uia->value_;
+}
+
+file_test_impl::milliseconds_since_epoch_attribute::milliseconds_since_epoch_attribute(type tp, const fb::file::attr& fba)
+    : attribute(tp),
+      time_(fba.milliseconds_since_epoch())
+{
+    initialize_time_format();
+}
+
+void file_test_impl::milliseconds_since_epoch_attribute::emit(YAML::Emitter& e) const
+{
+    attribute::emit(e);
+    icu::UnicodeString utd;
+    tfmt_->format(time_, utd);
+    utd.findAndReplace(u" ", u"T");
+    std::string td;
+    utd.toUTF8String(td);
+    e << td;
+}
+
+bool file_test_impl::milliseconds_since_epoch_attribute::equal_to(const attribute& rhs) const
+{
+    auto msea = dynamic_cast<const milliseconds_since_epoch_attribute*>(&rhs);
+    return msea != nullptr && attribute::equal_to(rhs) && time_ == msea->time_;
+}
+
+void file_test_impl::milliseconds_since_epoch_attribute::initialize_time_format()
+{
+    UErrorCode ec = U_ZERO_ERROR;
+    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMddHHmmssSSS", icu::Locale::getRoot(), ec));
+    tfmt_->setTimeZone(*icu::TimeZone::getGMT());
+    if (!U_SUCCESS(ec))
+        throw std::runtime_error("Error creating time formatter");
+}
+
+file_test_impl::posix_acl_attribute::entry::entry(const fb::file::posix_access_control_entry& fbe)
+    : id_(std::numeric_limits<std::uint64_t>::max())
+{
+    switch (fbe.type())
+    {
+    case fb::file::posix_access_control_entry_type_USER:
+        type_ = type::USER;
+        break;
+    case fb::file::posix_access_control_entry_type_GROUP:
+        type_ = type::GROUP;
+        break;
+    case fb::file::posix_access_control_entry_type_MASK:
+        type_ = type::MASK;
+        break;
+    case fb::file::posix_access_control_entry_type_USER_OBJ:
+        type_ = type::USER_OBJ;
+        break;
+    case fb::file::posix_access_control_entry_type_GROUP_OBJ:
+        type_ = type::GROUP_OBJ;
+        break;
+    case fb::file::posix_access_control_entry_type_OTHER:
+        type_ = type::OTHER;
+        break;
+    }
+    auto perms = fbe.permission();
+    if (perms != nullptr)
+    {
+        permissions_.set(static_cast<std::size_t>(permission::READ), perms->read());
+        permissions_.set(static_cast<std::size_t>(permission::WRITE), perms->write());
+        permissions_.set(static_cast<std::size_t>(permission::EXECUTE), perms->execute());
+    }
+    auto usr_grp = fbe.usr_grp();
+    if (usr_grp != nullptr)
+    {
+        id_ = usr_grp->id();
+        if (usr_grp->name() != nullptr)
+            name_ = usr_grp->name()->str();
+    }
+}
+
+bool file_test_impl::posix_acl_attribute::entry::operator== (const entry& rhs) const
+{
+    return type_ == rhs.type_ &&
+           permissions_ == rhs.permissions_ &&
+           id_ == rhs.id_ &&
+           name_ == rhs.name_;
+}
+
+bool file_test_impl::posix_acl_attribute::entry::operator< (const entry& rhs) const
+{
+    std::int64_t diff = static_cast<std::int64_t>(type_) - static_cast<std::int64_t>(rhs.type_);
+    if (diff == 0)
+    {
+        diff = static_cast<int64_t>(id_) - static_cast<int64_t>(rhs.id_);
+        if (diff == 0)
+            diff = name_.compare(rhs.name_);
+    }
+    return diff < 0;
+}
+
+void file_test_impl::posix_acl_attribute::entry::emit(YAML::Emitter& e) const
+{
+    e << YAML::BeginMap;
+    e << YAML::Key << "type" << YAML::Value;
+    std::string id_value;
+    switch (type_)
+    {
+    case type::USER:
+        e << "USER";
+        id_value = name_ + '(' + std::to_string(id_) + ')';
+        e << YAML::Key << "id" << YAML::Value << id_value;
+        break;
+    case type::GROUP:
+        e << "GROUP";
+        id_value = name_ + '(' + std::to_string(id_) + ')';
+        e << YAML::Key << "id" << YAML::Value << id_value;
+        break;
+    case type::MASK:
+        e << "MASK";
+        break;
+    case type::USER_OBJ:
+        e << "USER_OBJ";
+        break;
+    case type::GROUP_OBJ:
+        e << "GROUP_OBJ";
+        break;
+    case type::OTHER:
+        e << "OTHER";
+        break;
+    }
+    e << YAML::Key << "permissions" << YAML::Value;
+    std::string perm;
+    perm += (permissions_.test(static_cast<std::size_t>(permission::READ)) ? 'r' : '-');
+    perm += (permissions_.test(static_cast<std::size_t>(permission::WRITE)) ? 'w' : '-');
+    perm += (permissions_.test(static_cast<std::size_t>(permission::EXECUTE)) ? 'x' : '-');
+    e << perm;
+    e << YAML::EndMap;
+}
+
+file_test_impl::posix_acl_attribute::posix_acl_attribute(const fb::file::attr& fba)
+    : attribute(type::POSIX_ACL)
+{
+    if (fba.psx_acl() != nullptr)
+    {
+        for (auto cur : *fba.psx_acl())
+            entries_.emplace(*cur);
+    }
+}
+
+void file_test_impl::posix_acl_attribute::emit(YAML::Emitter& e) const
+{
+    attribute::emit(e);
+    e << YAML::BeginSeq;
+    for (const auto& ent : entries_)
+        ent.emit(e);
+    e << YAML::EndSeq;
+}
+
+bool file_test_impl::posix_acl_attribute::equal_to(const attribute& rhs) const
+{
+    auto pacla = dynamic_cast<const posix_acl_attribute*>(&rhs);
+    return pacla != nullptr && attribute::equal_to(rhs) && entries_ == pacla->entries_;
+}
+
 file_test_impl::file_state::file_state(const fb::file::file_state& fb)
     : time_(fb.milliseconds_since_epoch()),
       file_name_(fb.file_name()->str()),
       config_name_(fb.config_name()->str())
 {
+    UErrorCode ec = U_ZERO_ERROR;
+    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMddHHmmssSSS", icu::Locale::getRoot(), ec));
+    tfmt_->setTimeZone(*icu::TimeZone::getGMT());
+    if (!U_SUCCESS(ec))
+        throw std::runtime_error("Error creating time formatter");
     if (fb.cond() == fb::file::condition_ADDED)
         cond_ = condition::ADDED;
     else if (fb.cond() == fb::file::condition_CHANGED)
@@ -503,18 +745,50 @@ file_test_impl::file_state::file_state(const fb::file::file_state& fb)
         cond_ = condition::REMOVED;
     for (auto cur : *fb.attrs())
     {
-        if (cur->type() == fb::file::attr_type_FILE_TYPE)
+        switch (cur->type())
+        {
+        case fb::file::attr_type_FILE_TYPE:
             attrs_.emplace(std::make_unique<file_type_attribute>(*cur));
-        else if (cur->type() == fb::file::attr_type_SHA256)
+            break;
+        case fb::file::attr_type_SHA256:
             attrs_.emplace(std::make_unique<bytes_attribute>(attribute::type::SHA256, *cur));
-        else if (cur->type() == fb::file::attr_type_POSIX_PERMISSIONS)
+            break;
+        case fb::file::attr_type_POSIX_PERMISSIONS:
             attrs_.emplace(std::make_unique<posix_permissions_attribute>(*cur));
+            break;
+        case fb::file::attr_type_USER:
+            attrs_.emplace(std::make_unique<user_group_attribute>(attribute::type::USER, *cur));
+            break;
+        case fb::file::attr_type_GROUP:
+            attrs_.emplace(std::make_unique<user_group_attribute>(attribute::type::GROUP, *cur));
+            break;
+        case fb::file::attr_type_SIZE:
+            attrs_.emplace(std::make_unique<unsigned_int_attribute>(attribute::type::SIZE, *cur));
+            break;
+        case fb::file::attr_type_ACCESS_TIME:
+            attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::ACCESS_TIME, *cur));
+            break;
+        case fb::file::attr_type_METADATA_CHANGE_TIME:
+            attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::METADATA_CHANGE_TIME, *cur));
+            break;
+        case fb::file::attr_type_MODIFICATION_TIME:
+            attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::MODIFICATION_TIME, *cur));
+            break;
+        case fb::file::attr_type_POSIX_ACL:
+            attrs_.emplace(std::make_unique<posix_acl_attribute>(*cur));
+            break;
+        }
     }
 }
 
 file_test_impl::file_state::file_state(const std::filesystem::path& working_dir, const YAML::Node& body)
     : time_(0)
 {
+    UErrorCode ec = U_ZERO_ERROR;
+    tfmt_.reset(icu::DateFormat::createInstanceForSkeleton(u"yyyyMMddHHmmssSSS", icu::Locale::getRoot(), ec));
+    tfmt_->setTimeZone(*icu::TimeZone::getGMT());
+    if (!U_SUCCESS(ec))
+        throw std::runtime_error("Error creating time formatter");
     auto n = body["config.name"];
     if (n)
         config_name_ = n.Scalar();
@@ -536,15 +810,32 @@ file_test_impl::file_state::file_state(const std::filesystem::path& working_dir,
         n = body["attrs"];
         if (n.IsSequence())
         {
+            bool should_get_sha256 = false;
             for (const auto& cur : n)
             {
-                if (cur.Scalar() == "SHA256")
-                    maybe_add_sha256_attr();
-                else if (cur.Scalar() == "POSIX_PERMISSIONS")
+                if (cur.Scalar() == "POSIX_PERMISSIONS")
                     attrs_.emplace(std::make_unique<posix_permissions_attribute>(file_name_));
                 else if (cur.Scalar() == "FILE_TYPE")
                     attrs_.emplace(std::make_unique<file_type_attribute>(file_name_));
+                else if (cur.Scalar() == "USER")
+                    attrs_.emplace(std::make_unique<user_group_attribute>(attribute::type::USER, file_name_));
+                else if (cur.Scalar() == "GROUP")
+                    attrs_.emplace(std::make_unique<user_group_attribute>(attribute::type::GROUP, file_name_));
+                else if (cur.Scalar() == "SIZE")
+                    attrs_.emplace(std::make_unique<unsigned_int_attribute>(attribute::type::SIZE, std::filesystem::file_size(file_name_)));
+                else if (cur.Scalar() == "MODIFICATION_TIME")
+                    attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::MODIFICATION_TIME, file_name_));
+                else if (cur.Scalar() == "METADATA_CHANGE_TIME")
+                    attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::METADATA_CHANGE_TIME, file_name_));
+                else if (cur.Scalar() == "ACCESS_TIME")
+                    attrs_.emplace(std::make_unique<milliseconds_since_epoch_attribute>(attribute::type::ACCESS_TIME, file_name_));
+                else if (cur.Scalar() == "SHA256")
+                    should_get_sha256 = true;
+                else if (cur.Scalar() == "POSIX_ACL")
+                    attrs_.emplace(std::make_unique<posix_acl_attribute>(file_name_));
             }
+            if (should_get_sha256)
+                maybe_add_sha256_attr();
         }
     }
 }
@@ -563,14 +854,9 @@ bool file_test_impl::file_state::operator== (const file_state& other) const
 
 std::string file_test_impl::file_state::to_text() const
 {
-    UErrorCode ec = U_ZERO_ERROR;
-    auto fmt = icu::DateFormat::createInstanceForSkeleton(u"yyyyMMdd'T'HHmmss.SSS", ec);
-    fmt->setTimeZone(*icu::TimeZone::getGMT());
-    if (!U_SUCCESS(ec))
-        throw std::runtime_error("Error creating time formatter");
     icu::UnicodeString utd;
-    fmt->format(time_, utd);
-    delete fmt;
+    tfmt_->format(time_, utd);
+    utd.findAndReplace(u" ", u"T");
     std::string td;
     utd.toUTF8String(td);
     YAML::Emitter emitter;

@@ -4,6 +4,7 @@
 #include "plugin/file/state_db_pool.h"
 #include "common/file.h"
 #include "common/uds_util.h"
+#include <chucho/logger.h>
 #include <unicode/ustring.h>
 #include <sys/param.h>
 
@@ -57,7 +58,11 @@ static void process_element(const UChar* const name, element* elem, const job* c
         add_accumulator_message(j->acc, j->recipient, j->config_name, name, elem, cond);
 }
 
-static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const job* const j, state_db* db)
+static void crawl_dir(const UChar* const dir,
+                      const UChar* const cur_incl,
+                      const job* const j,
+                      state_db* db,
+                      chucho_logger_t* lgr)
 {
     yella_directory_iterator* itor;
     const UChar* cur;
@@ -69,21 +74,21 @@ static void crawl_dir(const UChar* const dir, const UChar* const cur_incl, const
     while (cur != NULL)
     {
         if (file_name_matches(cur, cur_incl) && !matches_excludes(cur, j->excludes))
-            existing_elem = collect_attributes(cur, j->attr_types, j->attr_type_count);
+            existing_elem = collect_attributes(cur, j->attr_types, j->attr_type_count, lgr);
         process_element(cur, existing_elem, j, db);
         if (existing_elem != NULL)
             destroy_element(existing_elem);
         if (yella_get_file_type(cur, &ftype, NULL) == YELLA_NO_ERROR &&
             ftype == YELLA_FILE_TYPE_DIRECTORY)
         {
-            crawl_dir(cur, cur_incl, j, db);
+            crawl_dir(cur, cur_incl, j, db, lgr);
         }
         cur = yella_directory_iterator_next(itor);
     }
     yella_destroy_directory_iterator(itor);
 }
 
-static void run_one_include(const UChar* const incl, const job* const j, state_db* db)
+static void run_one_include(const UChar* const incl, const job* const j, state_db* db, chucho_logger_t* lgr)
 {
     const UChar* special;
     uds unescaped;
@@ -95,7 +100,7 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
     if (special == NULL)
     {
         unescaped = unescape_pattern(incl);
-        existing_elem = collect_attributes(unescaped, j->attr_types, j->attr_type_count);
+        existing_elem = collect_attributes(unescaped, j->attr_types, j->attr_type_count, lgr);
         process_element(unescaped, existing_elem, j, db);
         udsfree(unescaped);
         if (existing_elem != NULL)
@@ -111,7 +116,7 @@ static void run_one_include(const UChar* const incl, const job* const j, state_d
             if (yella_get_file_type(top_dir, &ftype, NULL) == YELLA_NO_ERROR &&
                 ftype == YELLA_FILE_TYPE_DIRECTORY)
             {
-                crawl_dir(top_dir, incl, j, db);
+                crawl_dir(top_dir, incl, j, db, lgr);
             }
             udsfree(top_dir);
         }
@@ -143,7 +148,7 @@ void destroy_job(job* j)
     free(j);
 }
 
-void run_job(const job* const j, state_db_pool* db_pool)
+void run_job(const job* const j, state_db_pool* db_pool, chucho_logger_t* lgr)
 {
     int i;
     state_db* db;
@@ -152,6 +157,6 @@ void run_job(const job* const j, state_db_pool* db_pool)
     if (db != NULL)
     {
         for (i = 0; i < yella_ptr_vector_size(j->includes); i++)
-            run_one_include(yella_ptr_vector_at(j->includes, i), j, db);
+            run_one_include(yella_ptr_vector_at(j->includes, i), j, db, lgr);
     }
 }

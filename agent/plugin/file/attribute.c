@@ -75,6 +75,14 @@ static yella_fb_file_attr_type_enum_t file_type_to_fb(yella_file_type ft)
     return result;
 }
 
+static void acl_entry_destructor(void* elem, void* udata)
+{
+    posix_acl_entry* entry = (posix_acl_entry*)elem;
+
+    free(entry->usr_grp.name);
+    free(entry);
+}
+
 uint16_t attribute_type_to_fb(attribute_type atp)
 {
     uint16_t result;
@@ -108,6 +116,9 @@ uint16_t attribute_type_to_fb(attribute_type atp)
     case ATTR_TYPE_MODIFICATION_TIME:
         result = yella_fb_file_attr_type_MODIFICATION_TIME;
         break;
+    case ATTR_TYPE_POSIX_ACL:
+        result = yella_fb_file_attr_type_POSIX_ACL;
+        break;
     default:
         assert(false);
     }
@@ -117,6 +128,9 @@ uint16_t attribute_type_to_fb(attribute_type atp)
 int compare_attributes(const attribute* const lhs, const attribute* const rhs)
 {
     int rc;
+    size_t i;
+    posix_acl_entry* e1;
+    posix_acl_entry* e2;
 
     rc = (int)lhs->type - (int)rhs->type;
     if (rc == 0)
@@ -136,9 +150,9 @@ int compare_attributes(const attribute* const lhs, const attribute* const rhs)
             break;
         case ATTR_TYPE_USER:
         case ATTR_TYPE_GROUP:
-            rc = (int64_t)lhs->value.user_group.id - (int64_t)rhs->value.user_group.id;
+            rc = (int64_t)lhs->value.usr_grp.id - (int64_t)rhs->value.usr_grp.id;
             if (rc == 0)
-                rc = u_strcmp(lhs->value.user_group.name, rhs->value.user_group.name);
+                rc = u_strcmp(lhs->value.usr_grp.name, rhs->value.usr_grp.name);
             break;
         case ATTR_TYPE_SIZE:
             rc = (int64_t)lhs->value.size - (int64_t)rhs->value.size;
@@ -147,6 +161,30 @@ int compare_attributes(const attribute* const lhs, const attribute* const rhs)
         case ATTR_TYPE_METADATA_CHANGE_TIME:
         case ATTR_TYPE_MODIFICATION_TIME:
             rc = (int64_t)lhs->value.millis_since_epoch - (int64_t)rhs->value.millis_since_epoch;
+            break;
+        case ATTR_TYPE_POSIX_ACL:
+            rc = (int64_t)yella_ptr_vector_size(lhs->value.posix_acl_entries) - (int64_t)yella_ptr_vector_size(rhs->value.posix_acl_entries);
+            if (rc == 0 && yella_ptr_vector_size(lhs->value.posix_acl_entries) > 0)
+            {
+                for (i = 0; i < yella_ptr_vector_size(lhs->value.posix_acl_entries); i++)
+                {
+                    e1 = yella_ptr_vector_at(lhs->value.posix_acl_entries, i);
+                    e2 = yella_ptr_vector_at(rhs->value.posix_acl_entries, i);
+                    rc = e1->type - e2->type;
+                    if (rc == 0)
+                    {
+                        rc = (int64_t)e1->usr_grp.id - (int64_t)e2->usr_grp.id;
+                        if (rc == 0)
+                        {
+                            rc = u_strcmp(e1->usr_grp.name, e2->usr_grp.name);
+                            if (rc == 0)
+                            {
+                                rc = memcmp(&e1->perm, &e2->perm, sizeof(struct posix_permission));
+                            }
+                        }
+                    }
+                }
+            }
             break;
         default:
             assert(false);
@@ -159,8 +197,13 @@ attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl)
 {
     attribute* result;
     flatbuffers_uint8_vec_t bytes;
-    yella_fb_file_posix_permissions_table_t psx_permissions;
+    yella_fb_file_posix_permissions_table_t psx_perms;
     yella_fb_file_user_group_table_t usr_grp;
+    yella_fb_file_posix_permission_table_t psx_perm;
+    yella_fb_file_posix_access_control_entry_vec_t acl_entries;
+    yella_fb_file_posix_access_control_entry_table_t fb_entry;
+    size_t i;
+    posix_acl_entry* entry;
 
     result = malloc(sizeof(attribute));
     switch (yella_fb_file_attr_type(tbl))
@@ -178,26 +221,39 @@ attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl)
         break;
     case yella_fb_file_attr_type_POSIX_PERMISSIONS:
         result->type = ATTR_TYPE_POSIX_PERMISSIONS;
-        psx_permissions = yella_fb_file_attr_psx_permissions(tbl);
-        result->value.psx_permissions.owner_read = yella_fb_file_posix_permissions_owner_read(psx_permissions) ? true : false;
-        result->value.psx_permissions.owner_write = yella_fb_file_posix_permissions_owner_write(psx_permissions) ? true : false;
-        result->value.psx_permissions.owner_execute = yella_fb_file_posix_permissions_owner_execute(psx_permissions) ? true : false;
-        result->value.psx_permissions.group_read = yella_fb_file_posix_permissions_group_read(psx_permissions) ? true : false;
-        result->value.psx_permissions.group_write = yella_fb_file_posix_permissions_group_write(psx_permissions) ? true : false;
-        result->value.psx_permissions.group_execute = yella_fb_file_posix_permissions_group_execute(psx_permissions) ? true : false;
-        result->value.psx_permissions.other_read = yella_fb_file_posix_permissions_other_read(psx_permissions) ? true : false;
-        result->value.psx_permissions.other_write = yella_fb_file_posix_permissions_other_write(psx_permissions) ? true : false;
-        result->value.psx_permissions.other_execute = yella_fb_file_posix_permissions_other_execute(psx_permissions) ? true : false;
-        result->value.psx_permissions.set_uid = yella_fb_file_posix_permissions_set_uid(psx_permissions) ? true : false;
-        result->value.psx_permissions.set_gid = yella_fb_file_posix_permissions_set_gid(psx_permissions) ? true : false;
-        result->value.psx_permissions.sticky = yella_fb_file_posix_permissions_sticky(psx_permissions) ? true : false;
+        memset(&result->value.psx_permissions, 0, sizeof(posix_permissions));
+        psx_perms = yella_fb_file_attr_psx_permissions(tbl);
+        if (yella_fb_file_posix_permissions_owner_is_present(psx_perms))
+        {
+            psx_perm = yella_fb_file_posix_permissions_owner(psx_perms);
+            result->value.psx_permissions.owner.read = yella_fb_file_posix_permission_read(psx_perm) ? true : false;
+            result->value.psx_permissions.owner.write = yella_fb_file_posix_permission_write(psx_perm) ? true : false;
+            result->value.psx_permissions.owner.execute = yella_fb_file_posix_permission_execute(psx_perm) ? true : false;
+        }
+        if (yella_fb_file_posix_permissions_group_is_present(psx_perms))
+        {
+            psx_perm = yella_fb_file_posix_permissions_group(psx_perms);
+            result->value.psx_permissions.group.read = yella_fb_file_posix_permission_read(psx_perm) ? true : false;
+            result->value.psx_permissions.group.write = yella_fb_file_posix_permission_write(psx_perm) ? true : false;
+            result->value.psx_permissions.group.execute = yella_fb_file_posix_permission_execute(psx_perm) ? true : false;
+        }
+        if (yella_fb_file_posix_permissions_other_is_present(psx_perms))
+        {
+            psx_perm = yella_fb_file_posix_permissions_other(psx_perms);
+            result->value.psx_permissions.other.read = yella_fb_file_posix_permission_read(psx_perm) ? true : false;
+            result->value.psx_permissions.other.write = yella_fb_file_posix_permission_write(psx_perm) ? true : false;
+            result->value.psx_permissions.other.execute = yella_fb_file_posix_permission_execute(psx_perm) ? true : false;
+        }
+        result->value.psx_permissions.set_uid = yella_fb_file_posix_permissions_set_uid(psx_perms) ? true : false;
+        result->value.psx_permissions.set_gid = yella_fb_file_posix_permissions_set_gid(psx_perms) ? true : false;
+        result->value.psx_permissions.sticky = yella_fb_file_posix_permissions_sticky(psx_perms) ? true : false;
         break;
     case yella_fb_file_attr_type_USER:
     case yella_fb_file_attr_type_GROUP:
         result->type = (yella_fb_file_attr_type(tbl) == yella_fb_file_attr_type_USER) ? ATTR_TYPE_USER : ATTR_TYPE_GROUP;
         usr_grp = yella_fb_file_attr_usr_grp(tbl);
-        result->value.user_group.id = yella_fb_file_user_group_id(usr_grp);
-        result->value.user_group.name = yella_from_utf8(yella_fb_file_user_group_name(usr_grp));
+        result->value.usr_grp.id = yella_fb_file_user_group_id(usr_grp);
+        result->value.usr_grp.name = yella_from_utf8(yella_fb_file_user_group_name(usr_grp));
         break;
     case yella_fb_file_attr_type_SIZE:
         result->type = ATTR_TYPE_SIZE;
@@ -205,15 +261,39 @@ attribute* create_attribute_from_table(const yella_fb_file_attr_table_t tbl)
         break;
     case yella_fb_file_attr_type_ACCESS_TIME:
         result->type = ATTR_TYPE_ACCESS_TIME;
-        result->value.millis_since_epoch = yella_fb_file_attr_millis_since_epoch(tbl);
+        result->value.millis_since_epoch = yella_fb_file_attr_milliseconds_since_epoch(tbl);
         break;
     case yella_fb_file_attr_type_METADATA_CHANGE_TIME:
         result->type = ATTR_TYPE_METADATA_CHANGE_TIME;
-        result->value.millis_since_epoch = yella_fb_file_attr_millis_since_epoch(tbl);
+        result->value.millis_since_epoch = yella_fb_file_attr_milliseconds_since_epoch(tbl);
         break;
     case yella_fb_file_attr_type_MODIFICATION_TIME:
         result->type = ATTR_TYPE_MODIFICATION_TIME;
-        result->value.millis_since_epoch = yella_fb_file_attr_millis_since_epoch(tbl);
+        result->value.millis_since_epoch = yella_fb_file_attr_milliseconds_since_epoch(tbl);
+        break;
+    case yella_fb_file_attr_type_POSIX_ACL:
+        result->type = ATTR_TYPE_POSIX_ACL;
+        result->value.posix_acl_entries = yella_create_ptr_vector();
+        yella_set_ptr_vector_destructor(result->value.posix_acl_entries, acl_entry_destructor, NULL);
+        if (yella_fb_file_attr_psx_acl_is_present(tbl))
+        {
+            acl_entries = yella_fb_file_attr_psx_acl(tbl);
+            for (i = 0; i < yella_fb_file_posix_access_control_entry_vec_len(acl_entries); i++)
+            {
+                fb_entry = yella_fb_file_posix_access_control_entry_vec_at(acl_entries, i);
+                entry = malloc(sizeof(posix_acl_entry));
+                entry->type = yella_fb_file_posix_access_control_entry_type(fb_entry) == yella_fb_file_posix_access_control_entry_type_USER ?
+                              PACL_ENTRY_TYPE_USER : PACL_ENTRY_TYPE_GROUP;
+                usr_grp = yella_fb_file_posix_access_control_entry_usr_grp(fb_entry);
+                entry->usr_grp.id = yella_fb_file_user_group_id(usr_grp);
+                entry->usr_grp.name = yella_from_utf8(yella_fb_file_user_group_name(usr_grp));
+                psx_perm = yella_fb_file_posix_access_control_entry_permission(fb_entry);
+                entry->perm.read = yella_fb_file_posix_permission_read(psx_perm) ? true : false;
+                entry->perm.write = yella_fb_file_posix_permission_write(psx_perm) ? true : false;
+                entry->perm.execute = yella_fb_file_posix_permission_execute(psx_perm) ? true : false;
+                yella_push_back_ptr_vector(result->value.posix_acl_entries, entry);
+            }
+        }
         break;
     default:
         assert(false);
@@ -230,7 +310,10 @@ void destroy_attribute(attribute* attr)
         break;
     case ATTR_TYPE_USER:
     case ATTR_TYPE_GROUP:
-        free(attr->value.user_group.name);
+        free(attr->value.usr_grp.name);
+        break;
+    case ATTR_TYPE_POSIX_ACL:
+        yella_destroy_ptr_vector(attr->value.posix_acl_entries);
         break;
     default:
         break;
@@ -271,6 +354,9 @@ attribute_type fb_to_attribute_type(uint16_t fb)
     case yella_fb_file_attr_type_MODIFICATION_TIME:
         result = ATTR_TYPE_MODIFICATION_TIME;
         break;
+    case yella_fb_file_attr_type_POSIX_ACL:
+        result = ATTR_TYPE_POSIX_ACL;
+        break;
     default:
         assert(false);
     }
@@ -280,8 +366,10 @@ attribute_type fb_to_attribute_type(uint16_t fb)
 yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_builder_t* bld)
 {
     yella_fb_file_attr_type_enum_t fb_type;
-    yella_fb_file_posix_permissions_table_t psx_permissions;
     char* utf8;
+    size_t i;
+    posix_acl_entry* entry;
+    yella_fb_file_posix_access_control_entry_type_enum_t fb_pacl_type;
 
     yella_fb_file_attr_start(bld);
     switch (attr->type)
@@ -300,24 +388,36 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
     case ATTR_TYPE_POSIX_PERMISSIONS:
         fb_type = yella_fb_file_attr_type_POSIX_PERMISSIONS;
         yella_fb_file_posix_permissions_start(bld);
-        if (attr->value.psx_permissions.owner_read)
-            yella_fb_file_posix_permissions_owner_read_add(bld, true);
-        if (attr->value.psx_permissions.owner_write)
-            yella_fb_file_posix_permissions_owner_write_add(bld, true);
-        if (attr->value.psx_permissions.owner_execute)
-            yella_fb_file_posix_permissions_owner_execute_add(bld, true);
-        if (attr->value.psx_permissions.group_read)
-            yella_fb_file_posix_permissions_group_read_add(bld, true);
-        if (attr->value.psx_permissions.group_write)
-            yella_fb_file_posix_permissions_group_write_add(bld, true);
-        if (attr->value.psx_permissions.group_execute)
-            yella_fb_file_posix_permissions_group_execute_add(bld, true);
-        if (attr->value.psx_permissions.other_read)
-            yella_fb_file_posix_permissions_other_read_add(bld, true);
-        if (attr->value.psx_permissions.other_write)
-            yella_fb_file_posix_permissions_other_write_add(bld, true);
-        if (attr->value.psx_permissions.other_execute)
-            yella_fb_file_posix_permissions_other_execute_add(bld, true);
+        if (attr->value.psx_permissions.owner.read ||
+            attr->value.psx_permissions.owner.write ||
+            attr->value.psx_permissions.owner.execute)
+        {
+            yella_fb_file_posix_permissions_owner_add(bld,
+                                                      yella_fb_file_posix_permission_create(bld,
+                                                                                            attr->value.psx_permissions.owner.read,
+                                                                                            attr->value.psx_permissions.owner.write,
+                                                                                            attr->value.psx_permissions.owner.execute));
+        }
+        if (attr->value.psx_permissions.group.read ||
+            attr->value.psx_permissions.group.write ||
+            attr->value.psx_permissions.group.execute)
+        {
+            yella_fb_file_posix_permissions_group_add(bld,
+                                                      yella_fb_file_posix_permission_create(bld,
+                                                                                            attr->value.psx_permissions.group.read,
+                                                                                            attr->value.psx_permissions.group.write,
+                                                                                            attr->value.psx_permissions.group.execute));
+        }
+        if (attr->value.psx_permissions.other.read ||
+            attr->value.psx_permissions.other.write ||
+            attr->value.psx_permissions.other.execute)
+        {
+            yella_fb_file_posix_permissions_other_add(bld,
+                                                      yella_fb_file_posix_permission_create(bld,
+                                                                                            attr->value.psx_permissions.other.read,
+                                                                                            attr->value.psx_permissions.other.write,
+                                                                                            attr->value.psx_permissions.other.execute));
+        }
         if (attr->value.psx_permissions.set_uid)
             yella_fb_file_posix_permissions_set_uid_add(bld, true);
         if (attr->value.psx_permissions.set_gid)
@@ -330,8 +430,8 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
     case ATTR_TYPE_GROUP:
         fb_type = (attr->type == ATTR_TYPE_USER) ? yella_fb_file_attr_type_USER : yella_fb_file_attr_type_GROUP;
         yella_fb_file_user_group_start(bld);
-        yella_fb_file_user_group_id_add(bld, attr->value.user_group.id);
-        utf8 = yella_to_utf8(attr->value.user_group.name);
+        yella_fb_file_user_group_id_add(bld, attr->value.usr_grp.id);
+        utf8 = yella_to_utf8(attr->value.usr_grp.name);
         yella_fb_file_user_group_name_create_str(bld, utf8);
         free(utf8);
         yella_fb_file_attr_usr_grp_add(bld, yella_fb_file_user_group_end(bld));
@@ -342,15 +442,53 @@ yella_fb_file_attr_ref_t pack_attribute(const attribute* const attr, flatcc_buil
         break;
     case ATTR_TYPE_ACCESS_TIME:
         fb_type = yella_fb_file_attr_type_ACCESS_TIME;
-        yella_fb_file_attr_millis_since_epoch_add(bld, attr->value.millis_since_epoch);
+        yella_fb_file_attr_milliseconds_since_epoch_add(bld, attr->value.millis_since_epoch);
         break;
     case ATTR_TYPE_METADATA_CHANGE_TIME:
         fb_type = yella_fb_file_attr_type_METADATA_CHANGE_TIME;
-        yella_fb_file_attr_millis_since_epoch_add(bld, attr->value.millis_since_epoch);
+        yella_fb_file_attr_milliseconds_since_epoch_add(bld, attr->value.millis_since_epoch);
         break;
     case ATTR_TYPE_MODIFICATION_TIME:
         fb_type = yella_fb_file_attr_type_MODIFICATION_TIME;
-        yella_fb_file_attr_millis_since_epoch_add(bld, attr->value.millis_since_epoch);
+        yella_fb_file_attr_milliseconds_since_epoch_add(bld, attr->value.millis_since_epoch);
+        break;
+    case ATTR_TYPE_POSIX_ACL:
+        fb_type = yella_fb_file_attr_type_POSIX_ACL;
+        if (yella_ptr_vector_size(attr->value.posix_acl_entries) > 0)
+        {
+            yella_fb_file_posix_access_control_entry_vec_start(bld);
+            for (i = 0; i < yella_ptr_vector_size(attr->value.posix_acl_entries); i++)
+            {
+                entry = yella_ptr_vector_at(attr->value.posix_acl_entries, i);
+                yella_fb_file_posix_access_control_entry_start(bld);
+                if (entry->type == PACL_ENTRY_TYPE_USER)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_USER;
+                else if (entry->type == PACL_ENTRY_TYPE_GROUP)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_GROUP;
+                else if (entry->type == PACL_ENTRY_TYPE_MASK)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_MASK;
+                else if (entry->type == PACL_ENTRY_TYPE_USER_OBJ)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_USER_OBJ;
+                else if (entry->type == PACL_ENTRY_TYPE_GROUP_OBJ)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_GROUP_OBJ;
+                else if (entry->type == PACL_ENTRY_TYPE_OTHER)
+                    fb_pacl_type = yella_fb_file_posix_access_control_entry_type_OTHER;
+                yella_fb_file_posix_access_control_entry_type_add(bld, fb_pacl_type);
+                if (entry->type == PACL_ENTRY_TYPE_USER || entry->type == PACL_ENTRY_TYPE_GROUP)
+                {
+                    utf8 = yella_to_utf8(entry->usr_grp.name);
+                    yella_fb_file_posix_access_control_entry_usr_grp_add(bld, yella_fb_file_user_group_create(bld,
+                                                                                                              entry->usr_grp.id,
+                                                                                                              flatbuffers_string_create_str(
+                                                                                                              bld,
+                                                                                                              utf8)));
+                    free(utf8);
+                }
+                yella_fb_file_posix_access_control_entry_permission_add(bld, yella_fb_file_posix_permission_create(bld, entry->perm.read, entry->perm.write, entry->perm.execute));
+                yella_fb_file_posix_access_control_entry_vec_push(bld, yella_fb_file_posix_access_control_entry_end(bld));
+            }
+            yella_fb_file_attr_psx_acl_add(bld, yella_fb_file_posix_access_control_entry_vec_end(bld));
+        }
         break;
     default:
         assert(false);
