@@ -51,6 +51,9 @@ agent::~agent()
     unload_plugin();
     CHUCHO_INFO_L_STR("Plugin unloaded");
     yella_destroy_settings();
+#if !defined(NDEBUG)
+    yella_finalize_ptr_vectors();
+#endif
     std::error_code ec;
     std::filesystem::remove_all(working_dir_);
 }

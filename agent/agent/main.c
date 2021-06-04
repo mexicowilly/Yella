@@ -18,6 +18,7 @@
 #include "common/macro_util.h"
 #include "common/thread.h"
 #include "common/text_util.h"
+#include "common/ptr_vector.h"
 #include "agent/signal_handler.h"
 #include "agent/agent.h"
 #include "agent/argparse.h"
@@ -92,6 +93,9 @@ int main(int argc, char* argv[])
     }
     yella_destroy_event(term_evt);
     yella_destroy_settings();
+#if !defined(NDEBUG)
+    yella_finalize_ptr_vectors();
+#endif
     CHUCHO_C_INFO("agent", "Exiting");
     chucho_finalize();
     return rc;
