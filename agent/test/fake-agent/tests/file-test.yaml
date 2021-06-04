@@ -7,13 +7,13 @@ plugin.type: file
         action: REPLACE_ALL
         config.name: mr1
         include: one_add.txt
-        attrs: [ POSIX_ACL ]
+        attrs: &one_attrs [ POSIX_ACL, SHA256, USER, GROUP, SIZE, ACCESSS_TIME, MODIFICATION_TIME, POSIX_PERMISSIONS ]
   after:
     - file.state:
         config.name: mr1
         condition: ADDED
         file.name: one_add.txt
-        attrs: [ POSIX_ACL ]
+        attrs: *one_attrs
 
 #"one config with one regular file change":
 #  before:
