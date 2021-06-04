@@ -33,11 +33,15 @@ YELLA_EXPORT yella_ptr_vector* yella_create_ptr_vector(void);
 YELLA_EXPORT void yella_clear_ptr_vector(yella_ptr_vector* v);
 YELLA_EXPORT void yella_destroy_ptr_vector(yella_ptr_vector* v);
 YELLA_EXPORT void yella_erase_ptr_vector_at(yella_ptr_vector* v, unsigned off);
+#if !defined(NDEBUG)
+YELLA_EXPORT void yella_finalize_ptr_vectors();
+#endif
 YELLA_EXPORT void yella_pop_back_ptr_vector(yella_ptr_vector* v);
 YELLA_EXPORT void yella_pop_front_ptr_vector(yella_ptr_vector* v);
 YELLA_EXPORT void* yella_ptr_vector_at(const yella_ptr_vector* const v, unsigned off);
 YELLA_EXPORT void* yella_ptr_vector_at_copy(const yella_ptr_vector* const v, unsigned off);
 YELLA_EXPORT void** yella_ptr_vector_data(const yella_ptr_vector* const v);
+YELLA_EXPORT int yella_ptr_vector_id(const yella_ptr_vector* const v);
 YELLA_EXPORT size_t yella_ptr_vector_size(const yella_ptr_vector* const v);
 YELLA_EXPORT void yella_push_back_ptr_vector(yella_ptr_vector* v, void* p);
 YELLA_EXPORT void yella_push_front_ptr_vector(yella_ptr_vector* v, void* p);

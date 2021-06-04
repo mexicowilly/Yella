@@ -59,6 +59,7 @@ yella_ptr_vector* get_posix_acl(const element* elem, chucho_logger_t* lgr)
             do
             {
                 result_entry = malloc(sizeof(posix_acl_entry));
+                memset(result_entry, 0, sizeof(posix_acl_entry));
                 acl_get_tag_type(entry, &tag);
                 switch (tag)
                 {

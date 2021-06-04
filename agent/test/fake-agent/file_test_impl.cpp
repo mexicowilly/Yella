@@ -533,8 +533,10 @@ file_test_impl::user_group_attribute::user_group_attribute(type tp, const fb::fi
 void file_test_impl::user_group_attribute::emit(YAML::Emitter& e) const
 {
     attribute::emit(e);
+    e << YAML::BeginMap;
     e << YAML::Key << "id" << YAML::Value << id_;
     e << YAML::Key << "name" << YAML::Value << name_;
+    e << YAML::EndMap;
 }
 
 bool file_test_impl::user_group_attribute::equal_to(const attribute& rhs) const
