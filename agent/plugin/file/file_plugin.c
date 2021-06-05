@@ -474,7 +474,9 @@ static void install_config_node(file_plugin* fplg, config_node* cfg, bool is_emp
     {
         sglib_config_node_add(&fplg->configs, cfg);
         jb = create_job(cfg->name, cfg->recipient, fplg->acc);
+        yella_destroy_ptr_vector(jb->includes);
         jb->includes = yella_copy_ptr_vector(cfg->includes);
+        yella_destroy_ptr_vector(jb->excludes);
         jb->excludes = yella_copy_ptr_vector(cfg->excludes);
         jb->attr_type_count = cfg->attr_type_count;
         jb->attr_types = malloc(sizeof(attribute_type) * jb->attr_type_count);
