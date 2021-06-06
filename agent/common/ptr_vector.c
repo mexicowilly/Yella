@@ -56,9 +56,13 @@ struct yella_ptr_vector
 
 void yella_assign_ptr_vector(yella_ptr_vector* v, const yella_ptr_vector* const other)
 {
-    unsigned i;
+    size_t i;
 
     yella_clear_ptr_vector(v);
+    v->destructor = other->destructor;
+    v->destructor_udata = other->destructor_udata;
+    v->copier = other->copier;
+    v->copier_udata = other->copier_udata;
     for (i = 0; i < yella_ptr_vector_size(other); i++)
         yella_push_back_ptr_vector(v, yella_ptr_vector_at_copy(other, i));
 }
