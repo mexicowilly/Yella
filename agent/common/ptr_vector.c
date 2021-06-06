@@ -54,6 +54,15 @@ struct yella_ptr_vector
     int id;
 };
 
+void yella_assign_ptr_vector(yella_ptr_vector* v, const yella_ptr_vector* const other)
+{
+    unsigned i;
+
+    yella_clear_ptr_vector(v);
+    for (i = 0; i < yella_ptr_vector_size(other); i++)
+        yella_push_back_ptr_vector(v, yella_ptr_vector_at_copy(other, i));
+}
+
 void yella_clear_ptr_vector(yella_ptr_vector* v)
 {
     size_t i;

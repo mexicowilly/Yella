@@ -3,7 +3,7 @@
     level: trace
     chucho::cout_writer:
       chucho::pattern_formatter:
-        pattern: '%-5p %D{%H:%M:%S.%q}: %k%m%n'
+        pattern: '%-5p %D{%H:%M:%S.%q} %k%m%n'
 
 - chucho::logger:
     name: file

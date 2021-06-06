@@ -28,6 +28,7 @@ extern "C"
 
 typedef struct yella_ptr_vector yella_ptr_vector;
 
+YELLA_EXPORT void yella_assign_ptr_vector(yella_ptr_vector* v, const yella_ptr_vector* const other);
 YELLA_EXPORT yella_ptr_vector* yella_copy_ptr_vector(const yella_ptr_vector* const v);
 YELLA_EXPORT yella_ptr_vector* yella_create_ptr_vector(void);
 YELLA_EXPORT void yella_clear_ptr_vector(yella_ptr_vector* v);
