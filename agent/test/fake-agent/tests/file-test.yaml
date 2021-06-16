@@ -7,13 +7,13 @@ plugin.type: file
         action: REPLACE_ALL
         config.name: mr1
         include: one_add.txt
-        attrs: &one_attrs [ POSIX_ACL, SHA256, USER, GROUP, SIZE, ACCESS_TIME, MODIFICATION_TIME, POSIX_PERMISSIONS ]
+        attrs: &most_attrs [ POSIX_ACL, SHA256, USER, GROUP, SIZE, ACCESS_TIME, MODIFICATION_TIME, POSIX_PERMISSIONS ]
   after:
     - file.state:
         config.name: mr1
         condition: ADDED
         file.name: one_add.txt
-        attrs: *one_attrs
+        attrs: *most_attrs
 
 #"one config with one regular file change":
 #  before:
@@ -22,17 +22,18 @@ plugin.type: file
 #        action: REPLACE_ALL
 #        config.name: mr1
 #        include: test.txt
-#        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
-#    - pause: 1s
+#        attrs: &basic_attrs [ FILE_TYPE, SHA256 ]
+#    - pause: 1
 #    - grow: test.txt
+#    - pause: 10
 #  after:
 #    - file.state:
 #        config.name: mr1
 #        condition: ADDED
 #        file.name: test.txt
-#        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
+#        attrs: *basic_attrs
 #    - file.state:
 #        config.name: mr1
 #        condition: CHANGED
 #        file.name: test.txt
-#        attrs: [ FILE_TYPE, SHA256, POSIX_PERMISSIONS ]
+#        attrs: *basic_attrs

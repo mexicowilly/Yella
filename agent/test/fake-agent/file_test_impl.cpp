@@ -120,12 +120,14 @@ void file_test_impl::process_before(const YAML::Node& body)
 
 void file_test_impl::process_exists(const YAML::Node& body)
 {
+    CHUCHO_INFO_L_M(lmrk_, "Creating " << body.Scalar());
     std::ofstream out(working_dir_ / body.Scalar());
     out << "file contents";
 }
 
 void file_test_impl::process_grow(const YAML::Node& body)
 {
+    CHUCHO_INFO_L_M(lmrk_, "Growing " << body.Scalar());
     std::ofstream out(working_dir_ / body.Scalar(), std::ios::ate | std::ios::out);
     out << "Here's some text!";
 }
@@ -212,6 +214,7 @@ void file_test_impl::process_pause(const YAML::Node& body)
     try
     {
         auto num = std::stoul(body.Scalar());
+        CHUCHO_INFO_L_M(lmrk_, "Pausing " << num << " seconds");
         std::this_thread::sleep_for(std::chrono::seconds(num));
     }
     catch (...)

@@ -22,7 +22,7 @@ agent::agent(const std::filesystem::path& plugin, std::function<void(const yella
     emitter << YAML::BeginMap;
     emitter << YAML::Key << "file" << YAML::Value;
     emitter << YAML::BeginMap;
-    emitter << YAML::Key << "send-latency-seconds" << YAML::Value << 3;
+    emitter << YAML::Key << "send-latency-seconds" << YAML::Value << 20;
     emitter << YAML::EndMap;
     emitter << YAML::EndMap;
     auto cfg_name = working_dir_ / "config.yaml";
@@ -55,7 +55,7 @@ agent::~agent()
     yella_finalize_ptr_vectors();
 #endif
     std::error_code ec;
-    std::filesystem::remove_all(working_dir_);
+//    std::filesystem::remove_all(working_dir_);
 }
 
 void agent::plugin_send(void* ag, yella_parcel* pcl)

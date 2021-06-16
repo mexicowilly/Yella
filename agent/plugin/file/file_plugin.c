@@ -580,6 +580,7 @@ YELLA_EXPORT yella_plugin* plugin_start(const yella_agent_api* api, void* agnt)
     fplg->configs = NULL;
     fplg->esrc = create_event_source(event_received, fplg);
     load_configs(fplg);
+    CHUCHO_C_INFO(fplg->lgr, "The 'file' plugin has started");
     return yella_copy_plugin(fplg->desc);
 }
 
@@ -615,6 +616,7 @@ YELLA_EXPORT yella_rc plugin_stop(void* udata)
     yella_destroy_plugin(fplg->desc);
     yella_destroy_mutex(fplg->guard);
     yella_destroy_reader_writer_lock(fplg->config_guard);
+    CHUCHO_C_INFO(fplg->lgr, "The 'file' plugin has stopped");
     chucho_release_logger(fplg->lgr);
     free(fplg);
     return YELLA_NO_ERROR;
