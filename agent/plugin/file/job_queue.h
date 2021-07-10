@@ -29,7 +29,7 @@ YELLA_PRIV_EXPORT size_t push_job_queue(job_queue* jq, job* jb);
 /* As soon as the callback is called, it is removed.
  * The pattern is that once the queue fills, the
  * event source is paused until the queue is empty.
- * Automatic removal if the callback in this scenario
+ * Automatic removal of the callback in this scenario
  * simplifies usage. */
 YELLA_PRIV_EXPORT void set_job_queue_empty_callback(job_queue* jq, job_queue_empty_callback cb, void* udata);
 

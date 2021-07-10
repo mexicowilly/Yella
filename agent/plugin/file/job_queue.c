@@ -86,7 +86,7 @@ static void job_queue_main(void* udata)
             if (chucho_logger_permits(jq->lgr, CHUCHO_INFO))
             {
                 utf8 = yella_to_utf8(front->jb->config_name);
-                CHUCHO_C_INFO(jq->lgr, "Ended job for config '%s' (%" PRId64 " microseonds)", utf8, job_micros);
+                CHUCHO_C_INFO(jq->lgr, "Ended job for config '%s' (%" PRId64 " us)", utf8, job_micros);
                 free(utf8);
             }
             jq->accumulated_microseconds += job_micros;
@@ -130,6 +130,7 @@ void destroy_job_queue(job_queue* jq)
     struct sglib_queue_iterator itor;
     queue* q;
 
+    log_job_queue_stats(jq, jq->lgr);
     yella_lock_mutex(jq->guard);
     jq->should_stop = true;
     yella_signal_condition_variable(jq->cond);
@@ -166,10 +167,7 @@ void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr)
     job_queue_stats stats;
     yaml_document_t doc;
     char* utf8;
-    UChar* num_str;
     int top;
-    int key;
-    int value;
 
     if (chucho_logger_permits(lgr, CHUCHO_INFO))
     {
@@ -179,9 +177,9 @@ void log_job_queue_stats(job_queue* jq, chucho_logger_t* lgr)
         yella_add_yaml_number_mapping(&doc, top, "max_size", stats.max_size);
         yella_add_yaml_number_mapping(&doc, top, "jobs_pushed", stats.jobs_pushed);
         yella_add_yaml_number_mapping(&doc, top, "jobs_run", stats.jobs_run);
-        yella_add_yaml_number_mapping(&doc, top, "average_job_microseconds", stats.average_job_microseconds);
-        yella_add_yaml_number_mapping(&doc, top, "slowest_job_microseconds", stats.slowest_job_microseconds);
-        yella_add_yaml_number_mapping(&doc, top, "fastest_job_microseconds", stats.fastest_job_microseconds);
+        yella_add_yaml_number_mapping(&doc, top, "average_job_us", stats.average_job_microseconds);
+        yella_add_yaml_number_mapping(&doc, top, "slowest_job_us", stats.slowest_job_microseconds);
+        yella_add_yaml_number_mapping(&doc, top, "fastest_job_us", stats.fastest_job_microseconds);
         utf8 = yella_emit_yaml(&doc);
         yaml_document_delete(&doc);
         CHUCHO_C_INFO(lgr, "Job queue stats: %s", utf8);

@@ -1,6 +1,22 @@
 #include "common/yaml_util.h"
 #include "common/text_util.h"
 
+typedef struct emitter_str
+{
+    char* buf;
+    size_t size;
+} emitter_str;
+
+static int write_handler(void* udata, unsigned char* buf, size_t sz)
+{
+    emitter_str* result = (emitter_str*)udata;
+
+    result->size += sz;
+    result->buf = realloc(result->buf, result->size);
+    memcpy(result->buf, buf, sz);
+    return 1;
+}
+
 void yella_add_yaml_number_mapping(yaml_document_t* doc, int node, const char* const key, int64_t value)
 {
     int k;
@@ -50,33 +66,25 @@ void yella_add_yaml_ustring_mapping(yaml_document_t* doc, int node, const UChar*
 
 char* yella_emit_yaml(yaml_document_t* doc)
 {
-    char* result;
     yaml_emitter_t emitter;
-    size_t output_written;
+    emitter_str result;
 
     yaml_emitter_initialize(&emitter);
-    output_written = 8 * 1024;
-    result = malloc(output_written);
-    yaml_emitter_set_output_string(&emitter, (yaml_char_t*)result, output_written - 1, &output_written);
+    result.buf = NULL;
+    result.size = 0;
+    yaml_emitter_set_output(&emitter, write_handler, &result);
     yaml_emitter_set_encoding(&emitter, YAML_UTF8_ENCODING);
     yaml_emitter_set_indent(&emitter, 2);
     yaml_emitter_set_unicode(&emitter, 1);
     yaml_emitter_open(&emitter);
     yaml_emitter_dump(&emitter, doc);
-    if (output_written > 0)
-    {
-        for (output_written -= 1; output_written >= 0; output_written--)
-        {
-            if (result[output_written] != '\n' && result[output_written] != '\r')
-                break;
-        }
-        result[output_written + 1] = 0;
-    }
-    else
-    {
-        result[output_written] = 0;
-    }
     yaml_emitter_close(&emitter);
     yaml_emitter_delete(&emitter);
-    return result;
+    for (result.size -= 1; result.size >= 0; result.size--)
+    {
+        if (result.buf[result.size] != '\n' && result.buf[result.size] != '\r')
+            break;
+    }
+    result.buf[result.size + 1] = 0;
+    return result.buf;
 }
