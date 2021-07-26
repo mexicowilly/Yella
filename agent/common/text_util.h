@@ -23,6 +23,7 @@
 YELLA_EXPORT extern const UChar* YELLA_NL;
 
 YELLA_EXPORT UChar* yella_from_utf8(const char* const str);
+YELLA_EXPORT UChar* yella_replace_string(const UChar* const str, const UChar* const fnd, const UChar* const rep);
 /* Don't use this when you need performance */
 YELLA_EXPORT UChar* yella_to_string(int64_t val);
 YELLA_EXPORT char* yella_to_utf8(const UChar* const str);

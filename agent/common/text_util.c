@@ -47,6 +47,46 @@ UChar* yella_from_utf8(const char* const str)
     return buf;
 }
 
+UChar* yella_replace_string(const UChar* const str, const UChar* const fnd, const UChar* const rep)
+{
+    int32_t fnd_len;
+    int32_t rep_len;
+    int i;
+    size_t cnt;
+    UChar* result;
+    UChar* orig;
+
+    cnt = 0;
+    fnd_len = u_strlen(fnd);
+    rep_len = u_strlen(rep);
+    orig = (UChar*)str;
+    for (i = 0; orig[i] != 0; i++)
+    {
+        if (u_strstr(&orig[i], fnd) == &orig[i])
+        {
+            cnt++;
+            i += fnd_len - 1;
+        }
+    }
+    result = malloc((i + (cnt * (rep_len - fnd_len)) + 1) * sizeof(UChar));
+    i = 0;
+    while (*orig != 0)
+    {
+        if (u_strstr(orig, fnd) == orig)
+        {
+            u_strcpy(&result[i], rep);
+            i += rep_len;
+            orig += fnd_len;
+        }
+        else
+        {
+            result[i++] = *orig++;
+        }
+    }
+    result[i] = 0;
+    return result;
+}
+
 UChar* yella_to_string(int64_t val)
 {
     UNumberFormatter* fmt;

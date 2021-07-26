@@ -76,6 +76,7 @@ char* yella_emit_yaml(yaml_document_t* doc)
     yaml_emitter_set_encoding(&emitter, YAML_UTF8_ENCODING);
     yaml_emitter_set_indent(&emitter, 2);
     yaml_emitter_set_unicode(&emitter, 1);
+    yaml_emitter_set_width(&emitter, -1);
     yaml_emitter_open(&emitter);
     yaml_emitter_dump(&emitter, doc);
     yaml_emitter_close(&emitter);
