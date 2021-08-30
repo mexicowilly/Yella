@@ -10,10 +10,12 @@ typedef struct emitter_str
 static int write_handler(void* udata, unsigned char* buf, size_t sz)
 {
     emitter_str* result = (emitter_str*)udata;
+    size_t old_size;
 
+    old_size = result->size;
     result->size += sz;
     result->buf = realloc(result->buf, result->size);
-    memcpy(result->buf, buf, sz);
+    memcpy(result->buf + old_size, buf, sz);
     return 1;
 }
 

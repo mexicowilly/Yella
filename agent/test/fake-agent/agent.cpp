@@ -22,7 +22,7 @@ agent::agent(const std::filesystem::path& plugin, std::function<void(const yella
     emitter << YAML::BeginMap;
     emitter << YAML::Key << "file" << YAML::Value;
     emitter << YAML::BeginMap;
-    emitter << YAML::Key << "send-latency-seconds" << YAML::Value << 20;
+    emitter << YAML::Key << "send-latency-seconds" << YAML::Value << 1;
     emitter << YAML::EndMap;
     emitter << YAML::EndMap;
     auto cfg_name = working_dir_ / "config.yaml";

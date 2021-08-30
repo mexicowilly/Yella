@@ -488,6 +488,7 @@ void yella_log_settings(void)
         }
         yella_destroy_ptr_vector(sct_vec);
         yella_unlock_mutex(guard);
+        /* The YAML emitter takes ownership of the document. This is weird, but it wasn't my idea. */
         utf8 = yella_emit_yaml(&doc);
         val_utf8 = yella_to_utf8(YELLA_NL);
         CHUCHO_C_INFO(lgr, "Settings:%s%s", val_utf8, utf8);

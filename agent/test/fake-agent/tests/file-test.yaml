@@ -8,6 +8,7 @@ plugin.type: file
         config.name: mr1
         include: one_add.txt
         attrs: &most_attrs [ POSIX_ACL, SHA256, USER, GROUP, SIZE, ACCESS_TIME, MODIFICATION_TIME, POSIX_PERMISSIONS ]
+    - pause: 2
   after:
     - file.state:
         config.name: mr1
